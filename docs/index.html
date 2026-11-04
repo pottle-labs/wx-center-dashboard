@@ -1,0 +1,1094 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WX Center Central Settings</title>
+<meta name="theme-color" content="#0B0F14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WX Central">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+/* Phone version: the "Add to Home Screen" banner (phone.js) */
+.ph-install { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: calc(10px + env(safe-area-inset-top)) 14px 10px; background: #13314D; color: #E8EEF5; font-size: 15px; line-height: 1.3; }
+.ph-install[hidden] { display: none; }
+.ph-install div { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; }
+.ph-install button { height: 36px; flex: 0 0 auto; }
+.ph-install .quiet { color: #C9D3DF; }
+#phReqOut { font: 13px/1.3 var(--font-data); word-break: break-all; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Settings window opened from the gear on the dashboard. Reads and writes settings.ini through the app shell. */
+:root {
+  --bg: #0B0F14;
+  --panel: #121820;
+  --line: #1E2836;
+  --line-strong: #2A3646;
+  --fg: #E8EEF5;
+  --fg-2: #C9D3DF;
+  --muted: #93A1B3;
+  --accent: #7CC4FF;
+  --crit: #FF6A4D;
+  --font-ui: 'Barlow Semi Condensed', 'Segoe UI', system-ui, sans-serif;
+  --font-data: 'JetBrains Mono', Consolas, ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+html[data-theme="light"] {
+  --bg: #EEF2F6; --panel: #FFFFFF; --line: #D5DDE6; --line-strong: #B8C4D2;
+  --fg: #0F1A26; --fg-2: #334255; --muted: #5E6E82; --accent: #0B6CB5; --crit: #C2361C;
+  color-scheme: light;
+}
+html[data-theme="light"] .switch input:checked + span::after { background: #fff; }
+html[data-theme="light"] button.primary { color: #fff; }
+html[data-theme="light"] button.primary:hover { background: #0A5C9A; }
+body { background: var(--bg); color: var(--fg); font: 17px/1.35 var(--font-ui); display: flex; flex-direction: column; }
+header { padding: 20px 28px 8px; }
+h1 { margin: 0; font-size: 28px; font-weight: 600; }
+header p { margin: 4px 0 0; color: var(--muted); }
+main { flex: 1 1 auto; overflow: auto; padding: 8px 28px 20px; }
+fieldset { margin: 14px 0 0; padding: 4px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+legend { padding: 0 6px; font-size: 15px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 16px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+.row:first-of-type { border-top: 0; }
+.row[hidden] { display: none; }
+/* 3-position switch */
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--bg); }
+.seg button { height: 32px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); font: 600 16px var(--font-ui); cursor: pointer; }
+.seg button:hover { color: var(--fg); background: none; }
+.seg button[aria-checked="true"] { background: var(--accent); color: var(--bg); }
+html[data-theme="light"] .seg button[aria-checked="true"] { color: #fff; }
+/* speed slider */
+.slider { display: flex; flex-direction: column; gap: 4px; }
+.slider .ends { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
+.slider output { font: 500 14px var(--font-data); color: var(--fg-2); }
+.slider input { width: 100%; margin: 0; accent-color: var(--accent); }
+.mono { font-family: var(--font-data); font-size: 16px; color: var(--fg-2); }
+.upd-btns { display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+.upd-btns button { padding: 0 12px; font-size: 16px; }
+.upd-btns button[hidden] { display: none; }
+button:disabled { opacity: .55; cursor: default; }
+/* Central settings: the note on a dashboard, the editor's control panel, and each setting's Central/Local toggle */
+.cnote { margin: 10px 0 0; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--accent); color: var(--fg-2); }
+.cnote.warn { border-color: var(--crit); }
+.cnote[hidden] { display: none; }
+/* The Central Settings app's version and release date: small, muted, at the top and the bottom */
+.vnote { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+#vBottom { margin: 18px 0 4px; text-align: center; }
+.vnote[hidden] { display: none; }
+.ctl { height: 24px; padding: 0 10px; margin-right: 8px; border-radius: 12px; font-size: 13px; vertical-align: 2px; color: var(--muted); }
+.ctl[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--bg); }
+html[data-theme="light"] .ctl[aria-pressed="true"] { color: #fff; }
+.ctl[data-state="push"] { border: 1px dashed var(--accent); color: var(--accent); }
+.row.is-local > :not(label), .row.locked > :not(label) { opacity: .45; }
+.badge { display: inline-block; margin-left: 8px; padding: 0 8px; border-radius: 10px; font-size: 13px; font-weight: 600; background: var(--accent); color: var(--bg); vertical-align: 2px; }
+.bases { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.bases label { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 8px; border: 1px solid var(--line-strong); cursor: pointer; font: 600 16px var(--font-ui); }
+.bases label.on { border-color: var(--accent); color: var(--accent); }
+.bases input { accent-color: var(--accent); }
+.wide { grid-template-columns: 1fr; }
+.row.w2 { grid-template-columns: minmax(0, 1fr) 380px; }
+.pc-label { color: var(--muted); }
+input[type=password] { width: 100%; height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--fg); font: 500 16px var(--font-data); }
+input[type=file] { color: var(--fg-2); font: 15px var(--font-ui); }
+.people { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px 12px; align-items: center; }
+.people .when { color: var(--muted); font-size: 15px; }
+.people button { height: 32px; font-size: 15px; }
+.steps { margin: 6px 0 0; padding-left: 20px; color: var(--muted); font-size: 15px; }
+.inline { display: flex; gap: 8px; } .inline input { flex: 1 1 auto; min-width: 0; } .inline button { flex: 0 0 auto; white-space: nowrap; }
+.ok { color: #2FB55A; }
+.lims { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.lims .unit { justify-content: space-between; }
+.lims input { width: 100px; height: 32px; }
+.lims input[type=time] { width: 140px; }
+.limset .lims { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 8px; min-width: 0; }
+.limset .lims .unit:first-child { grid-column: 1 / -1; }
+.row.limset { grid-template-columns: minmax(0, 1fr) 340px; }
+.limset .lims input[type=number] { width: 84px; padding: 0 8px; }
+.limset .lims input[type=text] { flex: 1 1 auto; width: auto; min-width: 0; height: 32px; }
+.info-row { grid-template-columns: 1fr; }
+.info { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; }
+.info .k { color: var(--muted); }
+.info .ok { color: #2FB55A; } .info .late { color: #F5B841; } .info .bad { color: var(--crit); }
+.info .log { grid-column: 1 / -1; font: 13px/1.4 var(--font-data); color: var(--muted); white-space: pre-wrap; }
+.row label { font-size: 18px; font-weight: 500; }
+.row small { display: block; color: var(--muted); font-size: 15px; font-weight: 400; }
+input[type=time] { height: 38px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--fg); font: 500 16px var(--font-data); color-scheme: inherit; }
+textarea { width: 100%; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--fg); font: 500 16px/1.35 var(--font-ui); resize: vertical; }
+select, input[type=number], input[type=text] { width: 100%; height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--fg); font: 500 17px var(--font-ui); }
+input[type=number], input[type=text] { font-family: var(--font-data); font-size: 16px; }
+select:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.unit { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.switch { justify-self: end; position: relative; width: 52px; height: 30px; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.switch span { position: absolute; inset: 0; border-radius: 15px; background: var(--line-strong); transition: background .15s; pointer-events: none; }
+.switch span::after { content: ''; position: absolute; left: 4px; top: 4px; width: 22px; height: 22px; border-radius: 50%; background: var(--fg-2); transition: transform .15s; }
+.switch input:checked + span { background: var(--accent); }
+.switch input:checked + span::after { transform: translateX(22px); background: var(--bg); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+footer { display: flex; align-items: center; gap: 12px; padding: 14px 28px; border-top: 1px solid var(--line); background: var(--panel); }
+footer .msg { flex: 1 1 auto; color: var(--muted); }
+footer .msg.bad { color: var(--crit); }
+button { height: 40px; padding: 0 20px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--fg); font: 600 17px var(--font-ui); cursor: pointer; }
+button:hover { background: var(--line); }
+button.primary { border-color: var(--accent); background: var(--accent); color: var(--bg); }
+button.primary:hover { background: #A8D8FF; }
+button.quiet { border-color: transparent; background: none; color: var(--muted); padding: 0 8px; }
+button.quiet:hover { color: var(--crit); background: none; }
+.bad { color: var(--crit); }
+/* Phone screens (the phone version of Central Settings): one column, controls under their labels, a sticky footer */
+@media (max-width: 700px) {
+  header { padding: 14px 14px 4px; } h1 { font-size: 24px; }
+  main { padding: 4px 10px 14px; }
+  fieldset { padding: 2px 12px; }
+  .row, .row.w2, .row.limset { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .switch { justify-self: start; }
+  .ctl { height: 30px; font-size: 14px; padding: 0 12px; }
+  .limset .lims { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  footer { position: sticky; bottom: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); gap: 8px; flex-wrap: wrap; }
+  footer .msg { flex: 1 1 100%; order: -1; font-size: 15px; }
+  footer button { flex: 1 1 auto; }
+  .people { grid-template-columns: 1fr auto; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Dashboard settings</h1>
+  <p id="sub">Changes apply to both screens as soon as you save.</p>
+  <p class="cnote" id="cnote" hidden></p>
+  <p class="vnote" id="vTop" hidden></p>
+</header>
+<main>
+  <section id="setup" hidden>
+    <fieldset>
+      <legend>Set up this PC</legend>
+      <div class="row wide"><label>This PC isn’t set up to change the dashboards’ settings yet<small id="setupNote">You need the access file and passphrase the publisher gave you.</small></label></div>
+      <div class="row w2" id="fileRow"><label for="accessFile">Access or key file<small>Your “.wxaccess” access file. If you’re the publisher moving to this PC: your “.wxpublisher” file, or your “.wxkey” signing key backup.</small></label>
+        <input type="file" id="accessFile" accept=".wxaccess,.wxpublisher,.wxkey"></div>
+      <div class="row w2"><label for="pass">Passphrase<small>The publisher gives it to you separately from the file.</small></label>
+        <input type="password" id="pass" autocomplete="off" spellcheck="false"></div>
+      <div class="row wide"><span class="inline" style="justify-content:flex-end"><button type="button" class="primary" id="importBtn">Set up this PC</button></span></div>
+    </fieldset>
+  </section>
+  <form id="form" autocomplete="off">
+    <fieldset id="ctlSet" hidden>
+      <legend>Central control</legend>
+      <div class="row wide"><label>Bases under central control<small>Checked bases take the settings marked Central below. Unchecked bases keep their own settings, and their dashboards can change everything.</small></label>
+        <div class="bases" id="bases"></div></div>
+      <div class="row"><label for="sameForAll">All locations use the same settings<small>On: every base under central control uses the All locations settings. Off: each uses its own base’s settings.</small></label>
+        <span class="switch"><input type="checkbox" id="sameForAll"><span></span></span></div>
+      <div class="row"><label for="askUpdate">Check for app updates with this publish<small id="askUpdateNote">One time: when each dashboard picks up this publish, it checks for a new version of the app right away and installs it if there is one (instead of waiting for the nightly check). Turns itself off after you publish.</small></label>
+        <span class="switch"><input type="checkbox" id="askUpdate"><span></span></span></div>
+      <div class="row"><label for="section">Settings for<small id="sectionNote">Pick All locations or a base. Click a setting’s pill: Local leaves it to each dashboard, Central sets and locks it from here, Push once writes it into each dashboard’s own settings one time.</small></label>
+        <select id="section"></select></div>
+    </fieldset>
+    <fieldset id="peopleSet" hidden>
+      <legend>People who can change these settings</legend>
+      <div class="row wide"><label>Besides you<small>Each person has their own key that can sign settings but never app updates. Removing someone stops their key working within about 10 minutes.</small></label>
+        <div class="people" id="peopleList"></div></div>
+      <div class="row wide" id="addRow"><span class="inline"><button type="button" id="addBtn">Add a person</button><button type="button" id="addPhoneBtn">Add a phone</button></span></div>
+      <!-- A phone (the phone version of Central Settings): it makes its own key and sends a request; this adds it -->
+      <div id="phonePanel" hidden>
+        <div class="row wide"><label>1. On the phone, open <span class="mono" id="phoneUrl"></span><small>In Safari (iPhone) or Chrome (Android). Type the person’s name and the phone’s label there; the phone makes its own key and shows a request. Send that request to this PC (text or email it to yourself) and paste it below.</small></label></div>
+        <div class="row w2"><label for="phReq">2. Paste the phone’s request<small id="phReqState">It starts with WXPHONE1.</small></label>
+          <textarea id="phReq" rows="3" spellcheck="false"></textarea></div>
+        <div class="row w2"><label>3. A GitHub token for the phone
+          <ol class="steps">
+            <li>Click <b>Open GitHub</b> (sign in if asked). Most of the form is filled in for you.</li>
+            <li>Under <b>Repository access</b>, choose <b>Only select repositories</b> → <b class="repoShort">wx-center-dashboard</b>.</li>
+            <li>Click <b>Generate token</b>, then copy it and paste it here. The phone gets it automatically (encrypted so only it can read it).</li>
+          </ol></label>
+          <span class="inline"><button type="button" id="phGh">Open GitHub</button></span></div>
+        <div class="row w2"><label for="phToken">Paste the token<small id="phTokState">GitHub shows it only once, right after you generate it.</small></label>
+          <input type="password" id="phToken" spellcheck="false" autocomplete="off"></div>
+        <div class="row wide"><span class="inline" style="justify-content:flex-end"><button type="button" id="phCancel">Cancel</button><button type="button" class="primary" id="phAdd">4. Add the phone</button></span></div>
+      </div>
+      <div id="addPanel" hidden>
+        <div class="row w2"><label for="pName">1. Their name<small>What the central settings show as who published a change.</small></label><input type="text" id="pName" maxlength="40" spellcheck="false"></div>
+        <div class="row w2 sub-row"><label for="pComputer">Which computer (optional)<small>e.g. Office PC or Laptop. Leave it blank if they’ll use one computer. To add another computer for someone already on the list (without their first passphrase), add them again with a different label; each computer gets its own setup package and can be removed on its own.</small></label><input type="text" id="pComputer" maxlength="30" spellcheck="false" placeholder="Optional"></div>
+        <div class="row w2"><label>2. A GitHub token for them
+          <ol class="steps">
+            <li>Click <b>Open GitHub</b> (sign in if asked). Most of the form is filled in for you.</li>
+            <li>Under <b>Repository access</b>, choose <b>Only select repositories</b> → <b id="repoName">wx-center-dashboard</b>.</li>
+            <li>Click <b>Generate token</b>, then copy it and paste it here.</li>
+          </ol></label>
+          <span class="inline"><button type="button" id="openGh">Open GitHub</button></span></div>
+        <div class="row w2"><label for="pToken">Paste the token<small id="tokState">GitHub shows it only once, right after you generate it.</small></label>
+          <input type="password" id="pToken" spellcheck="false" autocomplete="off"></div>
+        <div class="row w2"><label for="pPass">3. A passphrase for their access file<small>Tell it to them separately (text or in person), not with the file. It’s shown again, with a Copy button, after the package is saved.</small></label>
+          <span class="inline"><input type="text" id="pPass" spellcheck="false" autocomplete="off"><button type="button" id="newPass" title="Suggest another">New</button></span></div>
+        <div class="row wide"><span class="inline" style="justify-content:flex-end"><button type="button" id="cancelAdd">Cancel</button><button type="button" class="primary" id="makePkg">4. Save setup package</button></span></div>
+      </div>
+      <!-- After a package is saved: where it is and its passphrase, until Done (kept only in this window, never saved) -->
+      <div id="donePanel" hidden>
+        <div class="row w2"><label><span id="doneTitle">Setup package saved</span><small id="donePath"></small></label>
+          <span class="inline"><button type="button" id="doneShow">Show the file</button></span></div>
+        <div class="row w2"><label for="donePass">Their passphrase<small>Tell it to them separately from the file (text or in person). Once you click Done it can’t be shown again; if it’s lost, use New access.</small></label>
+          <span class="inline"><input type="text" id="donePass" readonly spellcheck="false"><button type="button" id="doneCopy">Copy</button></span></div>
+        <div class="row wide"><span class="inline" style="justify-content:flex-end"><button type="button" class="primary" id="doneOk">Done</button></span></div>
+      </div>
+    </fieldset>
+    <fieldset id="publishSet" hidden>
+      <legend>Publishing</legend>
+      <div class="row"><label>Your GitHub token<small id="tokNow">Used to publish updates and central settings from this PC.</small></label>
+        <span class="inline"><button type="button" id="tokBtn">Replace token</button></span></div>
+      <div id="tokPanel" hidden>
+        <div class="row w2"><label>New token
+          <ol class="steps">
+            <li>Click <b>Open GitHub</b> (sign in if asked). Most of the form is filled in for you.</li>
+            <li>Under <b>Repository access</b>, choose <b>Only select repositories</b> → <b class="repoShort">wx-center-dashboard</b>.</li>
+            <li>Click <b>Generate token</b>, copy it and paste it here.</li>
+          </ol></label>
+          <span class="inline"><button type="button" id="tokGh">Open GitHub</button></span></div>
+        <div class="row w2"><label for="tokNew">Paste the token<small id="tokNewState"></small></label><input type="password" id="tokNew" spellcheck="false" autocomplete="off"></div>
+        <div class="row wide"><span class="inline" style="justify-content:flex-end"><button type="button" id="tokCancel">Cancel</button><button type="button" class="primary" id="tokSave">Save token</button></span></div>
+      </div>
+      <div class="row"><label>Move publishing to another PC<small>Saves your signing key and GitHub token in one file, protected with a passphrase. On the new PC, open Central Settings and choose that file.</small></label>
+        <span class="inline"><button type="button" id="pcBtn">Move to another PC</button></span></div>
+      <div id="pcPanel" hidden>
+        <div class="row w2"><label for="pcPass">Passphrase for the file<small>At least 16 characters. Anyone with the file and the passphrase can publish app updates, so keep them apart, and never put the file on GitHub.</small></label>
+          <span class="inline"><input type="text" id="pcPass" spellcheck="false" autocomplete="off"><button type="button" id="pcNew" title="Suggest another">New</button></span></div>
+        <div class="row w2"><label for="pcOk">I’ve saved the passphrase somewhere safe (e.g. a password manager)</label><span class="switch"><input type="checkbox" id="pcOk"><span></span></span></div>
+        <div class="row wide"><span class="inline" style="justify-content:flex-end"><button type="button" id="pcCancel">Cancel</button><button type="button" class="primary" id="pcSave">Save publisher file</button></span></div>
+      </div>
+      <div class="row"><label>Move to a new GitHub repository<small id="repoNow">Copies the settings, people and latest release there; every dashboard follows within about 10 minutes.</small></label>
+        <span class="inline"><button type="button" id="mvBtn">Move repository</button></span></div>
+      <div id="mvPanel" hidden>
+        <div class="row w2"><label for="mvRepo">1. The new repository<small>As owner/name. Click Open GitHub to create it (public, empty), then come back.</small></label>
+          <span class="inline"><input type="text" id="mvRepo" spellcheck="false" placeholder="owner/name"><button type="button" id="mvCreate">Open GitHub</button></span></div>
+        <div class="row w2"><label>2. A token for it
+          <ol class="steps">
+            <li>Click <b>Open GitHub</b>. The form is filled in for you.</li>
+            <li>Under <b>Repository access</b>, choose <b>Only select repositories</b> → the new repository.</li>
+            <li>Click <b>Generate token</b>, copy it and paste it below.</li>
+          </ol></label>
+          <span class="inline"><button type="button" id="mvTokGh">Open GitHub</button></span></div>
+        <div class="row w2"><label for="mvTok">Paste the token<small id="mvTokState"></small></label><input type="password" id="mvTok" spellcheck="false" autocomplete="off"></div>
+        <div class="row w2"><label>3. Move<small>Keep the old repository for a few weeks (archived is fine), so dashboards that are switched off now still find the notice. Helpers need New access afterwards.</small></label>
+          <span class="inline"><button type="button" id="mvCancel">Cancel</button><button type="button" class="primary" id="mvGo">Move now</button></span></div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Screens</legend>
+      <div class="row"><label for="theme">Appearance<small>Light suits a bright room; dark is easier on the eyes in a dim one. Auto uses the sun at the weight &amp; balance base’s airport, not the weather airport.</small></label>
+        <select id="theme"><option value="dark">Dark</option><option value="light">Light</option><option value="auto">Auto: light from sunrise to sunset</option></select></div>
+      <div class="row"><label for="clock">Local time format<small>Clock, radar and update times. Zulu is always 24-hour.</small></label>
+        <select id="clock"><option value="12">12-hour (2:05 PM)</option><option value="24">24-hour (14:05)</option></select></div>
+      <div class="row"><label for="wbScreen">Weight &amp; balance screen<small>The weather page goes on the other screen.</small></label>
+        <select id="wbScreen"><option value="left">Left monitor</option><option value="right">Right monitor</option></select></div>
+      <div class="row"><label for="singleScreen">With only one monitor<small>When testing, or if a TV is switched off.</small></label>
+        <select id="singleScreen"><option value="split">Both pages, side by side</option><option value="wb">Weight &amp; balance only</option><option value="weather">Weather only</option></select></div>
+      <div class="row"><label for="hideSeconds">Hide on-screen controls after<small>The keyboard notice, settings button and mouse pointer, once the mouse stops moving.</small></label>
+        <span class="unit"><input type="number" id="hideSeconds" min="2" max="60" step="1" required>seconds</span></div>
+    </fieldset>
+    <fieldset>
+      <legend>Weight &amp; balance</legend>
+      <div class="row"><label for="tab">Base<small id="tabNote">Tab of the weight and balance sheet to show.</small></label>
+        <select id="tab"></select></div>
+      <div class="row"><label for="cycle">Time per page<small>When the aircraft and instructors don't fit on one screen.</small></label>
+        <span class="unit"><input type="number" id="cycle" min="5" max="120" step="1" required>seconds</span></div>
+      <div class="row"><label for="phones">Show instructor phone numbers<small>Turn off if the screens are in a public area.</small></label>
+        <span class="switch"><input type="checkbox" id="phones"><span></span></span></div>
+      <div class="row"><label for="logo">Show the school logo<small>Epic Flight Academy, at the start of the header.</small></label>
+        <span class="switch"><input type="checkbox" id="logo"><span></span></span></div>
+      <div class="row"><label id="wbLayoutLabel">Aircraft layout<small>Auto shows cards for up to 6 aircraft and a board, one row per aircraft, for 7 or more. Cards or Board keeps that one.</small></label>
+        <div class="seg" role="radiogroup" aria-labelledby="wbLayoutLabel" data-for="wbLayout">
+          <button type="button" role="radio" data-v="auto">Auto</button><button type="button" role="radio" data-v="cards">Cards</button><button type="button" role="radio" data-v="board">Board</button>
+        </div><input type="hidden" id="wbLayout"></div>
+      <div class="row"><label for="sheetRefresh">Check the sheet for changes every</label>
+        <span class="unit"><input type="number" id="sheetRefresh" min="1" max="60" step="1" required>minutes</span></div>
+      <div class="row wide"><label>Aircraft status badges<small>From the sheet’s Status column. Words separated by commas; capitals don’t matter. A word of 4 or more letters also matches longer words that start with it (“maint” matches “maintenance”); shorter ones like “up” match only the whole word. A space also matches a hyphen (“100 hr” matches “100-hr”). Red is checked first, then yellow, then blue. A status that matches none of them shows yellow.</small></label></div>
+      <div class="row sub-row w2"><label for="statusDown">Red: out of service<small>The aircraft fades and its tail number is struck through.</small></label>
+        <textarea id="statusDown" rows="2" spellcheck="false" required></textarea></div>
+      <div class="row sub-row w2"><label for="statusNote">Yellow: a note<small>Flyable, but read the note.</small></label>
+        <textarea id="statusNote" rows="2" spellcheck="false"></textarea></div>
+      <div class="row sub-row w2"><label for="statusOk">Blue: available<small>Shown on the board layout only; cards show no badge.</small></label>
+        <textarea id="statusOk" rows="2" spellcheck="false"></textarea></div>
+      <div class="row"><label for="maint">Maintenance countdown<small>From the sheet’s “100 hr due”, “50 hr due” and “Current tach” columns: hours left = due − current tach, for whichever inspection comes first (the 100-hr when both are due together). Badge: shown once it’s getting close, but not on aircraft with a red status. Bar: on every card. The board layout shows a column either way. An aircraft whose 100-hr is under 1 hour away (or overdue) is marked down automatically.</small></label>
+        <select id="maint"><option value="off">Off</option><option value="badge">Badge when close</option><option value="bar">Bar on every card</option></select></div>
+      <div class="row sub-row" data-dep="maint"><label>Colors<small>Yellow at this many hours left or fewer, red at the second (and when overdue).</small></label>
+        <span class="lims"><span class="unit">Yellow <input type="number" id="maintWarn" min="0" max="200" step="0.5" required>h</span><span class="unit">Red <input type="number" id="maintCrit" min="0" max="200" step="0.5" required>h</span></span></div>
+    </fieldset>
+    <fieldset>
+      <legend>Weather</legend>
+      <div class="row"><label for="stationAuto">Use the base’s airport<small id="autoNote">The weather follows the weight &amp; balance base.</small></label>
+        <span class="switch"><input type="checkbox" id="stationAuto"><span></span></span></div>
+      <div class="row" id="stationRow"><label for="station">Airport<small>ICAO code the map is centered on, e.g. KSGU.</small></label>
+        <input type="text" id="station" maxlength="4" pattern="[A-Za-z0-9]{3,4}"></div>
+      <div class="row"><label for="radius">Default map range<small>Range buttons on the weather screen change it for a while; it returns to this.</small></label>
+        <span class="unit"><input type="number" id="radius" min="25" max="250" step="5" required>NM</span></div>
+      <div class="row"><label for="radarLoop">Animate radar<small>Plays the radar loop; off holds on the newest frame.</small></label>
+        <span class="switch"><input type="checkbox" id="radarLoop"><span></span></span></div>
+      <div class="row"><label id="decodedLabel">Decoded METAR<small>Wind, visibility, ceiling and more under the airport. Auto hides it when the TAF or advisories need the room; the raw METAR always shows.</small></label>
+        <div class="seg" role="radiogroup" aria-labelledby="decodedLabel" data-for="decoded">
+          <button type="button" role="radio" data-v="auto">Auto</button><button type="button" role="radio" data-v="on">On</button><button type="button" role="radio" data-v="off">Off</button>
+        </div><input type="hidden" id="decoded"></div>
+      <div class="row"><label id="advListLabel">Advisory list in the side column<small>The strip along the bottom always shows the active advisories. Auto shows the full list (with valid times, tops and movement) when there's room.</small></label>
+        <div class="seg" role="radiogroup" aria-labelledby="advListLabel" data-for="advList">
+          <button type="button" role="radio" data-v="auto">Auto</button><button type="button" role="radio" data-v="on">On</button><button type="button" role="radio" data-v="off">Off</button>
+        </div><input type="hidden" id="advList"></div>
+      <div class="row"><label for="advSpeed">Advisory scroll speed<small>When the advisories don't all fit, they scroll slowly through the list.</small></label>
+        <span class="slider"><span class="ends"><span>Slow</span><output id="advSpeedOut"></output><span>Fast</span></span><input type="range" id="advSpeed" min="5" max="60" step="1"></span></div>
+      <div class="row"><label for="radarHours">Radar loop length<small>Longer loops show fewer frames per hour, so each loop stays about 6 seconds.</small></label>
+        <select id="radarHours">
+          <option value="1">Last hour · every 10 min</option>
+          <option value="2">2 hours · every 10 min</option>
+          <option value="3">3 hours · every 20 min</option>
+          <option value="4">4 hours · every 20 min</option>
+          <option value="6">6 hours · every 30 min</option>
+          <option value="12">12 hours · every hour</option>
+        </select></div>
+      <div class="row"><label for="airmets">Draw AIRMETs on the map<small>G-AIRMETs: IFR, mountain obscuration, turbulence, wind, icing.</small></label>
+        <span class="switch"><input type="checkbox" id="airmets"><span></span></span></div>
+      <div class="row"><label for="sigmets">Draw SIGMETs on the map</label>
+        <span class="switch"><input type="checkbox" id="sigmets"><span></span></span></div>
+      <div class="row"><label for="convective">Draw convective SIGMETs on the map<small>Hidden types still appear in the advisory list, marked “not drawn on map”.</small></label>
+        <span class="switch"><input type="checkbox" id="convective"><span></span></span></div>
+    </fieldset>
+    <fieldset>
+      <legend>Features</legend>
+      <div class="row"><label for="limits">Training limits banner<small>A banner on the map for each set of limits below that the airport is outside of, e.g. “LOCAL SOLO NO-GO”. Up to 4 sets (local, non-local, initial solo…).</small></label>
+        <span class="switch"><input type="checkbox" id="limits"><span></span></span><input type="hidden" id="limSets"></div>
+      <div id="limSetRows"></div>
+      <div class="row sub-row wide" data-dep="limits" id="limSetBtns">
+        <span class="inline" style="justify-content:flex-end"><button type="button" id="limRemove">Remove last set</button><button type="button" id="limAdd">Add another set</button></span></div>
+      <div class="row"><label for="runway">Runway winds and density altitude<small>Headwind and crosswind for each runway at the airport, plus density altitude.</small></label>
+        <select id="runway"><option value="off">Off</option><option value="diagram">Diagram</option><option value="table">Table</option></select></div>
+      <div class="row"><label for="daFlag">High density altitude flag<small>Runway card: a “HIGH DA” tag in place of the density altitude (needs runway winds on; without them the tile is used). Tile: density altitude as one of the decoded METAR values, colored when high.</small></label>
+        <select id="daFlag"><option value="off">Off</option><option value="runway">Tag on the runway card</option><option value="grid">Tile in the decoded METAR</option></select></div>
+      <div class="row sub-row" data-dep="daFlag"><label>Flag at<small>Density altitude in feet: amber from the first, red from the second.</small></label>
+        <span class="lims"><span class="unit">Amber <input type="number" id="daWarn" min="1000" max="15000" step="100" required>ft</span><span class="unit">Red <input type="number" id="daCrit" min="1000" max="15000" step="100" required>ft</span></span></div>
+      <div class="row"><label for="sun">Sunrise, sunset and night times<small>Night for logging (end of civil twilight) and for currency (sunset + 1 hour).</small></label>
+        <select id="sun"><option value="off">Off</option><option value="strip">Strip of times</option><option value="arc">Daylight arc</option></select></div>
+      <div class="row"><label for="sunCount">Sunset countdown<small>The last 2 hours before sunset at the airport; amber under an hour, red under 30 minutes. On the sun strip needs the strip of times above; otherwise it shows in the clock row.</small></label>
+        <select id="sunCount"><option value="off">Off</option><option value="clock">In the clock row</option><option value="strip">On the sun strip</option></select></div>
+      <div class="row"><label for="tstorm">Thunderstorm alert<small>A red strip on the airport’s conditions card and a red chip in the bottom strip when an airport within 20 NM reports a thunderstorm (TS or VCTS), or a convective SIGMET comes within 20 NM. Radar returns alone don’t trigger it.</small></label>
+        <span class="switch"><input type="checkbox" id="tstorm"><span></span></span></div>
+      <div class="row"><label for="pireps">PIREPs on the map<small>Turbulence, icing and wind shear reports from the last 90 minutes, with aviationweather.gov’s symbols.</small></label>
+        <span class="switch"><input type="checkbox" id="pireps"><span></span></span></div>
+      <div class="row"><label for="barbs">Wind barbs on the map<small>A barb at each airport, pointing into the wind.</small></label>
+        <span class="switch"><input type="checkbox" id="barbs"><span></span></span></div>
+      <div class="row"><label for="trend">12-hour trend<small>The airport’s flight category, wind and gusts over the last 12 hours.</small></label>
+        <span class="switch"><input type="checkbox" id="trend"><span></span></span></div>
+      <div class="row"><label for="tfrs">TFRs on the map<small>Temporary flight restrictions from tfr.faa.gov, hatched in red, with details in the bottom strip. Ones starting within 12 hours show dashed.</small></label>
+        <span class="switch"><input type="checkbox" id="tfrs"><span></span></span></div>
+      <div class="row"><label for="catChange">Show flight category changes<small>For an hour after the airport’s category changes, the old one shows faded before the new one, with when it changed.</small></label>
+        <span class="switch"><input type="checkbox" id="catChange"><span></span></span></div>
+      <div class="row"><label for="aloft">Winds aloft<small>Wind and temperature at 3,000 to 12,000 ft from the nearest forecast point, in the side column.</small></label>
+        <span class="switch"><input type="checkbox" id="aloft"><span></span></span></div>
+      <div class="row"><label for="oldObs">Fade old weather reports<small>An airport whose latest report is over 70 minutes old fades on the map, and its label shows the age.</small></label>
+        <span class="switch"><input type="checkbox" id="oldObs"><span></span></span></div>
+      <div class="row"><label for="acDetail">Click an aircraft for detail<small>On the weight &amp; balance screen. Closes on a click or after a minute; pages pause meanwhile.</small></label>
+        <select id="acDetail"><option value="off">Off</option><option value="popup">Big popup</option><option value="expand">Expand the card</option></select></div>
+      <div class="row"><label for="stations">Loading stations in the aircraft detail<small>The C172’s seat, fuel and baggage arms, shown when an aircraft is clicked (needs the setting above).</small></label>
+        <span class="switch"><input type="checkbox" id="stations"><span></span></span></div>
+      <div class="row"><label for="diagCorner">Display check in the corner<small>Pointing at the bottom-right corner of the right screen shows the version, data status and running time.</small></label>
+        <span class="switch"><input type="checkbox" id="diagCorner"><span></span></span></div>
+    </fieldset>
+    <fieldset>
+      <legend>Display info</legend>
+      <div class="row info-row"><div class="info" id="info">Loading…</div></div>
+    </fieldset>
+    <fieldset>
+      <legend>Quiet hours</legend>
+      <div class="row"><label for="quiet">Quiet hours overnight<small>Saves the TVs from burn-in and wear. Moving the mouse wakes both screens for an hour. Data keeps updating underneath.</small></label>
+        <span class="switch"><input type="checkbox" id="quiet"><span></span></span></div>
+      <div class="row sub-row" data-dep="quiet"><label>From and to<small>Local time; it can run past midnight.</small></label>
+        <span class="lims"><span class="unit">From <input type="time" id="quietFrom" required></span><span class="unit">To <input type="time" id="quietTo" required></span></span></div>
+      <div class="row sub-row" data-dep="quiet"><label id="quietModeLabel">Screens show<small>Dim: the dashboard behind a dark veil. Clock only: a dim clock. Black: a small clock that moves every minute.</small></label>
+        <div class="seg" role="radiogroup" aria-labelledby="quietModeLabel" data-for="quietMode">
+          <button type="button" role="radio" data-v="dim">Dim</button><button type="button" role="radio" data-v="clock">Clock only</button><button type="button" role="radio" data-v="black">Black</button>
+        </div><input type="hidden" id="quietMode"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Maintenance</legend>
+      <div class="row"><label for="dailyReloadHour">Reload both pages each day at<small>Keeps a dashboard that runs for weeks fresh.</small></label>
+        <select id="dailyReloadHour"></select></div>
+    </fieldset>
+    <fieldset>
+      <legend>Updates</legend>
+      <div class="row"><label>Version <span class="mono" id="upVersion">—</span><small id="upStatus">Checking…</small></label>
+        <span class="upd-btns"><button type="button" id="upCheck">Check for updates now</button><button type="button" class="primary" id="upInstall" hidden></button></span></div>
+      <div class="row"><label for="repo">GitHub repository<small>Where updates and central settings come from, as owner/name. Leave blank for the built-in one. Both must still be signed with the publisher’s key.</small></label>
+        <input type="text" id="repo" placeholder="pottle-labs/wx-center-dashboard" pattern="[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+" spellcheck="false"></div>
+      <div class="row"><label for="autoUpdate">Install updates automatically<small>Checks 2 minutes after the dashboard starts and every night at 3:30. Only updates signed by the publisher are installed.</small></label>
+        <span class="switch"><input type="checkbox" id="autoUpdate"><span></span></span></div>
+    </fieldset>
+  </form>
+  <p class="vnote" id="vBottom" hidden></p>
+</main>
+<footer>
+  <button type="button" class="quiet" id="quit" title="Closes the dashboard on both screens">Close dashboard</button>
+  <span class="msg" id="msg" role="status"></span>
+  <button type="button" id="cancel">Cancel</button>
+  <button type="submit" class="primary" form="form" id="save">Save</button>
+</footer>
+<script src="config.js"></script>
+<script src="phone.js"></script>
+<script src="sheet.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  if (new URLSearchParams(location.search).get('theme') === 'light') document.documentElement.dataset.theme = 'light';
+  if (window.dashHost && dashHost.on) dashHost.on(function (m) { // Auto appearance switched while this window is open
+    if (m.cmd !== 'theme') return;
+    if (m.light) document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme;
+  });
+  // Training limits: up to 4 named sets (set 1 = limName, limWind…; set 2 = lim2Name, lim2Wind…); limSets = how many show
+  var LIM_MAX = 4, LIM_DEF = [['Local solo', 15, 20, 10, 3000, 5], ['Non-local solo', 12, 15, 8, 5000, 6], ['Initial solo', 10, 12, 5, 4000, 6], ['Solo', 15, 20, 10, 3000, 5]];
+  var LIM_KEYS = [], LIM_DEFAULTS = {};
+  $('limSetRows').innerHTML = LIM_DEF.map(function (d, i) {
+    var p = i ? 'lim' + (i + 1) : 'lim', f = function (k, lab, min, max, step, v) {
+      LIM_KEYS.push(p + k); LIM_DEFAULTS[p + k] = String(v);
+      return '<span class="unit">' + lab + ' <input type="number" id="' + p + k + '" min="' + min + '" max="' + max + '" step="' + step + '" required></span>';
+    };
+    LIM_KEYS.push(p + 'Name'); LIM_DEFAULTS[p + 'Name'] = d[0];
+    return '<div class="row sub-row limset" data-dep="limits" data-set="' + (i + 1) + '"><label>Limits, set ' + (i + 1) + '<small>' +
+      (i ? 'Its name heads its own banner line.' : 'Wind, gust and crosswind in knots (crosswind on the best runway, gusts included); ceiling in feet; visibility in statute miles. The name heads the banner line.') +
+      '</small></label><span class="lims">' +
+      '<span class="unit">Name <input type="text" id="' + p + 'Name" maxlength="24" spellcheck="false" required></span>' +
+      f('Wind', 'Wind', 5, 40, 1, d[1]) + f('Gust', 'Gust', 5, 50, 1, d[2]) + f('Xwind', 'Cross', 3, 30, 1, d[3]) + f('Ceil', 'Ceil', 500, 10000, 100, d[4]) + f('Vis', 'Vis', 1, 10, 0.5, d[5]) +
+      '</span></div>';
+  }).join('');
+  function limCount() { return Math.max(1, Math.min(LIM_MAX, +$('limSets').value || 1)); }
+  function syncLimSets() {
+    var n = limCount(), on = $('limits').checked;
+    Array.prototype.forEach.call(document.querySelectorAll('.limset'), function (r) { r.hidden = !on || +r.dataset.set > n; });
+    $('limAdd').disabled = n >= LIM_MAX; $('limRemove').hidden = n <= 1;
+  }
+  $('limAdd').addEventListener('click', function () { $('limSets').value = String(Math.min(LIM_MAX, limCount() + 1)); syncLimSets(); });
+  $('limRemove').addEventListener('click', function () { $('limSets').value = String(Math.max(1, limCount() - 1)); syncLimSets(); });
+  var FIELDS = ['theme', 'clock', 'wbScreen', 'singleScreen', 'hideSeconds', 'tab', 'cycle', 'phones', 'logo', 'wbLayout', 'sheetRefresh', 'statusDown', 'statusNote', 'statusOk',
+    'maint', 'maintWarn', 'maintCrit', 'station', 'radius', 'radarLoop',
+    'radarHours', 'airmets', 'sigmets', 'convective', 'dailyReloadHour', 'autoUpdate', 'decoded', 'advList', 'advSpeed',
+    'limits', 'limSets'].concat(LIM_KEYS).concat(['runway', 'daFlag', 'daWarn', 'daCrit', 'sun', 'sunCount', 'tstorm', 'pireps', 'barbs', 'trend', 'tfrs', 'catChange', 'aloft', 'oldObs', 'acDetail', 'stations', 'diagCorner', 'quiet', 'quietFrom', 'quietTo', 'quietMode', 'repo']);
+  // Never set centrally: the PC's base and screens, and updates (matches CentralSettings.LocalOnly in the shell)
+  var LOCAL_ONLY = ['tab', 'wbScreen', 'singleScreen', 'autoUpdate', 'repo'];
+  var CENTRAL = new URLSearchParams(location.search).get('central') === '1' || !!window.WXC_PHONE; // the central settings editor (on a PC, or the phone version)
+  // Shown when settings.ini doesn't have the key yet (it was installed by an older version). Features start off.
+  var DEFAULTS = { theme: 'dark', clock: '12', hideSeconds: '4', logo: '1', wbLayout: 'auto', cycle: '15', phones: '1', sheetRefresh: '5', radius: '100', radarLoop: '1', dailyReloadHour: '3', radarHours: '1', airmets: '1', sigmets: '1', convective: '1', station: 'auto', autoUpdate: '1', decoded: 'auto', advList: 'auto', advSpeed: '20',
+    limits: '0', limSets: '1', runway: 'off', sun: 'off', pireps: '0', barbs: '0', trend: '0', tfrs: '1', catChange: '0', aloft: '0', oldObs: '1', stations: '0', quiet: '1', quietFrom: '00:00', quietTo: '05:00', quietMode: 'dim', acDetail: 'off', diagCorner: '0' };
+  Object.keys(LIM_DEFAULTS).forEach(function (k) { DEFAULTS[k] = LIM_DEFAULTS[k]; });
+  // Thunderstorm alert, sunset countdown, high density altitude, maintenance countdown (all off to start)
+  [['tstorm', '0'], ['sunCount', 'off'], ['daFlag', 'off'], ['daWarn', '5000'], ['daCrit', '7000'], ['maint', 'off'],['maintWarn', '10'], ['maintCrit', '3']]
+    .forEach(function (d) { DEFAULTS[d[0]] = d[1]; });
+  // Aircraft status keywords (match wb.html's STATUS_DEF and the settings.ini template)
+  DEFAULTS.statusDown = 'down, maint, annual, 100 hr, 100hr, 100 hour, ground, inop, aog, unavailable, out of service, oos, not available, shop, repair';
+  DEFAULTS.statusNote = 'squawk, limited, caution, see dispatch';
+  DEFAULTS.statusOk = 'ok, okay, available, in service, up, ready, good, flyable';
+  var KEYWORD_FIELDS = ['statusDown', 'statusNote', 'statusOk'];
+
+  // 3-position switches (.seg, each stores its value in the hidden input named by data-for) and the scroll speed readout
+  var segs = document.querySelectorAll('.seg[data-for]');
+  function syncSeg() {
+    Array.prototype.forEach.call(segs, function (seg) {
+      var v = $(seg.dataset.for).value;
+      Array.prototype.forEach.call(seg.children, function (b) { b.setAttribute('aria-checked', String(b.dataset.v === v)); });
+    });
+  }
+  function syncSpeed() {
+    var v = +$('advSpeed').value;
+    $('advSpeedOut').textContent = v <= 12 ? 'slow' : v <= 30 ? 'medium' : 'fast';
+  }
+
+  // station=auto means "K + base"; the switch shows that, and the airport box is only for a different airport
+  function syncStation() {
+    var auto = $('stationAuto').checked, tab = CENTRAL ? (section === 'all' ? '' : section) : $('tab').value, base = tab ? 'K' + tab : '';
+    $('stationRow').hidden = auto;
+    $('station').required = !auto;
+    $('autoNote').textContent = !auto ? 'Off: the weather uses the airport below.' :
+      tab ? 'Weather is shown for ' + base + ', the ' + tab + ' base’s airport.' : 'Each dashboard shows its own base’s airport (K + base).';
+    if (!auto && !$('station').value) $('station').value = base;
+  }
+  // Rows that only matter while a feature is on (the limit values)
+  function syncDeps() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-dep]'), function (r) {
+      var el = $(r.dataset.dep);
+      r.hidden = el.type === 'checkbox' ? !el.checked : el.value === 'off'; // a switch, or a list whose Off hides them
+    });
+    syncLimSets(); // sets past the chosen count stay hidden
+  }
+  ['limits', 'daFlag', 'maint'].forEach(function (k) { $(k).addEventListener('change', syncDeps); });
+  var host = window.dashHost;
+
+  // Display info: version, uptime, screens, each page's data status and recent updates
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function showInfo(d) {
+    var rows = [['Version', esc(d.version)], ['Running since', esc(d.started) + ' · ' + esc(d.uptime)], ['Computer', esc(d.pc)], ['Appearance', esc(d.theme || '—')], ['Screens', esc((d.screens || []).join(', '))]];
+    (d.sources || []).forEach(function (s) { rows.push([esc(s.name), '<span class="' + esc(s.state) + '">' + esc(s.value) + '</span>']); });
+    rows.push(['Updates', esc(d.updateMessage || '—')]);
+    rows.push(['Central settings', esc(d.central || '—')]);
+    rows.push(['Repository', esc(d.repo || 'not set up')]);
+    $('info').innerHTML = rows.map(function (r) { return '<span class="k">' + r[0] + '</span><span>' + r[1] + '</span>'; }).join('') +
+      (d.updateLog && d.updateLog.length ? '<div class="log">' + esc(d.updateLog.join('\n')) + '</div>' : '');
+  }
+
+  // Bases come from the sheet's own tab list, so a base added to the sheet appears here without an app update
+  function setTabs(tabs) {
+    $('tab').innerHTML = tabs.map(function (t) { var n = t.name.replace(/[<&"]/g, ''); return '<option value="' + n + '">' + n + '</option>'; }).join('');
+    if (tabs.source !== 'sheet') $('tabNote').textContent = 'The sheet’s tab list couldn’t be read just now, so this is the last list this PC saw.';
+  }
+  var hours = '';
+  for (var h = 0; h < 24; h++) hours += '<option value="' + h + '">' + (h % 12 || 12) + ':00 ' + (h < 12 ? 'AM' : 'PM') + '</option>';
+  $('dailyReloadHour').innerHTML = hours;
+
+  function msg(text, bad) { $('msg').textContent = text; $('msg').className = 'msg' + (bad ? ' bad' : ''); }
+  function setForm(v) {
+    FIELDS.forEach(function (k) {
+      var el = $(k), val = v[k] || DEFAULTS[k];
+      if (val == null) return;
+      if (el.type === 'checkbox') el.checked = val === '1';
+      else {
+        if (el.tagName === 'SELECT' && !Array.prototype.some.call(el.options, function (o) { return o.value === val; }))
+          el.insertAdjacentHTML('beforeend', '<option>' + val.replace(/[<&"]/g, '') + '</option>'); // keep a value typed into settings.ini by hand
+        el.value = val;
+      }
+    });
+    syncSeg(); syncSpeed(); syncDeps();
+    var auto = String(v.station || 'auto').toLowerCase() === 'auto';
+    $('stationAuto').checked = auto;
+    if (auto) $('station').value = '';
+    syncStation();
+  }
+  function getForm() {
+    var v = {};
+    FIELDS.forEach(function (k) { var el = $(k); v[k] = el.type === 'checkbox' ? (el.checked ? '1' : '0') : String(el.value).trim(); });
+    v.station = $('stationAuto').checked ? 'auto' : v.station.toUpperCase();
+    // Keyword lists are one line in settings.ini: line breaks and extra commas become ", "
+    KEYWORD_FIELDS.forEach(function (k) { v[k] = v[k].split(/[\n,]+/).map(function (w) { return w.trim().replace(/\s+/g, ' '); }).filter(Boolean).join(', '); });
+    return v;
+  }
+
+  // The row a setting lives in (the airport's is the "Use the base's airport" row), and the settings in a row
+  function rowOf(k) { return (k === 'station' ? $('stationAuto') : $(k)).closest('.row'); }
+  function keysOf(row) { return FIELDS.filter(function (k) { return LOCAL_ONLY.indexOf(k) < 0 && rowOf(k) === row; }); }
+  function lockRow(row, locked) {
+    Array.prototype.forEach.call(row.querySelectorAll('input, select, textarea, button:not(.ctl)'), function (el) { el.disabled = locked; });
+    if (row === rowOf('station')) $('station').disabled = locked;
+  }
+
+  if (!host || !host.call) { msg('Open settings from the dashboard’s gear button.', true); $('save').disabled = true; return; }
+  if (!CENTRAL) Promise.all([WXSheet.tabs(), host.call('getSettings')])
+    .then(function (r) { setTabs(r[0]); setForm(r[1]); return host.call('getCentralStatus'); })
+    .then(function (c) { // settings set by the central settings file are shown as they apply and can't be changed here
+      if (!c.central) return;
+      c.managed.forEach(function (k) {
+        if (!$(k) && k !== 'station') return;
+        var row = rowOf(k);
+        lockRow(row, true); row.classList.add('locked');
+        var lab = row.querySelector('label');
+        if (lab && !lab.querySelector('.badge')) lab.insertAdjacentHTML('beforeend', '<span class="badge">Central</span>');
+      });
+      if (c.managed.indexOf('limSets') >= 0) lockRow($('limSetBtns'), true);
+      $('cnote').hidden = false;
+      $('cnote').textContent = c.managed.length
+        ? 'Settings marked Central are set for ' + c.scope + ' from the central settings and can’t be changed here.'
+        : 'This dashboard is under central control, but no settings are set centrally right now.';
+    })
+    .catch(function (e) { msg('Couldn’t read the settings: ' + e.message, true); });
+
+  // ---- Central settings editor (Central settings.cmd) ----
+  // model = what gets published: { sameForAll, all: { key: value }, bases: { SGU: { central, settings } } }.
+  // A setting marked Central in a section is saved in it; one marked Local is left out (each dashboard keeps its own).
+  var model = { sameForAll: false, all: {}, bases: {}, push: {}, pushes: [] }, section = 'all', baseNames = [];
+  function sectionValues(name) {
+    if (name === 'all') return model.all;
+    var b = model.bases[name] = model.bases[name] || { central: false, settings: {} };
+    return b.settings;
+  }
+  function centralRows() {
+    var rows = [];
+    FIELDS.forEach(function (k) { if (LOCAL_ONLY.indexOf(k) < 0) { var r = rowOf(k); if (rows.indexOf(r) < 0) rows.push(r); } });
+    return rows;
+  }
+  // Each row's state: 'local' (left out), 'central' (set and locked on the dashboards), or 'push' (written once into
+  // each dashboard's own settings at the next publish, then local again; model.push[section] = { key: value })
+  var CTL_TEXT = { local: 'Local', central: 'Central', push: 'Push once' };
+  function setCtl(row, state) {
+    if (state === true) state = 'central'; else if (!state) state = 'local';
+    var b = row.querySelector('.ctl');
+    b.dataset.state = state; b.setAttribute('aria-pressed', String(state === 'central')); b.textContent = CTL_TEXT[state];
+    row.classList.toggle('is-local', state === 'local');
+    lockRow(row, state === 'local');
+    if (row === rowOf('limSets')) lockRow($('limSetBtns'), state === 'local'); // the set count goes with the banner switch
+  }
+  function ctlState(row) { return row.querySelector('.ctl').dataset.state || 'local'; }
+  // A setting's name as its row shows it (for the push history)
+  function nameOf(k) {
+    var lab = rowOf(k).querySelector('label').cloneNode(true);
+    Array.prototype.forEach.call(lab.querySelectorAll('.ctl, small, .badge'), function (el) { el.remove(); });
+    return lab.textContent.trim();
+  }
+  function pushHistory(name) {
+    var list = (model.pushes || []).filter(function (p) { return p.scope === name; });
+    if (!list.length) return '';
+    var p = list[list.length - 1], names = [];
+    list.forEach(function (x) { Object.keys(x.settings || {}).forEach(function (k) { if ($(k) || k === 'station') { var n = nameOf(k); if (names.indexOf(n) < 0) names.push(n); } }); });
+    var when = p.at ? new Date(p.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+    return ' Pushed here so far (new dashboards get these too): ' + names.join(', ') + '. Last push #' + p.serial + (when ? ' on ' + when : '') + (p.by ? ' by ' + p.by : '') + '.';
+  }
+  function loadSection(name) {
+    section = name;
+    var vals = sectionValues(name), push = model.push[name] || {}, shown = {};
+    FIELDS.forEach(function (k) {
+      shown[k] = push[k] != null ? String(push[k]) : vals[k] != null ? String(vals[k]) : (name !== 'all' && model.all[k] != null ? String(model.all[k]) : '');
+    });
+    setForm(shown);
+    centralRows().forEach(function (row) {
+      var ks = keysOf(row);
+      setCtl(row, ks.some(function (k) { return push[k] != null; }) ? 'push' : ks.some(function (k) { return vals[k] != null; }) ? 'central' : 'local');
+    });
+    $('sectionNote').textContent = (name === 'all'
+      ? (model.sameForAll ? 'Central: used by every base under central control.' : 'Central: only used while “All locations use the same settings” is on.') +
+        ' Push once: goes to every dashboard, under central control or not.'
+      : (!model.bases[name].central ? name + ' is under local control, so Central settings don’t apply until it’s checked above.'
+        : model.sameForAll ? 'Central settings here aren’t used while all locations use the same settings.' : 'Central: used by the ' + name + ' dashboards.') +
+        ' Push once: goes to the ' + name + ' dashboards.') + pushHistory(name);
+  }
+  function storeSection() {
+    var v = getForm(), vals = {}, push = {};
+    centralRows().forEach(function (row) {
+      var st = ctlState(row);
+      if (st !== 'local') keysOf(row).forEach(function (k) { (st === 'central' ? vals : push)[k] = v[k]; });
+    });
+    if (section === 'all') model.all = vals;
+    else { sectionValues(section); model.bases[section].settings = vals; }
+    if (Object.keys(push).length) model.push[section] = push; else delete model.push[section];
+  }
+  function drawBases() {
+    $('bases').innerHTML = baseNames.map(function (n) {
+      var on = !!(model.bases[n] && model.bases[n].central);
+      return '<label class="' + (on ? 'on' : '') + '"><input type="checkbox" data-base="' + n + '"' + (on ? ' checked' : '') + '>' + n + '</label>';
+    }).join('');
+    $('section').innerHTML = '<option value="all">All locations</option>' + baseNames.map(function (n) {
+      return '<option value="' + n + '">' + n + (model.bases[n] && model.bases[n].central ? '' : ' (local control)') + '</option>';
+    }).join('');
+    $('section').value = section;
+  }
+  function startCentral() {
+    $('title').textContent = 'Central settings';
+    $('sub').textContent = 'Settings for every dashboard, published to GitHub. Dashboards pick up changes within about 10 minutes.';
+    $('ctlSet').hidden = false;
+    ['info', 'upVersion'].forEach(function (id) { var f = $(id).closest('fieldset'); f.hidden = true; f.dataset.never = '1'; });
+    LOCAL_ONLY.forEach(function (k) { if ($(k)) $(k).closest('.row').hidden = true; });
+    $('quit').hidden = true;
+    $('save').textContent = 'Publish';
+    $('cancel').textContent = 'Close';
+    centralRows().forEach(function (row) {
+      var lab = row.querySelector('label');
+      lab.insertAdjacentHTML('afterbegin', '<button type="button" class="ctl" aria-pressed="false" data-state="local" title="Click to change. Local: each dashboard keeps its own. Central: set from here and locked on the dashboards this section applies to. Push once: written into those dashboards’ own settings at the next publish, then they can change it again.">Local</button>');
+      row.querySelector('.ctl').addEventListener('click', function (e) {
+        e.preventDefault();
+        var next = { local: 'central', central: 'push', push: 'local' };
+        setCtl(row, next[ctlState(row)]);
+      });
+    });
+    $('bases').addEventListener('change', function (e) {
+      var n = e.target.dataset.base; if (!n) return;
+      storeSection();
+      sectionValues(n); model.bases[n].central = e.target.checked;
+      drawBases(); loadSection(section);
+    });
+    $('sameForAll').addEventListener('change', function () { storeSection(); model.sameForAll = this.checked; loadSection(section); });
+    $('section').addEventListener('change', function () { storeSection(); loadSection(this.value); });
+    $('importBtn').addEventListener('click', importAccess);
+    $('pass').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); importAccess(); } });
+    setupPeople(); setupPublishing();
+    msg('Loading the central settings…');
+    Promise.all([WXSheet.tabs(), host.call('getCentral')]).then(function (r) { tabsSeen = r[0]; loaded(r[1]); })
+      .catch(function (e) { msg('Couldn’t read the central settings: ' + e.message, true); $('save').disabled = true; });
+  }
+  var tabsSeen = [], me = {};
+  // What the shell found: who this is (publisher, helper, or nobody yet), the people list, and the published settings
+  function loaded(c) {
+    me = c;
+    if (c.version) { // "Version 1.7.3 · published Nov 4, 2026" (the release date, not when this PC installed it)
+      var pd = c.published ? new Date(c.published) : null;
+      var vt = 'WX Center Central Settings · version ' + c.version + ' · ' +
+        (pd && !isNaN(pd) ? 'published ' + pd.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'not a published build');
+      ['vTop', 'vBottom'].forEach(function (id) { $(id).textContent = vt; $(id).hidden = false; });
+    }
+    var setup = c.role === 'none';
+    $('setup').hidden = !setup; $('form').hidden = setup; $('save').hidden = setup;
+    if (setup) {
+      $('fileRow').hidden = !!c.pending;
+      $('setupNote').textContent = c.pending
+        ? 'Your setup package included your access file. Type the passphrase the publisher gave you.'
+        : 'Choose the access file the publisher sent you, and type the passphrase they gave you separately.';
+      msg(''); setTimeout(function () { $('pass').focus(); }, 50);
+      return;
+    }
+    $('sub').textContent = (c.role === 'publisher' ? 'You’re the publisher.' : 'Signed in as ' + c.name + '.') +
+      ' Settings for every dashboard, published to GitHub. Dashboards pick up changes within about 10 minutes.';
+    var pub = c.role === 'publisher', onlyToken = !!c.needToken;
+    // A publisher PC without a GitHub token (e.g. just moved here from a .wxkey backup) shows only the token step
+    Array.prototype.forEach.call($('form').querySelectorAll('fieldset'), function (f) {
+      if (f.dataset.never) return;
+      f.hidden = f.id === 'publishSet' ? !pub : f.id === 'peopleSet' ? (!pub || onlyToken) : onlyToken;
+    });
+    if (pub) drawPublishing(c);
+    if (onlyToken) {
+      $('cnote').hidden = false; $('cnote').className = 'cnote warn'; $('cnote').textContent = c.why;
+      $('save').disabled = true; msg(''); $('tokBtn').click();
+      return;
+    }
+    if (pub) drawPeople(c.people || []);
+    var d = c.doc || {};
+    model = { sameForAll: !!d.sameForAll, all: d.all || {}, bases: {}, push: {}, pushes: d.pushes || [] };
+    Object.keys(d.bases || {}).forEach(function (n) { model.bases[n] = { central: !!d.bases[n].central, settings: d.bases[n].settings || {} }; });
+    baseNames = tabsSeen.map(function (t) { return t.name.replace(/[^A-Za-z0-9]/g, '').toUpperCase(); });
+    Object.keys(model.bases).forEach(function (n) { if (baseNames.indexOf(n) < 0) baseNames.push(n); });
+    $('sameForAll').checked = model.sameForAll;
+    $('askUpdate').checked = false; // one publish at a time; it never carries over
+    var asked = d.updateCheck ? new Date(d.updateCheck) : null;
+    $('askUpdateNote').textContent = 'One time: when each dashboard picks up this publish, it checks for a new version of the app right away and installs it if there is one (instead of waiting for the nightly check). Turns itself off after you publish.' +
+      (asked && !isNaN(asked) ? ' The last published version asked for one (' + asked.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ').' : '');
+    drawBases(); loadSection('all');
+    var notes = [c.warning, c.why].filter(Boolean);
+    $('cnote').hidden = !notes.length; $('cnote').className = 'cnote warn'; $('cnote').textContent = notes.join(' ');
+    $('save').disabled = !c.canPublish;
+    msg(!c.canPublish ? '' : c.serial ? 'Published version #' + c.serial + (c.by ? ' (by ' + c.by + ')' : '') + ' loaded.' : 'Nothing published yet. Every base is under local control.');
+  }
+  // A helper's first start: their access file (from the setup package, or chosen here) and passphrase
+  function importAccess() {
+    var f = $('accessFile').files && $('accessFile').files[0], pass = $('pass').value;
+    if (!me.pending && !f) { msg('Choose your access file first.', true); return; }
+    if (!pass) { msg('Type your passphrase.', true); return; }
+    $('importBtn').disabled = true; msg('Opening your access file…');
+    (f ? f.text() : Promise.resolve(null)).then(function (text) {
+      return host.call('importAccess', { text: text, passphrase: pass });
+    }).then(function (c) { $('pass').value = ''; $('importBtn').disabled = false; loaded(c); msg('This PC is set up. ' + document.getElementById('msg').textContent); },
+      function (e) { $('importBtn').disabled = false; msg(e.message, true); });
+  }
+
+  // ---- Publishing (the publisher only): GitHub token, move publishing to another PC, move to a new repository ----
+  function drawPublishing(c) {
+    var short = (c.repo || '').split('/')[1] || '';
+    Array.prototype.forEach.call(document.querySelectorAll('.repoShort'), function (el) { el.textContent = short; });
+    $('tokNow').textContent = c.needToken ? 'Missing: add one to publish from this PC.' : 'Set for ' + c.repo + '. Used to publish updates and central settings from this PC.';
+    $('repoNow').textContent = 'Now ' + c.repo + '. Copies the settings, people and latest release to a new one; every dashboard follows within about 10 minutes.';
+  }
+  function tokenUrl(owner, name, about) {
+    return 'https://github.com/settings/personal-access-tokens/new?name=' + encodeURIComponent(name) + '&description=' + encodeURIComponent(about) +
+      (owner ? '&target_name=' + encodeURIComponent(owner) : '') + '&contents=write';
+  }
+  function openGitHub(u, note) { host.call('openUrl', { url: u }).then(function () { msg(note); }, function (e) { msg(e.message, true); }); }
+  function setupPublishing() {
+    function toggle(panel, on) { $(panel).hidden = !on; }
+    // Token
+    $('tokBtn').addEventListener('click', function () { toggle('tokPanel', true); $('tokNew').value = ''; $('tokNewState').textContent = 'GitHub shows it only once, right after you generate it.'; $('tokNewState').className = ''; });
+    $('tokCancel').addEventListener('click', function () { toggle('tokPanel', false); });
+    $('tokGh').addEventListener('click', function () {
+      openGitHub(tokenUrl((me.repo || '').split('/')[0], 'WX Center publishing', 'Publishes WX Center Dashboard updates and central settings to ' + me.repo),
+        'GitHub opened in your browser. Pick the repository, generate the token, and paste it here.');
+    });
+    $('tokSave').addEventListener('click', function () {
+      var t = $('tokNew').value.trim(); if (!t) { msg('Paste the token first.', true); return; }
+      $('tokSave').disabled = true; $('tokNewState').textContent = 'Checking the token…';
+      host.call('setToken', { token: t }).then(function (r) {
+        $('tokSave').disabled = false;
+        if (r !== 'ok') { $('tokNewState').textContent = r; $('tokNewState').className = 'bad'; return; }
+        toggle('tokPanel', false); $('tokNew').value = '';
+        return host.call('getCentral').then(function (c) { loaded(c); msg('Token saved for ' + c.repo + '.'); });
+      }, function (e) { $('tokSave').disabled = false; msg(e.message, true); });
+    });
+    // Another PC
+    $('pcBtn').addEventListener('click', function () { toggle('pcPanel', true); $('pcPass').value = suggestPass() + '-' + WORDS[crypto.getRandomValues(new Uint32Array(1))[0] % WORDS.length]; $('pcOk').checked = false; });
+    $('pcNew').addEventListener('click', function () { $('pcPass').value = suggestPass() + '-' + WORDS[crypto.getRandomValues(new Uint32Array(1))[0] % WORDS.length]; });
+    $('pcCancel').addEventListener('click', function () { toggle('pcPanel', false); });
+    $('pcSave').addEventListener('click', function () {
+      var pass = $('pcPass').value;
+      if (pass.length < 16) { msg('Use at least 16 characters.', true); return; }
+      if (!$('pcOk').checked) { msg('Save the passphrase somewhere safe first, then tick the switch.', true); return; }
+      host.call('exportPublisher', { passphrase: pass }).then(function (r) {
+        if (!r) { msg('Cancelled; nothing was saved.'); return; }
+        toggle('pcPanel', false);
+        msg('Saved ' + r.path.split('\\').pop() + '. On the new PC: open Central settings (from the project folder, or install it), choose this file and type the passphrase. Delete the file once the new PC is set up.');
+      }, function (e) { msg(e.message, true); });
+    });
+    // New repository
+    var mvOk = false;
+    $('mvBtn').addEventListener('click', function () { toggle('mvPanel', true); mvOk = false; $('mvRepo').value = ((me.repo || '').split('/')[0] || '') + '/'; $('mvTok').value = ''; $('mvTokState').textContent = ''; $('mvRepo').focus(); });
+    $('mvCancel').addEventListener('click', function () { toggle('mvPanel', false); });
+    function target() { var v = $('mvRepo').value.trim().replace(/^https:\/\/github\.com\//i, '').replace(/\/+$/, ''); return /^[\w.-]+\/[\w.-]+$/.test(v) ? v : ''; }
+    $('mvCreate').addEventListener('click', function () {
+      var t = target(); if (!t) { msg('Type the new repository as owner/name first.', true); return; }
+      var p = t.split('/');
+      openGitHub('https://github.com/new?name=' + encodeURIComponent(p[1]) + '&owner=' + encodeURIComponent(p[0]) + '&visibility=public&description=' + encodeURIComponent('WX Center Dashboard updates and central settings'),
+        'GitHub opened in your browser. Create the repository there (public, empty), then make its token.');
+    });
+    $('mvTokGh').addEventListener('click', function () {
+      var t = target(); if (!t) { msg('Type the new repository as owner/name first.', true); return; }
+      openGitHub(tokenUrl(t.split('/')[0], 'WX Center publishing', 'Publishes WX Center Dashboard updates and central settings to ' + t),
+        'GitHub opened in your browser. Choose only the new repository, generate the token, and paste it here.');
+    });
+    function testMv() {
+      var t = target(), tok = $('mvTok').value.trim(); mvOk = false;
+      if (!t || !tok) return;
+      $('mvTokState').textContent = 'Checking the token…'; $('mvTokState').className = '';
+      host.call('testRepoToken', { repo: t, token: tok }).then(function (r) {
+        mvOk = r === 'ok';
+        $('mvTokState').textContent = mvOk ? 'Token works: it can see ' + t + '.' : r; $('mvTokState').className = mvOk ? 'ok' : 'bad';
+      }, function (e) { $('mvTokState').textContent = e.message; $('mvTokState').className = 'bad'; });
+    }
+    $('mvTok').addEventListener('change', testMv);
+    $('mvTok').addEventListener('paste', function () { setTimeout(testMv, 0); });
+    $('mvRepo').addEventListener('change', testMv);
+    $('mvGo').addEventListener('click', function () {
+      var t = target();
+      if (!t) { msg('Type the new repository as owner/name.', true); return; }
+      if (!mvOk) { msg('Paste a working token for ' + t + ' first.', true); return; }
+      if (!confirm('Move the dashboards from ' + me.repo + ' to ' + t + '? Every dashboard and helper app follows within about 10 minutes.')) return;
+      $('mvGo').disabled = true; msg('Moving to ' + t + '… (copying the settings, people and latest release)');
+      host.call('moveRepo', { repo: t, token: $('mvTok').value.trim() }).then(function (r) {
+        $('mvGo').disabled = false; toggle('mvPanel', false); $('mvTok').value = '';
+        return host.call('getCentral').then(function (c) {
+          loaded(c);
+          msg('Moved to ' + r.repo + ' (' + r.done.join('; ') + ').' + (r.publishIni ? ' publish.ini updated.' : ' Change repo= in publish.ini in your project folder before the next update.') +
+            ((c.people || []).length ? ' Give each helper New access next to their name.' : '') + ' Keep the old repository for a few weeks.');
+        });
+      }, function (e) { $('mvGo').disabled = false; msg('The move stopped: ' + e.message + ' Nothing switched yet unless the notice step finished; it’s safe to run again.', true); });
+    });
+  }
+
+  // ---- People (the publisher only): add a person (token, passphrase, setup package) or remove one ----
+  var WORDS = ('amber anchor apple arrow aspen atlas autumn badge bamboo banner basil beacon birch bison blossom bluff bonus border boulder breeze brick bridge brook bubble buckle cabin cactus camel candle canyon canvas cargo carrot castle cedar cello chalk cherry cider circle citrus clover cobalt comet copper coral cosmos cotton cradle crater cricket crystal dahlia daisy delta denim desert dial dolphin dune eagle ember emerald engine falcon fern fiddle flint forest fossil fox galaxy garden garnet gecko ginger glacier globe granite grape gravel harbor hazel heron hollow honey horizon iris island ivory jade jasmine jigsaw juniper kayak kettle kiwi lagoon lantern laurel lemon lilac linen lotus lumen lynx magnet mango maple marble meadow mesa meteor mint mirror mosaic moss nectar nickel noble nova oasis ocean olive onyx opal orbit orchid otter oyster paddle palm panda pebble pepper pilot pine planet plum polar poppy prairie prism pumpkin quartz quill radar raven reef ridge river robin rocket saffron sage salmon satin sequoia shadow shell sierra silver sketch slate sparrow spruce summit sunset swift tango thistle thunder tiger timber topaz tulip tundra velvet violet walnut willow window winter yarrow zephyr').split(' ');
+  function suggestPass() { // 4 random words and a 2-digit number, e.g. harbor-violet-73-canyon-lumen (about 45 bits)
+    var r = new Uint32Array(5); crypto.getRandomValues(r);
+    var w = [0, 1, 2, 3].map(function (i) { return WORDS[r[i] % WORDS.length]; });
+    w.splice(2, 0, String(10 + r[4] % 90));
+    return w.join('-');
+  }
+  function personLabel(name, computer) { return computer ? name + ' (' + computer + ')' : name; } // matches Label() in the shell
+  function drawPeople(list) {
+    // Sorted by name, so one person's computers sit together: "Jordan Price · Laptop", "Jordan Price · Office PC"
+    list = list.slice().sort(function (a, b) { return (a.name + '\u0001' + (a.computer || '')).localeCompare(b.name + '\u0001' + (b.computer || '')); });
+    $('peopleList').innerHTML = list.length ? list.map(function (p) {
+      var attrs = ' data-name="' + esc(p.name) + '" data-computer="' + esc(p.computer || '') + '"';
+      return '<span>' + esc(p.name) + (p.computer ? '<span class="pc-label"> · ' + esc(p.computer) + '</span>' : '') + '</span><span class="when">' + (p.phone ? 'phone · ' : '') + 'added ' + esc(p.added || '') + '</span>' +
+        (p.phone ? '<span></span>' : // a phone gets new access by being set up again on the phone, then added here
+        '<button type="button" data-re="' + esc(p.id) + '"' + attrs + ' title="A new setup package (lost file or passphrase, or after a repository move); the old one stops working">New access</button>') +
+        '<button type="button" data-rm="' + esc(p.id) + '"' + attrs + '>Remove</button>';
+    }).join('') : '<span class="when">Nobody yet. Only this PC can change the central settings.</span>';
+  }
+  function setupPeople() {
+    var tokenOk = false, reissue = null; // reissue: the id of someone getting New access
+    function openAdd(id, name, computer) {
+      reissue = id || null;
+      $('addPanel').hidden = false; $('addRow').hidden = true;
+      $('pName').value = name || ''; $('pName').readOnly = !!id;
+      $('pComputer').value = computer || ''; $('pComputer').readOnly = !!id; $('pToken').value = ''; $('pPass').value = suggestPass(); tokenOk = false;
+      $('makePkg').textContent = id ? '4. Save new setup package' : '4. Save setup package';
+      $('tokState').textContent = 'GitHub shows it only once, right after you generate it.'; $('tokState').className = '';
+      $('repoName').textContent = (me.repo || '').split('/')[1] || 'wx-center-dashboard';
+      (id ? $('openGh') : $('pName')).focus();
+    }
+    var donePath = '';
+    function closeDone() { $('donePanel').hidden = true; $('donePass').value = ''; donePath = ''; $('addRow').hidden = false; }
+    $('doneOk').addEventListener('click', closeDone);
+    $('doneCopy').addEventListener('click', function () {
+      var t = $('donePass').value, ok = function () { $('doneCopy').textContent = 'Copied'; };
+      (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : Promise.reject()).then(ok, function () {
+        $('donePass').select(); try { if (document.execCommand('copy')) ok(); } catch (e) {} });
+    });
+    $('doneShow').addEventListener('click', function () {
+      host.call('revealFile', { path: donePath }).then(null, function (e) { msg(e.message, true); });
+    });
+    $('addBtn').addEventListener('click', function () { closeDone(); closePhone(); openAdd(); });
+    // ---- Add a phone ----
+    var phoneOk = false, phoneWho = null;
+    function closePhone() { $('phonePanel').hidden = true; $('phReq').value = ''; $('phToken').value = ''; phoneOk = false; phoneWho = null; }
+    $('addPhoneBtn').addEventListener('click', function () {
+      closeDone(); $('addPanel').hidden = true; closePhone();
+      var parts = (me.repo || '').split('/');
+      $('phoneUrl').textContent = parts.length === 2 ? 'https://' + parts[0].toLowerCase() + '.github.io/' + parts[1] + '/' : '(the phone page)';
+      $('phReqState').textContent = 'It starts with WXPHONE1.'; $('phReqState').className = '';
+      $('phTokState').textContent = 'GitHub shows it only once, right after you generate it.'; $('phTokState').className = '';
+      $('phonePanel').hidden = false; $('addRow').hidden = true; $('phReq').focus();
+    });
+    $('phCancel').addEventListener('click', function () { closePhone(); $('addRow').hidden = false; });
+    function readRequest() {
+      var t = $('phReq').value.trim(); phoneWho = null;
+      if (!t) return;
+      host.call('readPhoneRequest', { request: t }).then(function (r) {
+        phoneWho = personLabel(r.name, r.device);
+        $('phReqState').textContent = 'Request from ' + phoneWho + '.'; $('phReqState').className = 'ok';
+      }, function (e) { $('phReqState').textContent = e.message; $('phReqState').className = 'bad'; });
+    }
+    $('phReq').addEventListener('change', readRequest);
+    $('phReq').addEventListener('paste', function () { setTimeout(readRequest, 0); });
+    $('phGh').addEventListener('click', function () {
+      if (!phoneWho) { msg('Paste the phone’s request first; its name goes into the token’s name on GitHub.', true); return; }
+      var owner = (me.repo || '').split('/')[0];
+      var u = 'https://github.com/settings/personal-access-tokens/new?name=' + encodeURIComponent('WX settings - ' + phoneWho + ' phone') +
+        '&description=' + encodeURIComponent('WX Center Central Settings on the phone ' + phoneWho + ' (contents of ' + me.repo + ' only)') +
+        (owner ? '&target_name=' + encodeURIComponent(owner) : '') + '&contents=write';
+      host.call('openUrl', { url: u }).then(function () { msg('GitHub opened in your browser. Pick the repository, generate the token, and paste it here.'); }, function (e) { msg(e.message, true); });
+    });
+    function testPhoneToken() {
+      var t = $('phToken').value.trim(); phoneOk = false;
+      if (!t) return;
+      $('phTokState').textContent = 'Checking the token…'; $('phTokState').className = '';
+      host.call('testToken', { token: t }).then(function (r) {
+        phoneOk = r === 'ok';
+        $('phTokState').textContent = phoneOk ? 'Token works: it can see ' + me.repo + '.' : r; $('phTokState').className = phoneOk ? 'ok' : 'bad';
+      }, function (e) { $('phTokState').textContent = e.message; $('phTokState').className = 'bad'; });
+    }
+    $('phToken').addEventListener('change', testPhoneToken);
+    $('phToken').addEventListener('paste', function () { setTimeout(testPhoneToken, 0); });
+    $('phAdd').addEventListener('click', function () {
+      if (!phoneWho) { msg('Paste the phone’s whole request first.', true); return; }
+      if (!phoneOk) { msg('Paste a working GitHub token first.', true); return; }
+      var who = phoneWho;
+      $('phAdd').disabled = true; msg('Adding ' + who + '’s phone…');
+      host.call('addPhone', { request: $('phReq').value.trim(), token: $('phToken').value.trim() }).then(function () {
+        $('phAdd').disabled = false; closePhone(); $('addRow').hidden = false;
+        return host.call('getCentral').then(function (c) {
+          loaded(c);
+          msg(who + ' is added. On the phone, the page finishes setting up by itself within a minute or so (or tap Check now).');
+        });
+      }, function (e) { $('phAdd').disabled = false; msg('Couldn’t add the phone: ' + e.message, true); });
+    });
+    $('cancelAdd').addEventListener('click', function () { $('addPanel').hidden = true; $('addRow').hidden = false; });
+    $('newPass').addEventListener('click', function () { $('pPass').value = suggestPass(); });
+    $('openGh').addEventListener('click', function () {
+      var name = $('pName').value.trim();
+      if (!name) { msg('Type their name first; it goes into the token’s name on GitHub.', true); $('pName').focus(); return; }
+      var owner = (me.repo || '').split('/')[0], who = personLabel(name, $('pComputer').value.trim()); // one token per computer, so each name is unique
+      var u = 'https://github.com/settings/personal-access-tokens/new?name=' + encodeURIComponent('WX settings - ' + who) +
+        '&description=' + encodeURIComponent('WX Center Central Settings for ' + who + ' (contents of ' + me.repo + ' only)') +
+        (owner ? '&target_name=' + encodeURIComponent(owner) : '') + '&contents=write';
+      host.call('openUrl', { url: u }).then(function () { msg('GitHub opened in your browser. Pick the repository, generate the token, and paste it here.'); }, function (e) { msg(e.message, true); });
+    });
+    function testToken() {
+      var t = $('pToken').value.trim(); tokenOk = false;
+      if (!t) return;
+      $('tokState').textContent = 'Checking the token…'; $('tokState').className = '';
+      host.call('testToken', { token: t }).then(function (r) {
+        tokenOk = r === 'ok';
+        $('tokState').textContent = tokenOk ? 'Token works: it can see ' + me.repo + '.' : r;
+        $('tokState').className = tokenOk ? 'ok' : 'bad';
+      }, function (e) { $('tokState').textContent = e.message; $('tokState').className = 'bad'; });
+    }
+    $('pToken').addEventListener('change', testToken);
+    $('pToken').addEventListener('paste', function () { setTimeout(testToken, 0); });
+    $('makePkg').addEventListener('click', function () {
+      var name = $('pName').value.trim(), pass = $('pPass').value;
+      if (!name) { msg('Type their name.', true); return; }
+      if (!tokenOk) { msg('Paste a working GitHub token first.', true); return; }
+      if (pass.length < 14) { msg('The passphrase needs at least 14 characters.', true); return; }
+      var who = personLabel(name, $('pComputer').value.trim()); // "Jordan Price (Office PC)" in messages; publishes say just the name
+      $('makePkg').disabled = true; msg('Making ' + who + '’s key and setup package…');
+      var again = reissue;
+      host.call('addPerson', { name: name, computer: $('pComputer').value.trim(), token: $('pToken').value.trim(), passphrase: pass, person: again }).then(function (r) {
+        $('makePkg').disabled = false;
+        if (!r) { msg('Cancelled; nothing changed.'); return; }
+        $('addPanel').hidden = true; $('addRow').hidden = true; $('pToken').value = ''; $('pPass').value = '';
+        // The passphrase stays on screen (with Copy) until Done, so it can be copied after the package is made
+        $('doneTitle').textContent = (again ? 'New setup package for ' : 'Setup package for ') + who + ' saved';
+        $('donePath').textContent = r.path; donePath = r.path;
+        $('donePass').value = pass; $('doneCopy').textContent = 'Copy';
+        $('donePanel').hidden = false;
+        return host.call('getCentral').then(function (c) {
+          loaded(c);
+          msg((again ? who + ' has new access; the old access file no longer works.' : who + ' can now change the settings.') +
+            ' Give them the setup package and tell them the passphrase separately.');
+        });
+      }, function (e) { $('makePkg').disabled = false; msg('Couldn’t make ' + who + '’s access: ' + e.message, true); });
+    });
+    $('peopleList').addEventListener('click', function (e) {
+      var re = e.target.closest && e.target.closest('[data-re]');
+      if (re) { closeDone(); openAdd(re.dataset.re, re.dataset.name, re.dataset.computer); return; }
+      var b = e.target.closest && e.target.closest('[data-rm]'); if (!b) return;
+      var name = personLabel(b.dataset.name, b.dataset.computer); // just this computer's access; their others keep working
+      if (!confirm('Remove ' + name + '? That access file stops working within about 10 minutes.' + (b.dataset.computer ? ' Their other computers keep their access.' : ''))) return;
+      b.disabled = true; msg('Removing ' + name + '…');
+      host.call('removePerson', { person: b.dataset.rm }).then(function (r) {
+        drawPeople(r.people);
+        msg(name + ' was removed' + (r.resigned ? ' (the settings they last published were signed again as yours)' : '') +
+          '. Also delete their token on GitHub (Settings → Developer settings → Fine-grained tokens, “WX settings - ' + name + '”).');
+      }, function (e) { b.disabled = false; msg('Couldn’t remove ' + name + ': ' + e.message, true); });
+    });
+  }
+
+  if (CENTRAL) $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    storeSection();
+    if (!$('form').reportValidity()) return;
+    var on = baseNames.filter(function (n) { return model.bases[n] && model.bases[n].central; });
+    var pushTo = Object.keys(model.push).map(function (n) {
+      var c = Object.keys(model.push[n]).length;
+      return (n === 'all' ? 'every dashboard' : 'the ' + n + ' dashboards') + ' (' + c + ' setting' + (c === 1 ? '' : 's') + ')';
+    });
+    if (!confirm('Publish the central settings? ' + (on.length ? 'Bases under central control: ' + on.join(', ') + '.' : 'No base is under central control.') +
+      (pushTo.length ? ' One-time push to ' + pushTo.join(' and ') + ': each dashboard writes these into its own settings once, and can change them again afterwards.' : '') +
+      ($('askUpdate').checked ? ' Every dashboard also checks for an app update when it picks this up, and installs one if there is one.' : ''))) return;
+    $('save').disabled = true; msg('Signing and publishing…');
+    var ask = $('askUpdate').checked;
+    host.call('saveCentral', { doc: { sameForAll: model.sameForAll, all: model.all, bases: model.bases, push: model.push, updateCheck: ask } }).then(function (serial) {
+      var keep = section;
+      return host.call('getCentral').then(function (c) { // reload: the pushed rows go back to Local and the push history updates
+        loaded(c);
+        if (keep !== 'all' && baseNames.indexOf(keep) >= 0) { $('section').value = keep; loadSection(keep); }
+        msg('Published version #' + serial + '. Dashboards pick it up within about 10 minutes' + (ask ? ', then check for an app update.' : '.'));
+      });
+    }).then(function () { $('save').disabled = false; }, function (err) { msg('Couldn’t publish: ' + err.message, true); $('save').disabled = false; });
+  }, true);
+
+  // Updates: status from the shell's updater; "Check" only looks, "Install" downloads, verifies and installs
+  function showUpdates(u) {
+    $('upVersion').textContent = u.version;
+    var s = u.message || (u.lastCheck ? 'Up to date.' : 'Not checked yet since the dashboard started.');
+    if (u.lastCheck && !/^Updated to/.test(s)) s += ' Last checked ' + u.lastCheck + '.';
+    $('upStatus').textContent = s;
+    $('upCheck').disabled = !u.configured || u.state !== 'idle';
+    $('upInstall').hidden = !u.available || u.state === 'installing';
+    $('upInstall').textContent = 'Install version ' + u.available;
+    $('upInstall').disabled = u.state !== 'idle';
+  }
+  function updateCall(install) {
+    $('upCheck').disabled = $('upInstall').disabled = true;
+    $('upStatus').textContent = install ? 'Downloading and checking the update…' : 'Checking…';
+    host.call('checkUpdates', { install: install }).then(showUpdates)
+      .catch(function (e) { $('upStatus').textContent = 'Couldn’t check: ' + e.message; $('upCheck').disabled = false; });
+  }
+  if (!CENTRAL) {
+    host.call('getDisplayInfo').then(showInfo).catch(function () { $('info').textContent = 'Display info unavailable.'; });
+    host.call('getUpdates').then(showUpdates).catch(function () { $('upStatus').textContent = 'Update status unavailable.'; });
+  }
+  $('upCheck').addEventListener('click', function () { updateCall(false); });
+  $('upInstall').addEventListener('click', function () {
+    if (confirm('Install version ' + $('upInstall').textContent.replace('Install version ', '') + ' now? The dashboard will restart on both screens.')) updateCall(true);
+  });
+
+  if (!CENTRAL) $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!$('form').reportValidity()) return;
+    $('save').disabled = true; msg('Saving…');
+    host.call('saveSettings', { values: getForm() }).catch(function (err) { msg('Couldn’t save: ' + err.message, true); $('save').disabled = false; });
+    // On success the shell closes this window and reloads the dashboard with the new settings
+  });
+  Array.prototype.forEach.call(segs, function (seg) { seg.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    $(seg.dataset.for).value = b.dataset.v; syncSeg();
+  }); });
+  $('advSpeed').addEventListener('input', syncSpeed);
+  $('stationAuto').addEventListener('change', syncStation);
+  $('tab').addEventListener('change', syncStation);
+  $('cancel').addEventListener('click', function () { host.send('close'); });
+  $('quit').addEventListener('click', function () { if (confirm('Close the dashboard on both screens?')) host.send('quit'); });
+  addEventListener('keydown', function (e) { if (e.key === 'Escape') host.send('close'); });
+  if (CENTRAL) startCentral();
+})();
+</script>
+</body>
+</html>
