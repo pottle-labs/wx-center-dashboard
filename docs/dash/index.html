@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- No viewport-fit=cover: the page starts below the iPhone's status bar. Drawn behind it, iOS 26 lays a frosted band
+     over the top of the page that reached down over the header's buttons. -->
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WX Center Dashboard</title>
 <!-- The status bar takes the header's color (theme-color, kept in step with the page's light or dark look by the
      script) instead of the page showing through it, so it never stays dark navy over a light page -->
