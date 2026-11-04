@@ -1,0 +1,23 @@
+{
+    "name":  "WX Center Central Settings",
+    "short_name":  "WX Central",
+    "start_url":  "./",
+    "scope":  "./",
+    "display":  "standalone",
+    "background_color":  "#0B0F14",
+    "theme_color":  "#0B0F14",
+    "icons":  [
+                  {
+                      "purpose":  "any",
+                      "type":  "image/png",
+                      "sizes":  "192x192",
+                      "src":  "../icon-192.png"
+                  },
+                  {
+                      "purpose":  "any",
+                      "type":  "image/png",
+                      "sizes":  "512x512",
+                      "src":  "../icon-512.png"
+                  }
+              ]
+}
