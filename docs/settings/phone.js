@@ -306,6 +306,13 @@
     $('phInstallX').addEventListener('click', function () { el.hidden = true; try { sessionStorage.setItem('wxc-install-x', '1'); } catch (e) {} });
     try { if (sessionStorage.getItem('wxc-install-x')) el.hidden = true; } catch (e) {}
   }
+  // Light or dark like the phone (settings.html's light look), also when the phone switches while this is open
+  if (window.matchMedia) {
+    var mq = matchMedia('(prefers-color-scheme: light)');
+    var look = function () { if (mq.matches) document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme; };
+    look();
+    if (mq.addEventListener) mq.addEventListener('change', look); else if (mq.addListener) mq.addListener(look);
+  }
   document.addEventListener('DOMContentLoaded', function () {
     document.body.insertAdjacentHTML('afterbegin', '<div class="ph-install" id="phInstall" hidden></div>');
     drawInstall();
