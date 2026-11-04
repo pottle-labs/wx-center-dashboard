@@ -88,6 +88,11 @@ iframe { flex: 1 1 auto; width: 100%; border: 0; background: var(--bg); }
     $('base').innerHTML = names.map(function (n) { return '<option value="' + n + '"' + (n === b ? ' selected' : '') + '>' + n + '</option>'; }).join('');
   }
   Promise.all([WXSheet.tabs(), WXCWeb.ready()]).then(function (r) { tabs = r[0]; drawBases(); show(); });
+  // Appearance Auto follows the phone's light / dark mode, also when the phone switches while this is open
+  if (window.matchMedia) {
+    var mq = matchMedia('(prefers-color-scheme: light)'), onMode = function () { if (WXCWeb.effective().theme === 'auto' && $('settings').hidden) show(); };
+    if (mq.addEventListener) mq.addEventListener('change', onMode); else if (mq.addListener) mq.addListener(onMode);
+  }
   // Central settings published while this is open: picked up when the phone comes back to it
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && Date.now() - (window.__shown || 0) > 600000) location.reload(); });
   window.__shown = Date.now();
