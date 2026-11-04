@@ -4,10 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>WX Center Dashboard</title>
-<meta name="theme-color" content="#0B0F14">
+<!-- The status bar takes the header's color (theme-color, kept in step with the page's light or dark look by the
+     script) instead of the page showing through it, so it never stays dark navy over a light page -->
+<meta name="theme-color" content="#121820" id="themeColor">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="WX Dashboard">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
@@ -18,6 +20,9 @@
 /* The web version of the dashboard: a header (base, Aircraft / Weather) over the chosen page, which is the TV page
    itself (wb.html or weather.html) with its phone layout. Data comes through the relay (config.js). */
 :root { --bg: #0B0F14; --panel: #121820; --line: #1E2836; --line-strong: #2A3646; --fg: #E8EEF5; --muted: #93A1B3; --accent: #7CC4FF; color-scheme: dark; }
+/* Light look (Appearance Light, or Auto with the phone in light mode): the header matches the light pages */
+html.light { --bg: #EEF2F6; --panel: #FFFFFF; --line: #D5DDE6; --line-strong: #B8C4D2; --fg: #0F1A26; --muted: #5E6E82; --accent: #0B6CB5; color-scheme: light; }
+html.light .seg button[aria-pressed="true"] { color: #fff; }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.3 'Barlow Semi Condensed', 'Segoe UI', system-ui, sans-serif; }
 body { display: flex; flex-direction: column; height: 100dvh; }
@@ -66,7 +71,14 @@ iframe { flex: 1 1 auto; width: 100%; border: 0; background: var(--bg); }
     return;
   }
   // The pages are built from this phone's settings (local, plus the base's central settings), like a TV's
+  // The header and the status bar follow the page's look
+  function look() {
+    var light = WXCWeb.light();
+    document.documentElement.classList.toggle('light', light);
+    $('themeColor').setAttribute('content', light ? '#FFFFFF' : '#121820');
+  }
   function show() {
+    look();
     Array.prototype.forEach.call(document.querySelectorAll('.seg button'), function (b) { b.setAttribute('aria-pressed', String(b.dataset.v === view)); });
     $('page').src = WXCWeb.pageUrl(view);
     $('base').value = WXCWeb.base();
