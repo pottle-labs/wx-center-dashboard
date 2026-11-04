@@ -8,7 +8,8 @@
 <title>WX Center Dashboard</title>
 <!-- The status bar takes the header's color (theme-color, kept in step with the page's light or dark look by the
      script) instead of the page showing through it, so it never stays dark navy over a light page -->
-<meta name="theme-color" content="#121820" id="themeColor">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" id="themeLight">
+<meta name="theme-color" content="#121820" media="(prefers-color-scheme: dark)" id="themeDark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -79,7 +80,10 @@ iframe { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: var(
   function look() {
     var light = WXCWeb.light();
     document.documentElement.classList.toggle('light', light);
-    $('themeColor').setAttribute('content', light ? '#FFFFFF' : '#121820');
+    // Auto: each mode keeps its own color (the phone picks); Light or Dark set by hand: both say that color
+    var auto = WXCWeb.effective().theme === 'auto';
+    $('themeLight').setAttribute('content', auto || light ? '#FFFFFF' : '#121820');
+    $('themeDark').setAttribute('content', auto ? '#121820' : light ? '#FFFFFF' : '#121820');
   }
   function show() {
     look();
