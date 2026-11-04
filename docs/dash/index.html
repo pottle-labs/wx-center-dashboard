@@ -29,6 +29,10 @@ select { height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid var
 .seg button { height: 30px; padding: 0 12px; border: 0; border-radius: 7px; background: none; color: var(--muted); font: 600 15px inherit; font-family: inherit; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
 iframe { flex: 1 1 auto; width: 100%; border: 0; background: var(--bg); }
+.gear { width: 36px; height: 34px; padding: 0; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--fg); font-size: 20px; line-height: 1; cursor: pointer; }
+/* The settings window (settings.html, as on the TVs) over the page */
+#settings { position: fixed; inset: 0; z-index: 10; width: 100%; height: 100dvh; background: var(--bg); }
+#settings[hidden] { display: none; }
 .note { margin: auto; max-width: 520px; padding: 24px; text-align: center; color: var(--muted); font-size: 18px; }
 .note b { display: block; color: var(--fg); font-size: 22px; margin-bottom: 8px; }
 @media (max-width: 380px) { header h1 { display: none; } }
@@ -39,9 +43,12 @@ iframe { flex: 1 1 auto; width: 100%; border: 0; background: var(--bg); }
   <h1>WX Center</h1><span class="sp"></span>
   <select id="base" aria-label="Base"></select>
   <span class="seg" role="group" aria-label="Page"><button type="button" data-v="wb">Aircraft</button><button type="button" data-v="weather">Weather</button></span>
+  <button type="button" class="gear" id="gear" aria-label="Settings" title="Settings">⚙</button>
 </header>
 <iframe id="page" title="Dashboard page"></iframe>
+<iframe id="settings" title="Settings" hidden></iframe>
 <script src="sheet.js"></script>
+<script src="web-core.js"></script>
 <script>
 (function () {
   'use strict';
@@ -49,31 +56,41 @@ iframe { flex: 1 1 auto; width: 100%; border: 0; background: var(--bg); }
   var q = new URLSearchParams(location.search);
   function get(k, d) { try { return localStorage.getItem('wxc-web-' + k) || d; } catch (e) { return d; } }
   function put(k, v) { try { localStorage.setItem('wxc-web-' + k, v); } catch (e) {} }
-  // A link can pick the base and page (?base=SGU&view=weather); otherwise the last ones used on this phone
-  var base = (q.get('base') || get('base', 'SGU')).toUpperCase(), view = q.get('view') || get('view', 'wb');
+  // A link can pick the base and page (?base=SGU&view=weather); otherwise the last ones used on this phone. The base
+  // is this phone's Base setting (the same one the settings window shows).
+  var view = q.get('view') || get('view', 'wb');
+  if (q.get('base')) WXCWeb.setBase(q.get('base'));
+  else if (get('base', '') && (function () { try { return !localStorage.getItem('wxc-web-settings'); } catch (e) { return false; } })()) WXCWeb.setBase(get('base', '')); // picked before there were settings
   if (!window.WXC_WEB || !WXC_WEB.relay) {
     $('page').outerHTML = '<div class="note"><b>Not set up yet</b>The web dashboard needs its data relay. Once it’s set up, this page shows the weight and balance and the weather for each base.</div>';
     return;
   }
-  // What the web version shows: the TV pages with their usual features off, plus TFRs, faded old reports, runway
-  // winds and the sun times, which are the most useful away from the TVs
-  function src() {
-    if (view === 'weather') return 'weather.html?station=K' + encodeURIComponent(base) + '&radius=100&loop=1&tfrs=1&oldObs=1&runway=table&sun=strip';
-    return 'wb.html?tab=' + encodeURIComponent(base) + '&refresh=5';
-  }
+  // The pages are built from this phone's settings (local, plus the base's central settings), like a TV's
   function show() {
     Array.prototype.forEach.call(document.querySelectorAll('.seg button'), function (b) { b.setAttribute('aria-pressed', String(b.dataset.v === view)); });
-    $('page').src = src();
-    put('base', base); put('view', view);
+    $('page').src = WXCWeb.pageUrl(view);
+    $('base').value = WXCWeb.base();
+    put('view', view);
   }
   document.querySelector('.seg').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && b.dataset.v !== view) { view = b.dataset.v; show(); } });
-  $('base').addEventListener('change', function () { base = this.value; show(); });
-  WXSheet.tabs().then(function (tabs) {
-    var names = tabs.map(function (t) { return t.name.replace(/[^A-Za-z0-9]/g, '').toUpperCase(); });
-    if (names.indexOf(base) < 0) names.push(base);
-    $('base').innerHTML = names.map(function (n) { return '<option value="' + n + '"' + (n === base ? ' selected' : '') + '>' + n + '</option>'; }).join('');
+  $('base').addEventListener('change', function () { WXCWeb.setBase(this.value); show(); });
+  // Settings: the TVs' settings window, kept on this phone; Save or Close comes back here
+  $('gear').addEventListener('click', function () { $('settings').src = 'settings.html' + (WXCWeb.light() ? '?theme=light' : ''); $('settings').hidden = false; });
+  addEventListener('message', function (e) {
+    if (e.origin !== location.origin || !e.data || !e.data.wxc) return;
+    $('settings').hidden = true; $('settings').src = 'about:blank';
+    if (e.data.wxc === 'saved') { drawBases(); show(); }
   });
-  show();
+  var tabs = [];
+  function drawBases() {
+    var names = tabs.map(function (t) { return t.name.replace(/[^A-Za-z0-9]/g, '').toUpperCase(); }), b = WXCWeb.base();
+    if (names.indexOf(b) < 0) names.push(b);
+    $('base').innerHTML = names.map(function (n) { return '<option value="' + n + '"' + (n === b ? ' selected' : '') + '>' + n + '</option>'; }).join('');
+  }
+  Promise.all([WXSheet.tabs(), WXCWeb.ready()]).then(function (r) { tabs = r[0]; drawBases(); show(); });
+  // Central settings published while this is open: picked up when the phone comes back to it
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && Date.now() - (window.__shown || 0) > 600000) location.reload(); });
+  window.__shown = Date.now();
   if ('serviceWorker' in navigator && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) navigator.serviceWorker.register('sw.js').catch(function () {});
 })();
 </script>
