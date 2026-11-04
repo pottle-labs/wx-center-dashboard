@@ -1,0 +1,2015 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="config.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KSGU Weather Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout: fixed sectional map (no pan/zoom) fills the left; a dark briefing column on the right. Built for a 1920x1080 CSS viewport (a 4K TV at 200%). */
+:root {
+  --bg: #0B0F14;
+  --panel: #121820;
+  --line: #1E2836;
+  --line-strong: #2A3646;
+  --fg: #E8EEF5;
+  --fg-2: #C9D3DF;
+  --muted: #93A1B3;
+  --accent: #7CC4FF;
+  --vfr: #2FB55A;
+  --mvfr: #2F7BF0;
+  --ifr: #E5403A;
+  --lifr: #C23BD4;
+  --warn: #F5B841;
+  --crit: #FF6A4D;
+  --bar: #0D1218;
+  --font-ui: 'Barlow Semi Condensed', 'Segoe UI', system-ui, sans-serif;
+  --font-data: 'JetBrains Mono', Consolas, 'Cascadia Mono', ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-ui); overflow: hidden; }
+/* ---------- Features (settings → Features) ---------- */
+/* Training limits banner: placed in the map corner that covers the least (placeLimBanner); each set's reasons sit under its badge */
+.lim-banner { position: absolute; left: 18px; top: 78px; z-index: 3; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; max-width: min(440px, 42%);
+  padding: 10px 14px; border-radius: 12px; background: rgba(60,18,12,.94); color: #FFD9CF; font-size: 19px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.lim-banner[hidden] { display: none; }
+.lim-row { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.lim-banner.right, .lim-banner.right .lim-row { align-items: flex-end; text-align: right; }
+.lim-banner b { flex: 0 0 auto; padding: 2px 10px; border-radius: 6px; background: var(--ifr); color: #fff; font-size: 18px; letter-spacing: 1px; }
+/* Thunderstorm alert (feature tstorm): red strip across the top of the conditions card, and a red chip leading the bottom strip */
+.ts-strip { display: flex; align-items: center; gap: 10px; margin: -14px -20px 0; padding: 8px 20px; border-radius: 13px 13px 0 0; background: #B5221A; color: #fff; font-size: 22px; font-weight: 700; line-height: 1.2; }
+.ts-strip[hidden] { display: none; }
+.ts-strip svg, .achip.ts svg { flex: 0 0 auto; }
+.ts-strip .more { margin-left: auto; font-size: 17px; font-weight: 600; opacity: .85; white-space: nowrap; }
+.achip.ts { border-color: #E5403A; background: rgba(229,64,58,.2); color: #FFD0C9; }
+html[data-theme="light"] .achip.ts { background: rgba(229,64,58,.12); color: #A3241B; }
+/* Sunset countdown (feature sunCount): in the clock row, or on the sun strip's sunset tile. Amber under an hour, red under 30 min. */
+.sunct { display: inline-flex; align-items: center; gap: 7px; align-self: center; padding: 3px 12px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); color: var(--fg-2); font: 600 20px var(--font-ui); white-space: nowrap; }
+.sunct[hidden] { display: none; }
+.sunct b { font-family: var(--font-data); font-weight: 600; color: var(--fg); }
+.sunct.amb, .sunstrip div.amb { background: rgba(245,184,65,.14); border-color: rgba(245,184,65,.6); }
+.sunct.amb, .sunct.amb b, .sunstrip div.amb .k { color: #F7C55E; }
+.sunct.red, .sunstrip div.red { background: rgba(229,64,58,.16); border-color: rgba(229,64,58,.7); }
+.sunct.red, .sunct.red b, .sunstrip div.red .k { color: #FF9A8E; }
+html[data-theme="light"] .sunct.amb, html[data-theme="light"] .sunct.amb b, html[data-theme="light"] .sunstrip div.amb .k { color: #8A5A00; }
+html[data-theme="light"] .sunct.red, html[data-theme="light"] .sunct.red b, html[data-theme="light"] .sunstrip div.red .k { color: #B3261E; }
+.sunstrip .drain { display: block; height: 4px; margin-top: 3px; border-radius: 2px; background: var(--line-strong); overflow: hidden; }
+.sunstrip .drain i { display: block; height: 100%; border-radius: 2px; background: var(--muted); }
+.sunstrip .amb .drain i { background: var(--warn); } .sunstrip .red .drain i { background: var(--ifr); }
+/* High density altitude (feature daFlag): a tag in the runway card, or a tile in the decoded grid, amber / red above daWarn / daCrit */
+.da-tag { padding: 1px 10px; border-radius: 999px; font-weight: 700; }
+.da-tag.amb { background: rgba(245,184,65,.18); color: #F7C55E; } .da-tag.red { background: rgba(229,64,58,.22); color: #FF9A8E; }
+.da-tile.amb, .da-tile.red { margin: -4px -8px; padding: 4px 8px; border-radius: 8px; }
+.da-tile.amb { background: rgba(245,184,65,.14); } .da-tile.amb .k, .da-tile.amb .v { color: #F7C55E; }
+.da-tile.red { background: rgba(229,64,58,.16); } .da-tile.red .k, .da-tile.red .v { color: #FF9A8E; }
+html[data-theme="light"] .da-tag.amb, html[data-theme="light"] .da-tile.amb .k, html[data-theme="light"] .da-tile.amb .v { color: #8A5A00; }
+html[data-theme="light"] .da-tag.red, html[data-theme="light"] .da-tile.red .k, html[data-theme="light"] .da-tile.red .v { color: #B3261E; }
+.da-tile[hidden] { display: none; }
+.sunstrip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.sunstrip[hidden], .card[hidden], .fcard.squeezed { display: none; }
+.sunstrip div { display: flex; flex-direction: column; gap: 1px; padding: 6px 10px; border-radius: 8px; background: var(--panel); border: 1px solid var(--line); }
+.sunstrip .k { font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.sunstrip .t { font: 600 19px var(--font-data); }
+.fcard { gap: 8px; }
+.fcard .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.fcard .sub { font-size: 16px; color: var(--muted); }
+.fcard .big { font: 500 26px var(--font-data); }
+.fcard .row2 { display: flex; justify-content: space-between; gap: 10px; font-size: 16px; color: var(--muted); }
+.fcard .row2 b { font-family: var(--font-data); color: var(--fg); font-weight: 500; }
+.rwy { display: flex; gap: 16px; align-items: center; }
+.rwy svg { flex: 0 0 auto; }
+.rwy .nums { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.rwy .lbl2 { font-size: 14px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+.hw { color: var(--vfr); } .tw { color: var(--crit); } .xw-hi { color: var(--warn); }
+.rtab { width: 100%; border-collapse: collapse; font: 500 19px var(--font-data); }
+.rtab th { font: 500 13px var(--font-ui); letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); text-align: left; padding: 0 6px 4px; }
+.rtab td { padding: 4px 6px; border-top: 1px solid var(--line); }
+.rtab tr.best td:first-child { color: var(--accent); }
+.tchip { padding: 2px 10px; border-radius: 999px; font-size: 15px; font-weight: 600; }
+.tchip.worse { background: rgba(229,64,58,.16); color: #FF9A8E; } .tchip.better { background: rgba(47,181,90,.16); color: #8FE3A9; } .tchip.steady { background: var(--line); color: var(--muted); }
+.fcard svg text { font-family: var(--font-data); }
+#pirepLegend { display: inline-flex; align-items: center; gap: 6px; padding-left: 10px; border-left: 1px solid var(--line-strong); }
+#pirepLegend[hidden] { display: none; }
+#pirepLegend img { width: 22px; height: 22px; }
+
+/* Screen: map | side column, with a full-width strip along the bottom for the legend, active advisories and update time */
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 560px; grid-template-rows: minmax(0, 1fr) auto; height: 100%; }
+.app > .map { grid-row: 1; grid-column: 1; }
+.app > .side { grid-row: 1; grid-column: 2; }
+.bar { grid-column: 1 / -1; display: flex; align-items: center; gap: 18px; height: 50px; padding: 0 22px; border-top: 1px solid var(--line); background: var(--bar); white-space: nowrap; overflow: hidden; }
+.bar-legend { flex: 0 0 auto; display: flex; gap: 14px; font-size: 17px; color: var(--fg-2); }
+.bar-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.bar-legend i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--bg); }
+.bar-legend [data-hl] { margin: -3px -6px; padding: 3px 6px; border-radius: 6px; border: 1px solid transparent; }
+.bar-legend [data-hl].on { border-color: var(--accent); background: var(--panel); color: var(--fg); } /* hovered: the map shows only these */
+.bar-legend i.ring { background: transparent; border: 3px solid var(--warn); width: 18px; height: 18px; }
+.bar-k { flex: 0 0 auto; padding-left: 16px; border-left: 1px solid var(--line-strong); font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+.bar-adv { flex: 1 1 auto; min-width: 0; overflow: hidden; display: flex; align-items: center; }
+.bar-adv .none { font-size: 17px; color: var(--muted); }
+.xtrack { display: inline-flex; align-items: center; }
+.xcopy { display: inline-flex; align-items: center; gap: 10px; }
+.xcopy + .xcopy { margin-left: 44px; }
+.achip { display: inline-flex; align-items: center; gap: 9px; height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel); font-size: 17px; font-weight: 600; color: var(--fg); }
+.achip b { width: 20px; height: 11px; border-radius: 3px; }
+.achip .u { font: 500 14px var(--font-data); color: var(--muted); }
+.achip.off { border-style: dashed; color: var(--fg-2); } /* a type switched off on the map */
+.achip.tfr { border-color: rgba(229,64,58,.6); }
+.achip.tfr b { background: repeating-linear-gradient(135deg, #E5403A 0 3px, rgba(229,64,58,.25) 3px 6px); }
+.achip.tfr.soon { border-style: dashed; }
+.achip.tfr.soon b { background: none; border: 2px dashed #E5403A; }
+.bar-adv.scrolling-x { -webkit-mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent); mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent); }
+.bar-adv.scrolling-x .xtrack { animation: barScroll linear infinite; padding-left: 12px; }
+.bar-adv.scrolling-x:hover .xtrack { animation-play-state: paused; }
+@keyframes barScroll { from { transform: translateX(0); } to { transform: translateX(var(--dist)); } }
+
+/* Map */
+/* Light mode (?theme=light, "Appearance" setting): the chart stays as is; the side column and the boxes on the map go light */
+html[data-theme="light"] {
+  --bg: #EEF2F6; --panel: #FFFFFF; --line: #D5DDE6; --line-strong: #B8C4D2;
+  --fg: #0F1A26; --fg-2: #334255; --muted: #5E6E82; --accent: #0B6CB5; --warn: #8F5B00; --crit: #C2361C;
+  color-scheme: light;
+}
+html[data-theme="light"] .card { box-shadow: 0 1px 3px rgba(15,26,38,.08); }
+html[data-theme="light"] .map-chip, html[data-theme="light"] .map-credit { background: rgba(255,255,255,.9); }
+html[data-theme="light"] .stn-tip { background: rgba(255,255,255,.97); box-shadow: 0 16px 48px rgba(15,26,38,.25); }
+html[data-theme="light"] .stn-ring { box-shadow: 0 0 0 3px rgba(255,255,255,.8); }
+html[data-theme="light"] .adv { background: #F3F6F9; }
+html[data-theme="light"] { --bar: #F7F9FB; }
+html[data-theme="light"] .range button.on { color: #fff; }
+.map { position: relative; flex: 1 1 auto; min-width: 0; overflow: hidden; background: #DDE3D6; }
+.map .layer { position: absolute; inset: 0; pointer-events: none; }
+.map img.tile { position: absolute; display: block; user-select: none; -webkit-user-drag: none; }
+.map .radar { opacity: .72; }
+.map .radar img.tile { image-rendering: auto; }
+.map canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.map-chip { position: absolute; top: 18px; left: 18px; display: flex; gap: 10px; align-items: center; padding: 8px 14px; border-radius: 10px; background: rgba(11,15,20,.86); color: var(--fg); font-size: 22px; }
+.map-chip .k { color: var(--muted); }
+.map-chip .v { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.map-chip .v.local { min-width: 8ch; color: var(--fg-2); } /* fixed width so the frame bar doesn't jump as times change */
+.map-chip .v.local::before { content: '·'; margin-right: 10px; color: var(--muted); }
+.frames { display: flex; gap: 5px; margin-left: 6px; }
+.frames span { width: 18px; height: 6px; border-radius: 3px; background: var(--line-strong); }
+.frames span.on { background: var(--accent); }
+.map-credit { position: absolute; right: 10px; bottom: 8px; padding: 2px 8px; border-radius: 6px; background: rgba(11,15,20,.72); color: var(--muted); font-size: 14px; }
+/* Hovered airport: ring on the map and a panel beside it with the raw METAR and TAF */
+.stn-ring { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; border: 3px solid var(--accent); box-shadow: 0 0 0 3px rgba(11,15,20,.7); pointer-events: none; z-index: 4; }
+.stn-tip { position: absolute; z-index: 5; width: max-content; max-width: 600px; padding: 14px 18px 16px; border-radius: 12px; border: 1px solid var(--line-strong); background: rgba(11,15,20,.95); box-shadow: 0 16px 48px rgba(0,0,0,.5); pointer-events: none; }
+.stn-tip[hidden], .stn-ring[hidden] { display: none; }
+.stn-tip .h { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.stn-tip .h .id { font-family: var(--font-data); font-size: 28px; font-weight: 700; }
+.stn-tip .h .cat { height: 30px; padding: 0 10px; font-size: 20px; border-radius: 6px; }
+.stn-tip .h .nm { font-size: 20px; color: var(--muted); }
+.stn-tip .k { margin-top: 8px; font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+.stn-tip .raw { font-size: 18px; }
+.stn-tip .adv-raw { white-space: pre-wrap; font-size: 16px; max-width: 560px; color: var(--fg-2); }
+.map-banner { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); max-width: 80%; padding: 10px 18px; border-radius: 10px; background: rgba(60,18,12,.92); color: #FFD9CF; font-size: 22px; text-align: center; }
+
+/* Briefing column */
+.side { width: 560px; display: flex; flex-direction: column; gap: 14px; padding: 20px 26px; border-left: 1px solid var(--line); overflow: hidden; }
+.clock { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.clock .z { font-size: 40px; font-weight: 700; }
+.clock .l { font-size: 22px; color: var(--muted); }
+/* Map range buttons: a temporary change (the settings' range is the default, marked with a dot) */
+.range { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.range .btns { display: flex; gap: 6px; }
+.range button { position: relative; min-width: 62px; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg-2);
+  font: 500 20px var(--font-data); cursor: pointer; }
+.range button:hover { border-color: var(--line-strong); color: var(--fg); }
+.range button.on { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 700; }
+.range button.def::after { content: ''; position: absolute; left: 50%; bottom: 3px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: currentColor; opacity: .7; }
+.label { font-size: 18px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 20px; display: flex; flex-direction: column; gap: 10px; }
+.station { display: flex; justify-content: space-between; align-items: center; }
+.station .id { font-family: var(--font-data); font-size: 44px; font-weight: 700; letter-spacing: 1px; line-height: 1; }
+/* The airport code can be clicked to look up another airport (not saved; the settings airport stays the default) */
+#stnId { cursor: pointer; border-radius: 6px; }
+#stnId:hover { box-shadow: 0 0 0 2px var(--line-strong); }
+#stnId input { width: 5.2ch; padding: 0 6px; margin: -2px 0 -2px -6px; border: 2px solid var(--accent); border-radius: 6px; background: var(--bg); color: var(--fg);
+  font: inherit; letter-spacing: inherit; text-transform: uppercase; outline: none; }
+#stnId input.bad { border-color: var(--crit); }
+.away { display: flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 18px; color: var(--warn); }
+.away[hidden] { display: none; }
+.away button { padding: 2px 12px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--fg); font: 600 18px var(--font-ui); cursor: pointer; }
+.away button:hover { border-color: var(--accent); color: var(--accent); }
+.map.on-stn { cursor: pointer; }
+.station .name { font-size: 20px; color: var(--muted); }
+/* Flight category badge. text-box trims the font's ascender/descender space so the capitals sit in the true middle. */
+.cat { display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 16px; border-radius: 8px;
+  font-size: 30px; font-weight: 700; line-height: 1; letter-spacing: 1px; color: #fff; text-box: trim-both cap alphabetic; }
+.cat.VFR { background: var(--vfr); } .cat.MVFR { background: var(--mvfr); } .cat.IFR { background: var(--ifr); } .cat.LIFR { background: var(--lifr); } .cat.UNK { background: var(--line-strong); }
+/* Category change (feature catChange): for an hour after the category changes, the old one sits faded before the new */
+.catbox { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.catrow { display: flex; align-items: center; gap: 10px; }
+.cat.prev { height: 32px; padding: 0 10px; font-size: 21px; opacity: .55; }
+.cat.changed { box-shadow: 0 0 0 4px rgba(255,255,255,.22); }
+.carrow { font-size: 26px; color: var(--muted); }
+.catchg { font: 500 16px var(--font-data); color: var(--muted); white-space: nowrap; }
+.cat[hidden], .carrow[hidden], .catchg[hidden] { display: none; }
+/* Winds aloft (feature aloft) */
+.aloft { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 18px; font: 500 22px var(--font-data); font-variant-numeric: tabular-nums; }
+.aloft .k { font: 600 15px var(--font-ui); letter-spacing: 1px; color: var(--muted); }
+.aloft .na { color: var(--muted); }
+.obs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; }
+.obs .k { font-size: 17px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+.obs .v { font-family: var(--font-data); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 500; white-space: nowrap; }
+.obs .v.long { font-size: 25px; } /* e.g. a gusting wind, "010° 20G27 kt", so it stays on one line */
+.raw { font-family: var(--font-data); font-size: 18px; line-height: 1.4; color: var(--fg-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.age { font-size: 18px; color: var(--muted); }
+.age.stale { color: var(--warn); }
+/* Side column sizing: conditions, legend and timestamps keep their size; a long TAF box shrinks (down to ~4 lines)
+   before the advisories box goes below ~4 rows; whatever still doesn't fit scrolls (layoutSide in the script) */
+.side > * { flex-shrink: 0; }
+.side > .card.taf { flex: 0 1 auto; min-height: 150px; } /* min-heights are refined by layoutSide */
+.side > .card.grow { flex: 1 1 auto; min-height: 230px; }
+#tafRaw { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.adv-list { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.adv-rows { display: flex; flex-direction: column; gap: 6px; }
+.copy + .copy { margin-top: 22px; }
+.scrolling { -webkit-mask-image: linear-gradient(transparent, #000 12px, #000 calc(100% - 12px), transparent); mask-image: linear-gradient(transparent, #000 12px, #000 calc(100% - 12px), transparent); }
+.scrolling .scroll-track { animation: sideScroll linear infinite; padding-top: 8px; }
+.scrolling:hover .scroll-track { animation-play-state: paused; }
+@keyframes sideScroll { from { transform: translateY(0); } to { transform: translateY(var(--dist)); } }
+.obs[hidden] { display: none; }
+.adv { display: grid; grid-template-columns: 12px 1fr auto; gap: 12px; align-items: center; padding: 6px 12px; border-radius: 8px; background: #0F141B; }
+.adv .sw { width: 12px; align-self: stretch; min-height: 26px; border-radius: 4px; }
+.adv .t { font-size: 22px; font-weight: 600; line-height: 1.15; }
+.adv .s { font-size: 18px; color: var(--muted); }
+.adv .u { font-family: var(--font-data); font-size: 19px; color: var(--fg-2); text-align: right; }
+.none { font-size: 22px; color: var(--muted); }
+.status { flex: 0 0 auto; display: flex; gap: 14px; padding-left: 16px; border-left: 1px solid var(--line-strong); font-size: 16px; color: var(--muted); } /* "Updated 3:40 PM", plus any late or failed source */
+.status .bad { color: var(--crit); }
+.status .stale { color: var(--warn); }
+.grow { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+
+/* Web version on a phone (docs/dash; config.js adds html.web): the map on top at a steady height (svh doesn't change
+   as the browser's toolbars show and hide), then the briefing column at full width, then the legend and advisories.
+   The page scrolls instead of fitting one screen, so nothing in the column has to be squeezed out. */
+@media (max-width: 760px) {
+  html.web, html.web body { height: auto; }
+  html.web body { overflow: auto; }
+  html.web .app { display: block; height: auto; }
+  html.web .map { height: 62svh; min-height: 300px; }
+  html.web .side { width: auto; padding: 14px 14px 18px; border-left: 0; overflow: visible; }
+  html.web .side > .card.taf, html.web .side > .card.grow { min-height: 0 !important; }
+  html.web #tafRaw, html.web .adv-list { overflow: visible; }
+  html.web .bar { height: auto; flex-wrap: wrap; padding: 10px 14px; gap: 10px; white-space: normal; }
+  html.web .bar-legend { flex-wrap: wrap; gap: 8px 12px; font-size: 15px; }
+  html.web .bar-k { padding-left: 0; border-left: 0; }
+  html.web .bar-adv { flex: 1 1 100%; }
+  html.web .status { padding-left: 0; border-left: 0; }
+  html.web .map-chip { top: 10px; left: 10px; padding: 6px 10px; font-size: 16px; gap: 6px; }
+  html.web .frames span { width: 10px; }
+  html.web .clock .z { font-size: 32px; } html.web .clock .l { font-size: 18px; }
+  html.web .station .id { font-size: 36px; } html.web .cat { height: 38px; font-size: 26px; }
+  html.web .obs .v { font-size: 24px; } html.web .obs .v.long { font-size: 20px; }
+  html.web .raw { font-size: 15px; }
+  html.web .range button { min-width: 0; flex: 1 1 0; padding: 4px 6px; font-size: 16px; }
+  html.web .range .btns { flex: 1 1 auto; } html.web .range .label { display: none; }
+  html.web .lim-banner { max-width: 86%; font-size: 15px; }
+  html.web .stn-tip { max-width: calc(100vw - 24px); }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="map" id="map">
+    <div class="layer" id="base"></div>
+    <div class="layer radar" id="radar"></div>
+    <canvas id="overlay" aria-hidden="true"></canvas>
+    <div class="map-chip"><span class="k">Radar</span><span class="v" id="radarTime">--:--Z</span><span class="v local" id="radarLocal"></span><span class="frames" id="frames"></span></div>
+    <div class="map-credit">Chart: FAA Aeronautical Information Services · Weather: NOAA/NWS Aviation Weather Center</div>
+    <div class="lim-banner" id="limBanner" role="status" hidden></div>
+    <div class="stn-ring" id="tipRing" hidden></div>
+    <div class="stn-tip" id="tip" role="tooltip" hidden></div>
+    <div class="map-banner" id="banner" hidden></div>
+  </div>
+
+  <aside class="side">
+    <div class="clock"><span class="z" id="zulu">--:--Z</span><span class="sunct" id="sunCt" hidden></span><span class="l" id="local">--:-- local</span></div>
+    <div class="sunstrip" id="sunStrip" hidden></div>
+    <div class="range"><span class="label">Range NM</span><div class="btns" id="rangeBtns" role="group" aria-label="Map range"></div></div>
+
+    <section class="card" aria-label="Current conditions">
+      <div class="ts-strip" id="tsStrip" role="alert" hidden></div>
+      <div class="station">
+        <div><div class="id" id="stnId" title="Click to show another airport">KSGU</div><div class="name" id="stnName">St. George</div>
+          <div class="away" id="away" hidden><span id="awayText"></span><button type="button" id="awayBack"></button></div></div>
+        <div class="catbox"><div class="catrow"><span class="cat prev" id="stnPrev" hidden></span><span class="carrow" id="stnArrow" hidden>→</span><div class="cat UNK" id="stnCat">----</div></div>
+          <div class="catchg" id="stnChg" hidden></div></div>
+      </div>
+      <div class="obs" id="obs">
+        <div><div class="k">Wind</div><div class="v" id="oWind">--</div></div>
+        <div><div class="k">Visibility</div><div class="v" id="oVis">--</div></div>
+        <div><div class="k">Clouds</div><div class="v" id="oCig">--</div></div>
+        <div><div class="k">Temp / Dew</div><div class="v" id="oTemp">--</div></div>
+        <div><div class="k">Altimeter</div><div class="v" id="oAlt">--</div></div>
+        <div class="da-tile" id="oDaBox" hidden><div class="k">Density alt.</div><div class="v" id="oDa">--</div></div>
+        <div><div class="k">Observed</div><div class="v" id="oTime">--</div></div>
+      </div>
+      <div class="raw" id="metarRaw"></div>
+    </section>
+
+    <!-- Feature cards (each only when switched on in settings) -->
+    <section class="card fcard" id="rwyCard" aria-label="Runway winds and density altitude" hidden></section>
+    <section class="card fcard" id="trendCard" aria-label="Home airport trend" hidden></section>
+    <section class="card fcard" id="sunCard" aria-label="Daylight" hidden></section>
+    <section class="card fcard" id="aloftCard" aria-label="Winds aloft" hidden></section>
+
+    <section class="card taf" aria-label="Terminal forecast">
+      <div class="station"><span class="label">TAF</span><span class="age" id="tafAge"></span></div>
+      <div class="raw" id="tafRaw">--</div>
+    </section>
+
+    <section class="card grow" aria-label="Advisories">
+      <div class="station"><span class="label" id="advLabel">Advisories within 100 NM</span></div>
+      <div class="adv-list" id="advList"><div class="none">Loading…</div></div>
+    </section>
+
+  </aside>
+
+  <!-- Bottom strip: station legend, the advisories active in range (they double as the advisory legend), update time -->
+  <footer class="bar" aria-label="Legend and update status">
+    <div class="bar-legend" aria-label="Map legend">
+      <span data-hl="VFR"><i style="background:var(--vfr)"></i>VFR</span>
+      <span data-hl="MVFR"><i style="background:var(--mvfr)"></i>MVFR</span>
+      <span data-hl="IFR"><i style="background:var(--ifr)"></i>IFR</span>
+      <span data-hl="LIFR"><i style="background:var(--lifr)"></i>LIFR</span>
+      <span data-hl="UNK"><i style="background:#8892A0"></i>Unknown</span>
+      <span data-hl="wind"><i class="ring"></i>15 kt+</span>
+      <span id="pirepLegend" hidden>PIREP <span data-hl="turb"><img alt="" src="" data-sym="turb">Turb</span> <span data-hl="ice"><img alt="" src="" data-sym="ice">Ice</span></span>
+    </div>
+    <span class="bar-k">Active</span>
+    <div class="bar-adv" id="barAdv" aria-label="Advisories in range"><span class="none">Loading advisories…</span></div>
+    <div class="status" id="status"></div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- Settings (override with ?station=KSGU&radius=100&loop=1&radarHours=1&airmets=1&sigmets=1&convective=1) ---------- */
+  var q = new URLSearchParams(location.search);
+  var CFG = {
+    station: (q.get('station') || 'KSGU').toUpperCase(),
+    lat: 37.0444, lon: -113.5034,          // KSGU; replaced by the METAR's position for other stations
+    radiusNm: +(q.get('radius') || 100),
+    loop: q.get('loop') !== '0',
+    radarHours: Math.max(1, Math.min(12, +(q.get('radarHours') || 1))), // radar loop length
+    light: q.get('theme') === 'light',      // Appearance setting
+    clock24: q.get('clock') === '24',       // local times as 14:05 instead of 2:05 PM (Zulu is always 24-hour)
+    decoded: /^(on|off)$/.test(q.get('decoded')) ? q.get('decoded') : 'auto', // decoded METAR grid: auto | on | off
+    advList: /^(on|off)$/.test(q.get('advList')) ? q.get('advList') : 'auto', // advisory list in the side column: auto | on | off
+    // Features (settings → Features); all off unless switched on
+    feat: {
+      limits: q.get('limits') === '1',                                           // 1B training-limits banner on the map
+      runway: /^(diagram|table)$/.test(q.get('runway')) ? q.get('runway') : '',  // 2A diagram / 2B table, with density altitude
+      sun: /^(strip|arc)$/.test(q.get('sun')) ? q.get('sun') : '',               // 3A strip under the clock / 3B day arc
+      pireps: q.get('pireps') === '1',                                           // 4A PIREP symbols on the map
+      barbs: q.get('barbs') === '1',                                             // 5A wind barbs on the stations
+      trend: q.get('trend') === '1',                                             // 6A home airport, last 12 hours
+      tfrs: q.get('tfrs') === '1',                                               // TFRs on the map and in the bottom strip
+      catChange: q.get('catChange') === '1',                                     // old → new category badge for an hour after a change
+      aloft: q.get('aloft') === '1',                                             // winds aloft card (nearest forecast point)
+      oldObs: q.get('oldObs') === '1',                                           // fade airports whose report is over 70 min old
+      tstorm: q.get('tstorm') === '1',                                           // thunderstorm within TS_NM: strip on the conditions card + bottom-strip chip
+      sunCount: /^(clock|strip)$/.test(q.get('sunCount')) ? q.get('sunCount') : '', // sunset countdown in the clock row or the sun strip
+      daFlag: /^(runway|grid)$/.test(q.get('daFlag')) ? q.get('daFlag') : ''    // high density altitude: runway card tag or a tile in the decoded grid
+    },
+    // High density altitude thresholds, feet (amber, red)
+    daWarn: +q.get('daWarn') > 0 ? +q.get('daWarn') : 5000,
+    daCrit: +q.get('daCrit') > 0 ? +q.get('daCrit') : 7000,
+    // Training limits: limSets (1-4) named sets, e.g. local pattern, non-local and initial solos. Set 1 is limName,
+    // limWind…, set 2 lim2Name, lim2Wind… Each set the airport is outside of gets its own line in the banner.
+    lims: [['lim', 'Local solo', 15, 20, 10, 3000, 5], ['lim2', 'Non-local solo', 12, 15, 8, 5000, 6],
+           ['lim3', 'Initial solo', 10, 12, 5, 4000, 6], ['lim4', 'Solo', 15, 20, 10, 3000, 5]]
+      .slice(0, Math.max(1, Math.min(4, +q.get('limSets') || 1)))
+      .map(function (s) {
+        var n = function (k, d) { var v = +q.get(s[0] + k); return v > 0 ? v : d; };
+        return { name: (q.get(s[0] + 'Name') || '').trim() || s[1], wind: n('Wind', s[2]), gust: n('Gust', s[3]), xwind: n('Xwind', s[4]), ceil: n('Ceil', s[5]), vis: n('Vis', s[6]) };
+      }),
+    advSpeed: Math.max(5, Math.min(60, +(q.get('advSpeed') || 20))), // advisory scroll speed, px per second
+    // Which advisory types are drawn on the map (the advisory list always shows all of them)
+    draw: { airmet: q.get('airmets') !== '0', sigmet: q.get('sigmets') !== '0', convective: q.get('convective') !== '0' },
+    refresh: { metar: 5, taf: 5, sigmet: 5, gairmet: 5, radar: 5, tfr: 10, aloft: 60 }, // minutes
+    awc: 'https://aviationweather.gov',
+    chart: 'https://tiles.arcgis.com/tiles/ssFJjBXIUyZDrSYZ/arcgis/rest/services/VFR_Sectional/MapServer/tile/',
+    chartZoom: [8, 12],   // the FAA sectional service only has zooms 8-12
+    radarMaxZoom: 7        // AWC radar tile cache stops at zoom 7
+  };
+
+  var $ = function (id) { return document.getElementById(id); };
+  // The shell can switch the theme live (Appearance: Auto follows sunrise and sunset at the W&B base, never this
+  // page's airport), and a page that reloads on its own asks which one is current
+  function applyTheme(light) {
+    CFG.light = light;
+    if (light) document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme;
+  }
+  applyTheme(CFG.light);
+  if (window.dashHost && dashHost.on) {
+    dashHost.on(function (m) { if (m.cmd === 'theme') applyTheme(m.light); });
+    dashHost.call('getTheme').then(function (t) { if (t.light !== CFG.light) applyTheme(t.light); }, function () {});
+  }
+  var mapEl = $('map'), baseEl = $('base'), radarEl = $('radar'), canvas = $('overlay');
+  var state = { metars: [], taf: null, sigmets: [], gairmets: [], tfrs: [], frames: [], frame: 0, view: null, status: {} };
+
+  /* ---------- Data access ---------- */
+  // In the finished app the host fetches on the page's behalf (aviationweather.gov does not allow
+  // other web pages to read its data). The test launcher opens this file in an Edge profile that allows it.
+  // The web version (docs/dash on GitHub Pages; config.js sets WXC_WEB) reads them through the relay (relay/worker.js).
+  function viaRelay(url) { return window.WXC_WEB && WXC_WEB.relay ? WXC_WEB.relay + '/?u=' + encodeURIComponent(url) : url; }
+  function getJSON(path) {
+    var url = path.indexOf('http') === 0 ? path : CFG.awc + path;
+    if (window.chrome && window.chrome.webview && window.dashHost && window.dashHost.getJSON) {
+      return window.dashHost.getJSON(url);
+    }
+    return fetch(viaRelay(url), { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    });
+  }
+  function getText(url) {
+    if (window.chrome && window.chrome.webview && window.dashHost && window.dashHost.getText) return window.dashHost.getText(url);
+    return fetch(viaRelay(url), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); });
+  }
+  function mark(name, ok, err) {
+    state.status[name] = { ok: ok, at: Date.now(), err: err ? String(err.message || err) : '' };
+    renderStatus();
+  }
+
+  /* ---------- Geometry ---------- */
+  var NM = 1852, R_EARTH = 6378137;
+  function worldPx(lat, lon, z) {
+    var s = 256 * Math.pow(2, z), r = lat * Math.PI / 180;
+    return { x: (lon + 180) / 360 * s, y: (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * s };
+  }
+  function distNm(aLat, aLon, bLat, bLon) {
+    var r = Math.PI / 180, dLat = (bLat - aLat) * r, dLon = (bLon - aLon) * r;
+    var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(aLat * r) * Math.cos(bLat * r) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return 2 * R_EARTH * Math.asin(Math.sqrt(h)) / NM;
+  }
+  function bbox() {
+    var dLat = CFG.radiusNm / 60, dLon = CFG.radiusNm / (60 * Math.cos(CFG.lat * Math.PI / 180));
+    return [CFG.lat - dLat, CFG.lon - dLon, CFG.lat + dLat, CFG.lon + dLon].map(function (n) { return n.toFixed(2); }).join(',');
+  }
+  // Local flat projection in NM around the station, for "does this polygon touch the circle"
+  function local(lat, lon) {
+    return { x: (lon - CFG.lon) * 60 * Math.cos(CFG.lat * Math.PI / 180), y: (lat - CFG.lat) * 60 };
+  }
+  function segDist(p, a, b) {
+    var dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy;
+    var t = L ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L)) : 0;
+    var cx = a.x + t * dx - p.x, cy = a.y + t * dy - p.y;
+    return Math.sqrt(cx * cx + cy * cy);
+  }
+  function inside(p, ring) {
+    var c = false;
+    for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      var a = ring[i], b = ring[j];
+      if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) c = !c;
+    }
+    return c;
+  }
+  function rings(geom) {
+    if (!geom) return [];
+    if (geom.type === 'Polygon') return geom.coordinates;
+    if (geom.type === 'MultiPolygon') return [].concat.apply([], geom.coordinates);
+    if (geom.type === 'LineString') return [geom.coordinates];
+    return [];
+  }
+  function touchesArea(geom) {
+    var o = { x: 0, y: 0 };
+    return rings(geom).some(function (ring) {
+      var pts = ring.map(function (c) { return local(c[1], c[0]); });
+      if (geom.type !== 'LineString' && inside(o, pts)) return true;
+      for (var i = 1; i < pts.length; i++) if (segDist(o, pts[i - 1], pts[i]) <= CFG.radiusNm) return true;
+      return false;
+    });
+  }
+
+  /* ---------- View: fixed center, scale fit so the range ring fills the map ---------- */
+  function computeView() {
+    var w = mapEl.clientWidth, h = mapEl.clientHeight;
+    var ringPx = Math.min(w, h) * 0.45;
+    var mPerPxAtZ0 = 2 * Math.PI * R_EARTH / 256 * Math.cos(CFG.lat * Math.PI / 180);
+    var z = Math.log2(ringPx * mPerPxAtZ0 / (CFG.radiusNm * NM));
+    var c = worldPx(CFG.lat, CFG.lon, z);
+    state.view = { w: w, h: h, z: z, left: c.x - w / 2, top: c.y - h / 2, dpr: window.devicePixelRatio || 1 };
+  }
+  function toScreen(lat, lon) {
+    var p = worldPx(lat, lon, state.view.z);
+    return { x: p.x - state.view.left, y: p.y - state.view.top };
+  }
+
+  /* ---------- Tiles ---------- */
+  function tileZoom(min, max) {
+    var v = state.view;
+    return Math.max(min, Math.min(max, Math.round(v.z + Math.log2(v.dpr))));
+  }
+  function tileGrid(tz) {
+    var v = state.view, size = 256 * Math.pow(2, v.z - tz), n = Math.pow(2, tz), out = [];
+    var x0 = Math.floor(v.left / size), x1 = Math.floor((v.left + v.w) / size);
+    var y0 = Math.floor(v.top / size), y1 = Math.floor((v.top + v.h) / size);
+    for (var y = Math.max(0, y0); y <= Math.min(n - 1, y1); y++)
+      for (var x = x0; x <= x1; x++)
+        out.push({ x: ((x % n) + n) % n, y: y, left: x * size - v.left, top: y * size - v.top, size: size });
+    return { tz: tz, n: n, tiles: out };
+  }
+  function placeTiles(container, grid, urlFor) {
+    var frag = document.createDocumentFragment();
+    grid.tiles.forEach(function (t) {
+      var img = new Image();
+      img.className = 'tile';
+      img.alt = '';
+      img.decoding = 'async';
+      img.style.left = Math.round(t.left) + 'px';
+      img.style.top = Math.round(t.top) + 'px';
+      img.style.width = img.style.height = Math.ceil(t.size) + 1 + 'px';
+      img.onerror = function () { img.style.visibility = 'hidden'; };
+      img.src = urlFor(grid.tz, t.x, t.y, grid.n);
+      frag.appendChild(img);
+    });
+    container.appendChild(frag);
+  }
+  function drawBase() {
+    baseEl.innerHTML = '';
+    placeTiles(baseEl, tileGrid(tileZoom(CFG.chartZoom[0], CFG.chartZoom[1])), function (z, x, y) {
+      return CFG.chart + z + '/' + y + '/' + x;
+    });
+  }
+
+  /* ---------- Radar (AWC tile cache, 10-minute frames, TMS rows) ---------- */
+  // AWC keeps tiles for days, but its frame list only returns the latest ~8 frames. So the list gives the newest frame
+  // and the loop is counted back from it. Longer loops space frames out to stay at 13 or fewer.
+  function frameStepMin(hours) { return hours <= 2 ? 10 : hours <= 4 ? 20 : hours <= 6 ? 30 : 60; }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function localTime(d) { // local clock time in the chosen format: "2:05 PM" or "14:05"
+    return CFG.clock24 ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+  function stamp(d) { return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + pad(d.getUTCHours()) + pad(d.getUTCMinutes()); }
+  function parseStamp(s) { return new Date(Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(8, 10), +s.slice(10, 12))); }
+  function loopFrames(latest) {
+    var step = frameStepMin(CFG.radarHours), n = CFG.radarHours * 60 / step, end = parseStamp(latest).getTime(), out = [];
+    for (var i = n; i >= 0; i--) out.push(stamp(new Date(end - i * step * 60000)));
+    return out;
+  }
+  function guessLatest() { // used if the frame list can't be read; frames appear a few minutes after their time
+    var t = new Date(Date.now() - 7 * 60000);
+    t.setUTCMinutes(Math.floor(t.getUTCMinutes() / 10) * 10, 0, 0);
+    return stamp(t);
+  }
+  function loadRadar() {
+    return getJSON('/api/info/radar?type=rala&format=json&num=5&date=' + stamp(new Date()))
+      .then(function (list) { mark('Radar', true); return Array.isArray(list) && list.length ? list[list.length - 1] : guessLatest(); })
+      .catch(function () { mark('Radar', true); return guessLatest(); }) // tiles are images, so radar still works without the list
+      .then(function (latest) { state.frames = loopFrames(latest); drawRadar(false); });
+  }
+  // Keeps the tile layers of frames already loaded; only new frames download (a full rebuild when the view changes)
+  var radarLayers = {};
+  function drawRadar(rebuildAll) {
+    var grid = tileGrid(Math.min(CFG.radarMaxZoom, tileZoom(1, CFG.radarMaxZoom)));
+    if (rebuildAll) { radarEl.innerHTML = ''; radarLayers = {}; }
+    var keep = {};
+    state.frames.forEach(function (f) {
+      var layer = radarLayers[f];
+      if (!layer) {
+        layer = document.createElement('div');
+        layer.className = 'layer';
+        placeTiles(layer, grid, function (z, x, y, n) {
+          return CFG.awc + '/data/tilecache/rad_rala/' + f.slice(0, 8) + '/' + f.slice(8, 12) + '/' + z + '/rad_' + x + '_' + (n - 1 - y) + '.png';
+        });
+      }
+      keep[f] = layer;
+      radarEl.appendChild(layer); // (re)appending keeps the layers in frame order
+    });
+    Object.keys(radarLayers).forEach(function (f) { if (!keep[f]) radarEl.removeChild(radarLayers[f]); });
+    radarLayers = keep;
+    $('frames').innerHTML = state.frames.map(function () { return '<span></span>'; }).join('');
+    state.frame = state.frames.length - 1;
+    showFrame();
+  }
+  function showFrame() {
+    var layers = radarEl.children, marks = $('frames').children;
+    for (var i = 0; i < layers.length; i++) {
+      layers[i].style.visibility = i === state.frame ? 'visible' : 'hidden';
+      if (marks[i]) marks[i].className = i === state.frame ? 'on' : '';
+    }
+    var f = state.frames[state.frame];
+    if (f) {
+      var d = parseStamp(f);
+      $('radarTime').textContent = pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + 'Z';
+      $('radarLocal').textContent = localTime(d);
+    }
+  }
+  var dwell = 0;
+  setInterval(function () {
+    if (!CFG.loop || state.frames.length < 2) return;
+    var last = state.frames.length - 1;
+    if (state.frame === last && dwell < 4) { dwell++; return; } // hold on the latest frame for 2 s
+    dwell = 0;
+    state.frame = state.frame === last ? 0 : state.frame + 1;
+    showFrame();
+  }, 500);
+
+  /* ---------- Overlay drawing ---------- */
+  // Line widths and fills are chosen to stand out on the busy sectional chart; tag = short label drawn on the map
+  var HAZ = {
+    CONVECTIVE: { c: '#FF3B30', fill: .30, w: 7, label: 'Convective SIGMET', tag: 'CONV SIGMET' },
+    SIGMET:     { c: '#B455FF', fill: .22, w: 6, label: 'SIGMET', tag: 'SIGMET' },
+    IFR:        { c: '#8C7BFF', fill: .16, w: 5, dash: [16, 9], label: 'IFR', tag: 'IFR' },
+    MT_OBSC:    { c: '#C77BFF', fill: .14, w: 5, dash: [6, 8], label: 'Mountain obscuration', tag: 'MTN OBSC' },
+    'MTN OBSCN':{ c: '#C77BFF', fill: .14, w: 5, dash: [6, 8], label: 'Mountain obscuration', tag: 'MTN OBSC' },
+    'TURB-LO':  { c: '#F0A020', fill: .14, w: 5, dash: [16, 9], label: 'Turbulence below FL180', tag: 'TURB LO' },
+    'TURB-HI':  { c: '#F5D040', fill: .10, w: 5, dash: [4, 8], label: 'Turbulence above FL180', tag: 'TURB HI' },
+    TURB:       { c: '#F0A020', fill: .14, w: 5, dash: [16, 9], label: 'Turbulence', tag: 'TURB' },
+    SFC_WND:    { c: '#E08A30', fill: .12, w: 5, dash: [22, 8], label: 'Surface wind 30 kt+', tag: 'SFC WIND' },
+    LLWS:       { c: '#3AC5C5', fill: .12, w: 5, dash: [22, 8], label: 'Low-level wind shear', tag: 'LLWS' },
+    ICE:        { c: '#4FA3FF', fill: .14, w: 5, dash: [16, 9], label: 'Icing', tag: 'ICE' },
+    ASH:        { c: '#FF3B30', fill: .26, w: 6, label: 'Volcanic ash', tag: 'ASH' }
+  };
+  function styleFor(f) {
+    var p = f.properties || {};
+    if (f._kind === 'sigmet') return p.hazard === 'CONVECTIVE' ? HAZ.CONVECTIVE : (p.airSigmetType === 'SIGMET' ? HAZ.SIGMET : (HAZ[p.hazard] || HAZ.SIGMET));
+    return HAZ[p.hazard] || { c: '#AAB4C0', fill: .10, w: 4, dash: [8, 8], label: p.hazard || 'Advisory', tag: p.hazard || 'ADVISORY' };
+  }
+  // airmet (G-AIRMETs and any AIRMET in the SIGMET feed), sigmet, or convective; matches the CFG.draw toggles
+  function advKind(f) {
+    var p = f.properties || {};
+    if (f._kind === 'gairmet' || p.airSigmetType === 'AIRMET') return 'airmet';
+    return p.hazard === 'CONVECTIVE' ? 'convective' : 'sigmet';
+  }
+  function hexA(hex, a) {
+    var n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+  var CAT = { VFR: '#2FB55A', MVFR: '#2F7BF0', IFR: '#E5403A', LIFR: '#C23BD4' };
+
+  function drawOverlay() {
+    var v = state.view, dpr = v.dpr;
+    canvas.width = Math.round(v.w * dpr); canvas.height = Math.round(v.h * dpr);
+    var g = canvas.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, v.w, v.h);
+
+    // While a legend item is hovered (state.hl), everything that isn't that kind fades back and its matches grow
+    var hl = state.hl, FADE = 0.18;
+    g.globalAlpha = hl ? FADE : 1;
+    // Advisory polygons: G-AIRMETs under SIGMETs, convective on top
+    var feats = state.gairmets.concat(state.sigmets).filter(function (f) { return CFG.draw[advKind(f)]; })
+      .sort(function (a, b) { return styleFor(a).w - styleFor(b).w; });
+    var tags = [];
+    feats.forEach(function (f) {
+      var s = styleFor(f), line = f.geometry && f.geometry.type === 'LineString';
+      rings(f.geometry).forEach(function (ring) {
+        var pts = ring.map(function (c) { return toScreen(c[1], c[0]); });
+        g.beginPath();
+        pts.forEach(function (p, i) { i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y); });
+        if (!line) { g.closePath(); g.fillStyle = hexA(s.c, s.fill); g.fill(); }
+        g.setLineDash([]);
+        g.lineWidth = s.w + 5; g.strokeStyle = 'rgba(11,15,20,.7)'; g.stroke(); // solid dark halo under the dashes
+        g.setLineDash(s.dash || []);
+        g.lineWidth = s.w; g.strokeStyle = s.c; g.stroke();
+        // Tag the outline at its on-screen vertex nearest the map center
+        var best = null, cx = v.w / 2, cy = v.h / 2;
+        pts.forEach(function (p) {
+          if (p.x < 60 || p.y < 60 || p.x > v.w - 60 || p.y > v.h - 40) return;
+          var d = (p.x - cx) * (p.x - cx) + (p.y - cy) * (p.y - cy);
+          if (!best || d < best.d) best = { x: p.x, y: p.y, d: d };
+        });
+        if (best) tags.push({ x: best.x, y: best.y, s: s, src: f });
+      });
+    });
+    g.setLineDash([]);
+    // TFRs: red hatching while active; a dashed outline for one that starts within the next 12 hours
+    state.tfrs.forEach(function (t) {
+      var live = t.from <= Date.now();
+      rings(t.geometry).forEach(function (ring) {
+        var pts = ring.map(function (c) { return toScreen(c[1], c[0]); });
+        g.beginPath();
+        pts.forEach(function (p, i) { i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y); });
+        g.closePath();
+        if (live) { g.fillStyle = tfrHatch(g); g.fill(); }
+        g.setLineDash([]); g.lineWidth = 8; g.strokeStyle = 'rgba(11,15,20,.6)'; g.stroke();
+        g.setLineDash(live ? [] : [14, 9]); g.lineWidth = 4; g.strokeStyle = TFR_RED; g.stroke(); g.setLineDash([]);
+        var top = pts.reduce(function (a, p) { return !a || p.y < a.y ? p : a; }, null); // tag at the shape's top edge
+        if (top && top.y > 30 && top.x > 40 && top.x < v.w - 40) tags.push({ x: top.x, y: top.y - 4, s: { tag: live ? 'TFR' : 'TFR ' + hhmmZ(new Date(t.from)), c: TFR_RED, fg: '#FFFFFF' }, src: t });
+      });
+    });
+    // The advisory whose map tag is hovered: its whole outline glows (every area of a TFR's NOTAM), over the others
+    var ah = state.advHover;
+    if (ah) {
+      g.globalAlpha = 1;
+      var hs = !ah.properties ? { c: TFR_RED, w: 4 } : styleFor(ah);
+      var hlFeats = ah.properties ? [ah] : state.tfrs.filter(function (t) { return t.id === ah.id; });
+      hlFeats.forEach(function (f) {
+        var open = f.geometry && f.geometry.type === 'LineString';
+        rings(f.geometry).forEach(function (ring) {
+          var pts = ring.map(function (c) { return toScreen(c[1], c[0]); });
+          var bx = pts.reduce(function (a, p) { return { x0: Math.min(a.x0, p.x), y0: Math.min(a.y0, p.y), x1: Math.max(a.x1, p.x), y1: Math.max(a.y1, p.y) }; }, { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 });
+          if (bx.x1 - bx.x0 < 40 && bx.y1 - bx.y0 < 40) { // a small area (a stadium TFR): a ring around it so it can be found
+            var rr = Math.max(bx.x1 - bx.x0, bx.y1 - bx.y0) / 2 + 26;
+            g.beginPath(); g.arc((bx.x0 + bx.x1) / 2, (bx.y0 + bx.y1) / 2, rr, 0, Math.PI * 2);
+            g.lineWidth = 9; g.strokeStyle = 'rgba(255,255,255,.95)'; g.stroke();
+            g.lineWidth = 4; g.strokeStyle = hs.c; g.stroke();
+          }
+          g.beginPath();
+          pts.forEach(function (p, i) { i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y); });
+          if (!open) g.closePath();
+          g.setLineDash([]); g.lineJoin = 'round';
+          g.shadowColor = hs.c; g.shadowBlur = 22;
+          g.lineWidth = hs.w + 12; g.strokeStyle = 'rgba(255,255,255,.95)'; g.stroke();
+          g.shadowBlur = 0;
+          g.lineWidth = hs.w + 3; g.strokeStyle = hs.c; g.stroke();
+        });
+      });
+      g.globalAlpha = hl ? FADE : 1;
+    }
+    var placed = [];
+    state.tagHits = [];
+    tags.forEach(function (t) {
+      if (placed.some(function (p) { return Math.abs(p.x - t.x) < 110 && Math.abs(p.y - t.y) < 26; })) return; // avoid stacking
+      placed.push(t);
+      var on = ah && (t.src === ah || (!ah.properties && !t.src.properties && t.src.id === ah.id)); // a TFR: any area of its NOTAM
+      if (on) g.globalAlpha = 1;
+      var box = label(g, t.s.tag, t.x, t.y, on ? 18 : 16, t.s.fg || '#0B0F14', t.s.c);
+      if (on) { g.lineWidth = 3; g.strokeStyle = '#FFFFFF'; roundRect(g, box.x0 - 1, box.y0 - 1, box.x1 - box.x0 + 2, box.y1 - box.y0 + 2, 6); g.stroke(); g.globalAlpha = hl ? FADE : 1; }
+      state.tagHits.push({ box: box, src: t.src });
+    });
+    g.globalAlpha = 1;
+
+    // Range rings
+    var ctr = toScreen(CFG.lat, CFG.lon);
+    var pxPerNm = (toScreen(CFG.lat + CFG.radiusNm / 60, CFG.lon).y - ctr.y) / -CFG.radiusNm;
+    var taken = []; // boxes the airport labels steer around: ring labels, dots, wind barbs
+    [CFG.radiusNm / 2, CFG.radiusNm].forEach(function (nm, i) {
+      var r = nm * pxPerNm;
+      g.beginPath(); g.arc(ctr.x, ctr.y, r, 0, Math.PI * 2);
+      g.lineWidth = 6; g.strokeStyle = 'rgba(255,255,255,.55)'; g.stroke();
+      g.lineWidth = 2.5; g.setLineDash(i ? [] : [12, 10]); g.strokeStyle = '#0B0F14'; g.stroke(); g.setLineDash([]);
+      taken.push(label(g, nm + ' NM', ctr.x + r * Math.cos(-Math.PI / 4), ctr.y + r * Math.sin(-Math.PI / 4), 18, '#0B0F14', 'rgba(255,255,255,.85)'));
+    });
+
+    // METAR stations (wind barbs first, so the dots sit on top of the staffs)
+    // Matches of a hovered legend item are drawn last, so faded stations never sit on top of them
+    var stns = hl ? state.metars.slice().sort(function (a, b) { return hlMatch(hl, a) - hlMatch(hl, b); }) : state.metars;
+    if (F.barbs) stns.forEach(function (m) {
+      if (m.lat == null) return;
+      var p = toScreen(m.lat, m.lon), on = hl && hlMatch(hl, m), r = m.icaoId === CFG.station ? 13 : 10;
+      g.globalAlpha = hl && !on ? FADE : 1;
+      drawBarb(g, p.x, p.y, m, r * (on ? 1.35 : 1));
+      barbBoxes(p.x, p.y, m, r).forEach(function (b) { taken.push(b); });
+    });
+    var spots = [];
+    stns.forEach(function (m) {
+      if (m.lat == null) return;
+      var p = toScreen(m.lat, m.lon), home = m.icaoId === CFG.station, on = hl && hlMatch(hl, m), r0 = home ? 13 : 10;
+      var r = r0 * (on ? 1.35 : 1), ring = m.wspd >= 15 || !!m.wgst;
+      // Feature oldObs (9B): a report over OLD_MIN old fades, and its label says how old
+      var ageMin = m.obsTime ? (Date.now() / 1000 - m.obsTime) / 60 : 0, old = F.oldObs && ageMin > OLD_MIN;
+      g.globalAlpha = (hl && !on ? FADE : 1);
+      var dotAlpha = g.globalAlpha * (old ? 0.45 : 1);
+      g.globalAlpha = dotAlpha;
+      g.beginPath(); g.arc(p.x, p.y, r + 3, 0, Math.PI * 2); g.fillStyle = '#0B0F14'; g.fill();
+      g.beginPath(); g.arc(p.x, p.y, r, 0, Math.PI * 2); g.fillStyle = CAT[m.fltCat] || '#8892A0'; g.fill();
+      if (ring) { g.beginPath(); g.arc(p.x, p.y, r + 7, 0, Math.PI * 2); g.lineWidth = 3; g.strokeStyle = '#F5B841'; g.stroke(); }
+      g.globalAlpha = hl && !on ? FADE : 1;
+      var e = r0 + (ring ? 9 : 4);
+      taken.push({ x0: p.x - e, y0: p.y - e, x1: p.x + e, y1: p.y + e, dot: true });
+      spots.push({ m: m, x: p.x, y: p.y, gap: e + 5, home: home, alpha: g.globalAlpha,
+        age: old ? (ageMin < 120 ? Math.round(ageMin) + 'm' : Math.floor(ageMin / 60) + 'h') : '' });
+    });
+    placeLabels(g, spots, taken, v);
+    g.globalAlpha = 1;
+    drawPireps(g);
+    // What the limits banner should keep off: airport dots (the home one most), their labels, barbs, advisory tags
+    var home = state.metars.filter(function (m) { return m.icaoId === CFG.station && m.lat != null; })[0], hp = home && toScreen(home.lat, home.lon);
+    state.mapBoxes = taken.map(function (b) { return { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, w: b.dot ? 8 : 1 }; })
+      .concat((state.labelBoxes || []).map(function (b) { return { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, w: 4 }; }))
+      .concat((state.tagHits || []).map(function (h) { return { x0: h.box.x0, y0: h.box.y0, x1: h.box.x1, y1: h.box.y1, w: 4 }; }))
+      .concat(hp ? [{ x0: hp.x - 60, y0: hp.y - 40, x1: hp.x + 90, y1: hp.y + 40, w: 50 }] : []);
+    placeLimBanner();
+  }
+
+  // The limits banner goes in the map corner where it covers the least (state.mapBoxes, weighted), below or above the
+  // radar chip, credit line and status banner. It only moves when another corner is clearly better, so it doesn't jump
+  // between corners as the radar and reports update.
+  var limCorner = null;
+  function placeLimBanner() {
+    var el = $('limBanner'), v = state.view;
+    if (el.hidden || !v || !state.mapBoxes) return;
+    var mr = mapEl.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight, M = 18;
+    var fixed = ['.map-chip', '.map-credit', '#banner'].map(function (s) { return document.querySelector(s); })
+      .filter(function (e) { return e && !e.hidden && e.offsetWidth; })
+      .map(function (e) { var r = e.getBoundingClientRect(); return { x0: r.left - mr.left - 8, y0: r.top - mr.top - 8, x1: r.right - mr.left + 8, y1: r.bottom - mr.top + 8 }; });
+    function at(c) {
+      var right = c[1] === 'r', bottom = c[0] === 'b', x = right ? v.w - M - w : M, y = bottom ? v.h - M - h : M;
+      for (var i = 0; i < 4; i++) { // step past the fixed boxes, away from the edge
+        var box = { x0: x, y0: y, x1: x + w, y1: y + h }, f = fixed.filter(function (o) { return overlap(box, o) > 0; })[0];
+        if (!f) break;
+        y = bottom ? f.y0 - h : f.y1;
+      }
+      box = { x0: x, y0: y, x1: x + w, y1: y + h };
+      var score = state.mapBoxes.reduce(function (s, o) { return s + overlap(box, o) * o.w; }, 0) + (y < 0 || y + h > v.h ? 1e9 : 0);
+      return { c: c, x: x, y: y, score: score };
+    }
+    var all = ['tr', 'tl', 'br', 'bl'].map(at), best = all.reduce(function (a, b) { return b.score < a.score ? b : a; });
+    var cur = limCorner && all.filter(function (a) { return a.c === limCorner; })[0];
+    if (cur && cur.score < 1e9 && cur.score - best.score < Math.max(400, cur.score * 0.3)) best = cur; // not clearly better: stay
+    limCorner = best.c;
+    el.style.left = best.x + 'px'; el.style.top = best.y + 'px';
+    el.classList.toggle('right', best.c[1] === 'r');
+    el.dataset.corner = best.c;
+  }
+  // Legend item keys: flight categories, UNK (no category), wind (15 kt+ ring), turb / ice (PIREPs)
+  function hlMatch(k, x) {
+    if (x.p) return (k === 'turb' && !!x.turb) || (k === 'ice' && !!x.ice); // a PIREP
+    if (k === 'wind') return x.wspd >= 15 || !!x.wgst;
+    if (k === 'UNK') return !CAT[x.fltCat];
+    return x.fltCat === k;
+  }
+  // Hovering (or tapping) a legend item fades everything else on the map
+  Array.prototype.forEach.call(document.querySelectorAll('.bar-legend [data-hl]'), function (el) {
+    function set(k) {
+      state.hl = k;
+      Array.prototype.forEach.call(document.querySelectorAll('.bar-legend [data-hl]'), function (o) { o.classList.toggle('on', o.dataset.hl === k); });
+      if (state.view) drawOverlay();
+    }
+    el.addEventListener('mouseenter', function () { set(el.dataset.hl); });
+    el.addEventListener('mouseleave', function () { set(null); });
+    el.addEventListener('click', function () { set(state.hl === el.dataset.hl ? null : el.dataset.hl); });
+  });
+  function label(g, text, x, y, size, fg, bg, align) { // returns the box it covers
+    g.font = '600 ' + size + 'px "Barlow Semi Condensed", "Segoe UI", sans-serif';
+    var w = g.measureText(text).width, padX = 6, h = size + 6;
+    var lx = align === 'left' ? x : x - w / 2 - padX;
+    g.fillStyle = bg; roundRect(g, lx, y - h / 2, w + padX * 2, h, 5); g.fill();
+    g.fillStyle = fg; g.textBaseline = 'middle'; g.textAlign = 'left'; g.fillText(text, lx + padX, y + 1);
+    return { x0: lx, y0: y - h / 2, x1: lx + w + padX * 2, y1: y + h / 2 };
+  }
+
+  // Airport labels: each one tries spots around its dot (right first, then left, above, below, the corners) and takes the
+  // one that covers the fewest other labels, dots and wind barbs. Crowded areas (Las Vegas from KSGU) then try spots
+  // farther out with a thin line to the dot; a label with no clear spot is left off (the hover panel still names the
+  // airport). The home airport always gets one. Placement ignores the legend highlight, so labels don't jump on hover.
+  function barbBoxes(x, y, m, r) { // the staff and feathers drawBarb draws, as small boxes
+    if (m.wspd == null || !m.wspd || m.wdir === 'VRB' || m.wdir == null) return [];
+    var a = (+m.wdir) * Math.PI / 180, s = Math.sin(a), c = Math.cos(a), len = r + 34, out = [];
+    function at(px, py) { var X = x + px * c - py * s, Y = y + px * s + py * c; out.push({ x0: X - 6, y0: Y - 6, x1: X + 6, y1: Y + 6 }); }
+    for (var t = r + 6; t <= len; t += 7) at(0, -t);
+    for (t = len - 4; t > len - 22; t -= 8) at(9, -t - 3); // feathers lean to one side near the tip
+    return out;
+  }
+  function overlap(a, b) { return Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0)); }
+  function placeLabels(g, spots, taken, v) {
+    var cx = v.w / 2, cy = v.h / 2, placed = [];
+    spots.sort(function (a, b) { return (b.home - a.home) || ((a.x - cx) * (a.x - cx) + (a.y - cy) * (a.y - cy)) - ((b.x - cx) * (b.x - cx) + (b.y - cy) * (b.y - cy)); });
+    // [dx, dy] direction; the box is placed so its nearest edge sits that far from the dot
+    var DIRS = [[1, 0], [-1, 0], [0, -1], [0, 1], [.75, -.75], [.75, .75], [-.75, -.75], [-.75, .75]];
+    spots.forEach(function (s) {
+      var size = s.home ? 22 : 18, h = size + 6;
+      g.font = '600 ' + size + 'px "Barlow Semi Condensed", "Segoe UI", sans-serif';
+      var idW = g.measureText(s.m.icaoId).width, ageFont = '500 ' + Math.round(size * .8) + 'px "JetBrains Mono", Consolas, monospace';
+      if (s.age) { g.font = ageFont; s.ageW = g.measureText(s.age).width; g.font = '600 ' + size + 'px "Barlow Semi Condensed", "Segoe UI", sans-serif'; }
+      var w = idW + 12 + (s.age ? s.ageW + 6 : 0), best = null;
+      [1, 2.1].forEach(function (far, tier) {
+        if (best && best.clear) return;
+        DIRS.forEach(function (d, i) {
+          var gap = s.gap * far, bx = s.x + d[0] * gap + (d[0] > 0 ? 0 : d[0] < 0 ? -w : -w / 2), by = s.y + d[1] * gap + (d[1] > 0 ? 0 : d[1] < 0 ? -h : -h / 2);
+          if (d[0] && d[1]) { bx = s.x + d[0] * gap + (d[0] < 0 ? -w : 0); by = s.y + d[1] * gap + (d[1] < 0 ? -h : 0); }
+          var box = { x0: bx, y0: by, x1: bx + w, y1: by + h };
+          var hit = 0, hard = 0;
+          placed.forEach(function (o) { hard += overlap(box, o); });
+          taken.forEach(function (o) { var a = overlap(box, o); if (o.dot) hard += a; else hit += a; });
+          var off = (box.x0 < 4 || box.y0 < 4 || box.x1 > v.w - 4 || box.y1 > v.h - 4) ? 1e6 : 0;
+          var score = hard * 10 + hit + off + i * 2 + tier * 40;
+          if (!best || score < best.score) best = { box: box, score: score, far: tier > 0, clear: hard === 0 && !off && hit < 30 };
+        });
+      });
+      if (!best || (!best.clear && !s.home && (best.score >= 1e6 || best.score - (best.far ? 40 : 0) > 400))) return;
+      placed.push(best.box);
+      g.globalAlpha = s.alpha;
+      if (best.far) { // leader line from the dot's edge to the label's nearest point
+        var lx = Math.max(best.box.x0, Math.min(s.x, best.box.x1)), ly = Math.max(best.box.y0, Math.min(s.y, best.box.y1));
+        var dx = lx - s.x, dy = ly - s.y, dd = Math.sqrt(dx * dx + dy * dy) || 1, r = s.gap - 5;
+        g.beginPath(); g.moveTo(s.x + dx / dd * r, s.y + dy / dd * r); g.lineTo(lx, ly);
+        g.lineWidth = 4; g.strokeStyle = 'rgba(11,15,20,.7)'; g.stroke(); g.lineWidth = 1.6; g.strokeStyle = '#E8EEF5'; g.stroke();
+      }
+      var mid = (best.box.y0 + best.box.y1) / 2;
+      if (!s.age) { label(g, s.m.icaoId, best.box.x0, mid, size, '#E8EEF5', 'rgba(11,15,20,.82)', 'left'); return; }
+      g.fillStyle = 'rgba(11,15,20,.82)'; roundRect(g, best.box.x0, best.box.y0, w, h, 5); g.fill();
+      g.textBaseline = 'middle'; g.textAlign = 'left';
+      g.fillStyle = '#C9D3DF'; g.fillText(s.m.icaoId, best.box.x0 + 6, mid + 1);
+      g.font = ageFont; g.fillStyle = '#F7C55E'; g.fillText(s.age, best.box.x0 + 6 + idW + 6, mid + 1);
+    });
+    state.labelBoxes = placed;
+  }
+  function roundRect(g, x, y, w, h, r) {
+    g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  }
+
+  /* ---------- Loaders ---------- */
+  function loadMetars() {
+    // The area search sometimes leaves out the home airport (seen at KTCL and KHEG when AWC was slow), so it is also asked for directly
+    // (12 hours of them when the trend card is on)
+    var own = getJSON('/api/data/metar?ids=' + encodeURIComponent(CFG.station) + '&format=json&hours=' + (F.trend ? 12 : 3)).catch(function () { return []; });
+    return Promise.all([getJSON('/api/data/metar?bbox=' + bbox() + '&format=json&taf=false'), own]).then(function (res) {
+      var list = Array.isArray(res[0]) ? res[0] : [], mine = Array.isArray(res[1]) ? res[1] : [];
+      var home = list.concat(mine).filter(function (m) { return m.icaoId === CFG.station; })
+        .sort(function (a, b) { return b.obsTime - a.obsTime; })[0];
+      list = list.filter(function (m) { return m.icaoId !== CFG.station; });
+      if (home) list.push(home);
+      state.metars = list.filter(function (m) { return distNm(CFG.lat, CFG.lon, m.lat, m.lon) <= CFG.radiusNm + 5; });
+      state.home = home || null; state.history = mine;
+      renderStation(home);
+      mark('METARs', true); drawOverlay(); renderFeatures();
+    }).catch(function (e) { mark('METARs', false, e); });
+  }
+  function loadTaf() {
+    return getJSON('/api/data/taf?ids=' + CFG.station + '&format=json').then(function (list) {
+      state.taf = list[0] || null; renderTaf(); mark('TAF', true);
+    }).catch(function (e) { mark('TAF', false, e); });
+  }
+  function loadSigmets() {
+    return getJSON('/api/data/airsigmet?format=geojson').then(function (fc) {
+      var now = Date.now();
+      state.sigmets = (fc.features || []).filter(function (f) {
+        var p = f.properties || {};
+        if (p.airSigmetType === 'OUTLOOK') return false;
+        return !p.validTimeTo || Date.parse(p.validTimeTo) > now;
+      }).map(function (f) { f._kind = 'sigmet'; return f; });
+      mark('SIGMETs', true); drawOverlay(); renderAdvisories();
+      if (F.tstorm) renderThunder();
+    }).catch(function (e) { mark('SIGMETs', false, e); });
+  }
+  function loadGairmets() {
+    return getJSON('/api/data/gairmet?format=geojson').then(function (fc) {
+      var feats = (fc.features || []).filter(function (f) {
+        var h = (f.properties || {}).hazard;
+        return h && h !== 'FZLVL' && h !== 'M_FZLVL';
+      });
+      // Use the G-AIRMET snapshot closest to now
+      var now = Date.now(), best = null;
+      feats.forEach(function (f) {
+        var t = Date.parse(f.properties.validTime);
+        if (best === null || Math.abs(t - now) < Math.abs(best - now)) best = t;
+      });
+      state.gairmets = feats.filter(function (f) { return Date.parse(f.properties.validTime) === best; })
+        .map(function (f) { f._kind = 'gairmet'; return f; });
+      mark('G-AIRMETs', true); drawOverlay(); renderAdvisories();
+    }).catch(function (e) { mark('G-AIRMETs', false, e); });
+  }
+
+  // Feature aloft (7A): winds and temperatures aloft from the FB winds forecast (text, fixed columns) at the nearest
+  // forecast point within 200 NM that has the 9,000 ft level. Points are found once with stationinfo (K + the point's
+  // code). The 6-hour and 12-hour forecasts are both read and the one whose "FOR USE" window covers now is shown.
+  // Refreshed every hour.
+  var ALOFT_FT = [3000, 6000, 9000, 12000], aloftPts = null;
+  function parseFb(text) {
+    var lines = text.split(/\r?\n/), hdr = lines.filter(function (l) { return /^FT\s+3000/.test(l); })[0];
+    var use = (text.match(/FOR USE (\d{4})-(\d{4})Z/) || []), valid = (text.match(/VALID (\d{6})Z/) || [])[1];
+    if (!hdr) return null;
+    var rows = {};
+    lines.forEach(function (l) {
+      var id = l.slice(0, 3);
+      if (!/^[A-Z0-9]{3}\s/.test(l) || l.indexOf('FT') === 0) return;
+      rows[id] = ALOFT_FT.map(function (ft) {
+        var lab = String(ft), end = hdr.indexOf(' ' + lab) + 1 + lab.length, w = ft === 3000 ? 4 : 7;
+        return decodeFb(l.slice(Math.max(0, end - w), end).trim());
+      });
+    });
+    return { rows: rows, from: use[1], to: use[2], valid: valid };
+  }
+  function decodeFb(f) {
+    if (!/^\d{4}([+-]\d{2})?$/.test(f)) return null;
+    var dd = +f.slice(0, 2), ss = +f.slice(2, 4), t = f.length > 4 ? +f.slice(4) : null;
+    if (dd === 99) return { lv: true, t: t };
+    if (dd >= 51 && dd <= 86) { dd -= 50; ss += 100; }
+    return { dir: dd * 10, spd: ss, t: t };
+  }
+  function inUse(fb) { // "FOR USE 2100-0600Z" may cross midnight
+    if (!fb || !fb.from) return false;
+    var n = new Date(), m = n.getUTCHours() * 100 + n.getUTCMinutes(), a = +fb.from, b = +fb.to;
+    return a < b ? m >= a && m < b : m >= a || m < b;
+  }
+  function loadAloft() {
+    var url = function (h) { return CFG.awc + '/api/data/windtemp?region=all&level=low&fcst=' + h; };
+    return Promise.all([getText(url('06')), getText(url('12'))]).then(function (res) {
+      var a = parseFb(res[0]), b = parseFb(res[1]), fb = inUse(a) ? a : inUse(b) ? b : a;
+      if (!fb) throw new Error('unreadable forecast');
+      var ids = Object.keys(fb.rows);
+      var pts = aloftPts ? Promise.resolve(aloftPts) : getJSON('/api/data/stationinfo?format=json&ids=' + ids.map(function (i) { return 'K' + i; }).join(',')).then(function (list) {
+        aloftPts = {}; (list || []).forEach(function (s) { if (s.lat != null) aloftPts[String(s.icaoId).slice(1)] = s; });
+        return aloftPts;
+      });
+      return pts.then(function (p) {
+        var best = ids.filter(function (id) { return p[id] && fb.rows[id][2]; })
+          .map(function (id) { return { id: id, d: distNm(CFG.lat, CFG.lon, p[id].lat, p[id].lon) }; })
+          .filter(function (x) { return x.d <= 200; }).sort(function (x, y) { return x.d - y.d; })[0];
+        state.aloft = best ? { id: best.id, d: Math.round(best.d), rows: fb.rows[best.id], from: fb.from, to: fb.to } : { none: true };
+        renderAloft(); mark('Winds aloft', true);
+      });
+    }).catch(function (e) { mark('Winds aloft', false, e); });
+  }
+  function renderAloft() {
+    var el = $('aloftCard'), a = state.aloft;
+    el.hidden = !F.aloft || !a;
+    if (el.hidden) return;
+    if (a.none) { el.innerHTML = '<div class="hd"><span class="label">Winds aloft</span></div><div class="sub">No forecast point within 200 NM.</div>'; layoutSide(); return; }
+    el.innerHTML = '<div class="hd"><span class="label">Winds aloft · ' + esc(a.id) + '</span><span class="sub">' + (a.d < 5 ? 'at the field' : a.d + ' NM') + ' · for use ' + a.from + '–' + a.to + 'Z</span></div>' +
+      '<div class="aloft"><span class="k">FT</span><span class="k">WIND</span><span class="k">TEMP</span>' +
+      ALOFT_FT.map(function (ft, i) {
+        var r = a.rows[i];
+        return '<span>' + ft.toLocaleString('en-US') + '</span>' +
+          (!r ? '<span class="na">—</span><span class="na">—</span>' :
+            '<span>' + (r.lv ? 'Light and variable' : pad3(r.dir) + '° ' + r.spd + ' kt') + '</span><span>' + (r.t == null ? '' : (r.t > 0 ? '+' : r.t < 0 ? '−' : '') + Math.abs(r.t) + '°') + '</span>');
+      }).join('') + '</div>';
+    layoutSide();
+  }
+
+  // TFRs from the FAA (tfr.faa.gov): the list of current NOTAMs, their shapes (WFS; it also keeps old ones, so only
+  // listed NOTAMs count), and each nearby one's details (times, altitudes) from its XML, fetched once and kept.
+  // Shown when active, or starting within 12 hours. Refreshed every 10 minutes.
+  var OLD_MIN = +q.get('oldMin') || 70; // feature oldObs: minutes before an airport's report counts as old (?oldMin= for testing)
+  var TFR_RED = '#E5403A', TFR_SOON = 12 * 3600000, tfrDetail = {}, hatchPat = null;
+  var TFR_TYPES = { HAZARDS: 'Hazard', SECURITY: 'Security', 'AIR SHOWS/SPORTS': 'Air show / sports', 'UAS PUBLIC GATHERING': 'Drones · gathering', VIP: 'VIP movement', SPECIAL: 'Special' };
+  function tfrHatch(g) {
+    if (!hatchPat) {
+      var c = document.createElement('canvas'), x = c.getContext('2d'); c.width = c.height = 14;
+      x.fillStyle = 'rgba(229,64,58,.14)'; x.fillRect(0, 0, 14, 14);
+      x.strokeStyle = 'rgba(229,64,58,.8)'; x.lineWidth = 2.5; x.beginPath();
+      x.moveTo(-4, 4); x.lineTo(4, -4); x.moveTo(0, 14); x.lineTo(14, 0); x.moveTo(10, 18); x.lineTo(18, 10); x.stroke();
+      hatchPat = g.createPattern(c, 'repeat');
+    }
+    return hatchPat;
+  }
+  function tfrAlt(xml, which) { // "SFC", "5,000", "FL180", "500 AGL"
+    var v = xml.querySelector('valDistVer' + which), code = xml.querySelector('codeDistVer' + which);
+    if (!v) return '';
+    var n = +v.textContent, c = code ? code.textContent : 'ALT';
+    if (which === 'Lower' && n === 0) return 'SFC';
+    return c === 'STD' ? 'FL' + pad3(n >= 1000 ? n / 100 : n) : n.toLocaleString('en-US') + (c === 'HEI' ? ' AGL' : '');
+  }
+  function loadTfrDetail(id) {
+    if (tfrDetail[id]) return Promise.resolve(tfrDetail[id]);
+    return getText('https://tfr.faa.gov/download/detail_' + id.replace('/', '_') + '.xml').then(function (text) {
+      var xml = new DOMParser().parseFromString(text.replace(/^﻿/, ''), 'application/xml');
+      var get = function (s) { var e = xml.querySelector(s); return e ? e.textContent : ''; };
+      var lo = tfrAlt(xml, 'Lower'), hi = tfrAlt(xml, 'Upper'), purpose = get('txtDescrPurpose');
+      var d = { from: get('dateEffective') ? Date.parse(get('dateEffective') + 'Z') : 0, to: get('dateExpire') ? Date.parse(get('dateExpire') + 'Z') : 0,
+        alt: lo || hi ? (lo || 'SFC') + '–' + (hi || '?') : '', fire: /fire/i.test(purpose), purpose: purpose.trim() };
+      tfrDetail[id] = d;
+      return d;
+    });
+  }
+  function loadTfrs() {
+    var wfs = 'https://tfr.faa.gov/geoserver/TFR/ows?service=WFS&version=1.1.0&request=GetFeature&typeName=TFR:V_TFR_LOC&maxFeatures=500&outputFormat=application/json&srsname=EPSG:4326';
+    return Promise.all([getJSON('https://tfr.faa.gov/tfrapi/exportTfrList'), getJSON(wfs)]).then(function (res) {
+      var list = {}; (res[0] || []).forEach(function (t) { list[t.notam_id] = t; });
+      var near = (res[1].features || []).filter(function (f) {
+        var id = String((f.properties || {}).NOTAM_KEY || '').split('-')[0];
+        return list[id] && f.geometry && touchesArea(f.geometry) && (f._id = id);
+      });
+      return Promise.all(near.map(function (f) {
+        return loadTfrDetail(f._id).then(function (d) {
+          var t = list[f._id], c = centroid(f.geometry);
+          return { id: f._id, geometry: f.geometry, from: d.from, to: d.to, alt: d.alt, purpose: d.purpose,
+            kind: d.fire ? 'Fire fighting' : TFR_TYPES[t.type] || title1(String(t.type || 'TFR')),
+            where: Math.round(distNm(CFG.lat, CFG.lon, c.lat, c.lon)) + ' NM ' + compass8(CFG.lat, CFG.lon, c.lat, c.lon) };
+        }, function () { return null; });
+      }));
+    }).then(function (ts) {
+      var now = Date.now(), seen = {};
+      state.tfrs = ts.filter(function (t) { return t && (!t.to || t.to > now) && (!t.from || t.from < now + TFR_SOON); })
+        .sort(function (a, b) { return a.from - b.from; });
+      // One strip chip per NOTAM, even when it has several areas
+      state.tfrChips = state.tfrs.filter(function (t) { return !seen[t.id] && (seen[t.id] = 1); });
+      mark('TFRs', true); drawOverlay(); renderAdvisories();
+    }).catch(function (e) { mark('TFRs', false, e); });
+  }
+  function centroid(geom) {
+    var n = 0, la = 0, lo = 0;
+    rings(geom).forEach(function (r) { r.forEach(function (c) { la += c[1]; lo += c[0]; n++; }); });
+    return { lat: la / (n || 1), lon: lo / (n || 1) };
+  }
+  function compass8(aLat, aLon, bLat, bLon) {
+    var y = (bLon - aLon) * Math.cos(aLat * Math.PI / 180), x = bLat - aLat;
+    if (Math.abs(x) + Math.abs(y) < 0.05) return 'over the field';
+    var deg = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    return ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(deg / 45) % 8];
+  }
+
+  /* ---------- Briefing column ---------- */
+  function hhmmZ(d) { return pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + 'Z'; }
+  function dayZ(ms) { // "2200Z" today (UTC), "11/11 2200Z" on another day, "4/1/27 0359Z" in another year
+    var d = new Date(ms), n = new Date(), y = d.getUTCFullYear() !== n.getUTCFullYear() ? '/' + String(d.getUTCFullYear()).slice(2) : '';
+    return (d.toISOString().slice(0, 10) === n.toISOString().slice(0, 10) ? '' : (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + y + ' ') + hhmmZ(d);
+  }
+  function ceiling(m) {
+    var c = (m.clouds || []).filter(function (l) { return /BKN|OVC|OVX/.test(l.cover); })[0];
+    if (c) return c.cover + ' ' + c.base.toLocaleString('en-US');
+    if (m.vertVis) return 'VV ' + (m.vertVis * 100).toLocaleString('en-US');
+    var f = (m.clouds || [])[0]; // no ceiling: the lowest layer, or CLR / SKC
+    return f ? f.cover + ' ' + f.base.toLocaleString('en-US') : (m.cover || 'CLR');
+  }
+  function renderStation(m) {
+    if (!$('stnInput')) $('stnId').textContent = CFG.station; // not while someone is typing a code
+    if (!m) { $('stnCat').className = 'cat UNK'; $('stnCat').textContent = 'NO OBS'; return; }
+    $('stnName').textContent = (m.name || '').replace(/, US$/, '');
+    var cat = m.fltCat || 'UNK';
+    $('stnCat').className = 'cat ' + cat; $('stnCat').textContent = cat === 'UNK' ? '----' : cat;
+    var wind = m.wspd === 0 ? 'Calm' : (m.wdir === 'VRB' ? 'VRB' : pad3(m.wdir) + '°') + ' ' + m.wspd + (m.wgst ? 'G' + m.wgst : '') + ' kt';
+    $('oWind').textContent = wind;
+    $('oWind').classList.toggle('long', wind.length > 11);
+    $('oVis').textContent = (m.visib === '10+' ? '10+' : m.visib) + ' SM';
+    $('oCig').textContent = ceiling(m);
+    $('oTemp').textContent = Math.round(m.temp) + ' / ' + Math.round(m.dewp) + ' °C';
+    $('oAlt').textContent = m.altim ? (m.altim * 0.0295300).toFixed(2) + ' inHg' : '--';
+    // Feature daFlag, grid (or runway with the runway card off): density altitude as a tile, colored when high
+    var daBox = $('oDaBox'), daNow = densityAlt(m), daGrid = F.daFlag === 'grid' || (F.daFlag === 'runway' && !F.runway);
+    daBox.hidden = !daGrid || !daNow;
+    if (daGrid && daNow) { $('oDa').textContent = fmtFt(daNow.da) + ' ft'; daBox.className = 'da-tile ' + daLevel(daNow.da); }
+    var obs = new Date(m.obsTime * 1000), ageMin = Math.round((Date.now() - obs) / 60000);
+    $('oTime').textContent = hhmmZ(obs);
+    $('oTime').style.color = ageMin > 75 ? 'var(--warn)' : '';
+    $('metarRaw').textContent = m.rawOb;
+    renderCatChange();
+    layoutSide(); // the METAR's length changes the room left for advisories
+  }
+  // Feature catChange (6C): for CHG_MIN after the home airport's category changes, the old category shows faded before
+  // the new one, with when it changed. Uses the last 3 hours of reports (12 with the trend card).
+  var CHG_MIN = +q.get('chgMin') || 60; // ?chgMin= for testing
+  function renderCatChange() {
+    var c = F.catChange && catChange();
+    $('stnPrev').hidden = $('stnArrow').hidden = $('stnChg').hidden = !c;
+    $('stnCat').classList.toggle('changed', !!c);
+    if (!c) return;
+    $('stnPrev').className = 'cat prev ' + c.prev; $('stnPrev').textContent = c.prev === 'UNK' ? '----' : c.prev;
+    var ago = Math.round((Date.now() / 1000 - c.at) / 60);
+    $('stnChg').textContent = 'changed ' + hhmmZ(new Date(c.at * 1000)) + ' · ' + ago + ' min ago';
+  }
+  function catChange() {
+    var seen = {}, list = (state.history || []).concat(state.home ? [state.home] : []).filter(function (m) {
+      return m.obsTime && !seen[m.obsTime] && (seen[m.obsTime] = 1);
+    }).sort(function (a, b) { return a.obsTime - b.obsTime; });
+    if (list.length < 2) return null;
+    var cat = function (m) { return CAT[m.fltCat] ? m.fltCat : 'UNK'; }, cur = cat(list[list.length - 1]);
+    for (var i = list.length - 2; i >= 0; i--) if (cat(list[i]) !== cur) break;
+    if (i < 0) return null;
+    var at = list[i + 1].obsTime;
+    return Date.now() / 1000 - at <= CHG_MIN * 60 ? { prev: cat(list[i]), at: at } : null;
+  }
+  function pad3(n) { return String(n).padStart(3, '0'); }
+  function renderTaf() {
+    var t = state.taf;
+    if (!t) { tafText = 'No TAF for ' + CFG.station; $('tafRaw').textContent = tafText; $('tafAge').textContent = ''; layoutSide(); return; }
+    tafText = tafLines(t.rawTAF);
+    $('tafRaw').textContent = tafText;
+    $('tafAge').textContent = 'Issued ' + hhmmZ(new Date(t.issueTime));
+    layoutSide();
+  }
+  function renderAdvisories() {
+    $('advLabel').textContent = 'Advisories within ' + CFG.radiusNm + ' NM';
+    var rank = function (f) { var s = styleFor(f); return s === HAZ.CONVECTIVE ? 0 : f._kind === 'sigmet' ? 1 : 2; };
+    var items = state.sigmets.concat(state.gairmets).filter(function (f) { return touchesArea(f.geometry); })
+      .sort(function (a, b) { return rank(a) - rank(b); });
+    // One row per G-AIRMET hazard; SIGMETs listed individually
+    var seen = {}, rows = [], chips = [];
+    items.forEach(function (f) {
+      var p = f.properties, s = styleFor(f), key = f._kind === 'gairmet' ? 'g' + p.hazard : 's' + (p.seriesId || Math.random());
+      if (seen[key]) return; seen[key] = 1;
+      var gm = f._kind === 'gairmet';
+      var title = gm ? title1(p.product) + ' · ' + s.label
+        : (p.hazard === 'CONVECTIVE' ? 'Convective SIGMET ' + (p.seriesId || '') : 'SIGMET ' + (p.seriesId || '') + ' · ' + (HAZ[p.hazard] ? HAZ[p.hazard].label : title1(p.hazard)));
+      var sub = gm ? '' : (p.altitudeHi1 ? 'Tops ' + fl(p.altitudeHi1) : '') + (p.movementDir ? ' · Moving ' + pad3(p.movementDir) + '° ' + p.movementSpd + ' kt' : '');
+      if (!CFG.draw[advKind(f)]) sub += (sub ? ' · ' : '') + 'not drawn on map';
+      var until = gm ? 'G-AIRMET' : (p.validTimeTo ? 'until ' + hhmmZ(new Date(p.validTimeTo)) : '');
+      rows.push('<div class="adv"><span class="sw" style="background:' + s.c + '"></span><div><div class="t">' + esc(title) + '</div>' +
+        (sub ? '<div class="s">' + esc(sub) + '</div>' : '') + '</div><span class="u">' + until + '</span></div>');
+      // Strip chip: same color as on the map; dashed when that type isn't drawn on the map
+      var off = !CFG.draw[advKind(f)];
+      chips.push('<span class="achip' + (off ? ' off' : '') + '"' + (off ? ' title="Not drawn on the map"' : '') + '><b style="background:' + s.c + '"></b>' +
+        esc(title) + (!gm && p.validTimeTo ? '<span class="u">til ' + hhmmZ(new Date(p.validTimeTo)) + '</span>' : '') + '</span>');
+    });
+    // TFRs lead the strip: type, where from the base, altitudes, and until when (or from when, if not started yet)
+    chips = (state.tfrChips || []).map(function (t) {
+      var live = t.from <= Date.now();
+      return '<span class="achip tfr' + (live ? '' : ' soon') + '"><b></b>TFR · ' + esc(t.kind) + ' · ' + esc(t.where) + '<span class="u">' +
+        esc(t.alt ? t.alt + ' · ' : '') + (live ? (t.to ? 'til ' + dayZ(t.to) : 'until further notice') : 'from ' + dayZ(t.from)) + '</span></span>';
+    }).concat(chips);
+    var ok = state.status['SIGMETs'] && state.status['SIGMETs'].ok;
+    var g0 = state.gairmets[0];
+    if (g0) $('advLabel').textContent += ' · G-AIRMETs as of ' + hhmmZ(new Date(g0.properties.validTime));
+    advEmpty = !rows.length;
+    advRows = rows.length ? rows : ['<div class="none">' + (ok ? 'No SIGMETs or G-AIRMETs in the area' : 'Waiting for advisory data…') + '</div>'];
+    barChips = chips.length ? chips.join('') : '<span class="none">' + (ok ? 'No advisories within ' + CFG.radiusNm + ' NM' : 'Waiting for advisory data…') + '</span>';
+    layoutBar();
+    layoutSide();
+  }
+
+  // Fits the side column. The advisories box keeps a minimum height (about 4 rows) and a long TAF box gives way first.
+  // - Advisory list (CFG.advList): on, off, or auto = shown when there are advisories and the column has room; it is
+  //   the first thing Auto drops, since the bottom strip already lists what's active.
+  // - Decoded METAR (wind, visibility … grid): on, off, or auto = shown unless the TAF or the advisories then don't fit.
+  // - A TAF or advisory list that still doesn't fit scrolls slowly upward in a seamless loop (a second copy follows the
+  //   first); speed CFG.advSpeed px/s; hovering pauses it.
+  // Redone only when the content or the space changes, so a refresh with nothing new doesn't restart the scrolling.
+  var advRows = [], advEmpty = true, tafText = '--', sideSig = '', barChips = '', barSig = '';
+  function layoutSide() {
+    if (!advRows.length) return;
+    var sig = advRows.join('') + '|' + $('metarRaw').textContent + '|' + tafText + '|' + innerWidth + 'x' + innerHeight + '|' + $('tsStrip').textContent + '|' + $('oDaBox').hidden + '|' +
+      ['rwyCard', 'trendCard', 'sunCard', 'sunStrip', 'aloftCard'].map(function (id) { return $(id).hidden ? 0 : $(id).offsetHeight; }).join(',');
+    if (sig === sideSig) return;
+    sideSig = sig;
+    var obs = $('obs'), taf = $('tafRaw'), list = $('advList');
+    var tafHtml = '<div class="raw">' + esc(tafText) + '</div>', advHtml = '<div class="adv-rows">' + advRows.join('') + '</div>';
+    var side = document.querySelector('.side'), tafCard = taf.parentNode, advCard = list.parentNode;
+    // Each box keeps room for what it holds, up to about 4 lines (TAF) / 4 rows (advisories); `floor` lets them go smaller
+    function reserve(floor) {
+      [[tafCard, taf, tafHtml, floor ? 90 : 150], [advCard, list, advHtml, floor ? 140 : 230]].forEach(function (c) {
+        if (c[0].hidden) return;
+        c[0].style.minHeight = '0px';
+        fitsIn(c[1], c[2]);
+        var need = c[1].firstChild.offsetHeight + (c[0].offsetHeight - c[1].clientHeight);
+        c[0].style.minHeight = Math.min(c[3], need) + 'px';
+      });
+    }
+    function sideOver() { return side.scrollHeight > side.clientHeight + 1; }
+    // Feature cards that don't fit give way, smallest loss first: the daylight arc becomes the strip of times, then the
+    // trend card, the winds aloft card, then the runway card are left out (until there's room again)
+    var squeeze = [$('sunCard'), $('trendCard'), $('aloftCard'), $('rwyCard')];
+    squeeze.forEach(function (c) { c.classList.remove('squeezed'); });
+    renderSun();
+    function tight() { return !fitsIn(taf, tafHtml) | (!advCard.hidden && !fitsIn(list, advHtml)) | sideOver(); }
+    obs.hidden = CFG.decoded === 'off';
+    advCard.hidden = CFG.advList === 'off' || (CFG.advList === 'auto' && advEmpty);
+    reserve(false);
+    if (CFG.advList === 'auto' && !advCard.hidden && (!fitsIn(taf, tafHtml) || sideOver())) { advCard.hidden = true; reserve(false); }
+    if (tight() && CFG.decoded === 'auto') { obs.hidden = true; reserve(false); }
+    if (sideOver()) reserve(true); // e.g. decoded forced on: shrink the boxes so nothing is pushed out
+    for (var i = 0; i < squeeze.length && sideOver(); i++) {
+      if (squeeze[i].hidden) continue;
+      squeeze[i].classList.add('squeezed');
+      if (i === 0) renderSun();
+      reserve(true);
+    }
+    loopScroll(taf, tafHtml);
+    if (!advCard.hidden) loopScroll(list, advHtml);
+  }
+
+  // Bottom strip: the active advisories as chips; when there are more than fit, they scroll sideways in a loop
+  function layoutBar() {
+    if (!barChips) return; // still loading
+    var chips = (state.tsChip || '') + barChips; // a thunderstorm alert (feature tstorm) leads the strip
+    var sig = chips + '|' + innerWidth;
+    if (sig === barSig) return;
+    barSig = sig;
+    var box = $('barAdv'), html = '<span class="xcopy">' + chips + '</span>';
+    box.classList.remove('scrolling-x');
+    box.innerHTML = '<div class="xtrack">' + html + '</div>';
+    var track = box.firstChild;
+    if (track.offsetWidth <= box.clientWidth + 1) return;
+    track.insertAdjacentHTML('beforeend', html.replace('<span class="xcopy">', '<span class="xcopy" aria-hidden="true">'));
+    var dist = track.children[1].offsetLeft - track.children[0].offsetLeft;
+    track.style.setProperty('--dist', -dist + 'px');
+    track.style.animationDuration = (dist / CFG.advSpeed).toFixed(1) + 's';
+    box.classList.add('scrolling-x');
+  }
+  function fitsIn(box, html) {
+    box.classList.remove('scrolling');
+    box.innerHTML = '<div class="scroll-track"><div class="copy">' + html + '</div></div>';
+    return box.firstChild.offsetHeight <= box.clientHeight + 1;
+  }
+  function loopScroll(box, html) {
+    if (fitsIn(box, html)) return;
+    var track = box.firstChild;
+    track.insertAdjacentHTML('beforeend', '<div class="copy" aria-hidden="true">' + html + '</div>');
+    var dist = track.children[1].offsetTop - track.children[0].offsetTop;
+    track.style.setProperty('--dist', -dist + 'px');
+    track.style.animationDuration = (dist / CFG.advSpeed).toFixed(1) + 's';
+    box.classList.add('scrolling');
+  }
+  function fl(ft) { return ft >= 18000 ? 'FL' + Math.round(ft / 100) : ft.toLocaleString('en-US') + ' ft'; }
+  function title1(s) { s = String(s || ''); return s.charAt(0) + s.slice(1).toLowerCase(); }
+  function tafLines(raw) { return String(raw || '').replace(/\s+(FM\d{6}|TEMPO|BECMG|PROB\d{2})/g, '\n  $1'); }
+
+  /* ---------- Hover an airport on the map: its raw METAR and TAF in a panel beside it ---------- */
+  var tafCache = {}, hover = null, tipTimer;
+  function tafFor(id) { // the home TAF is already loaded; others are fetched on first hover and kept for the TAF refresh time
+    if (id === CFG.station && state.status.TAF && state.status.TAF.ok) return Promise.resolve(state.taf);
+    var c = tafCache[id];
+    if (c && Date.now() - c.at < CFG.refresh.taf * 60000) return c.p;
+    var p = getJSON('/api/data/taf?ids=' + encodeURIComponent(id) + '&format=json').then(function (l) { return Array.isArray(l) && l[0] || null; });
+    tafCache[id] = { at: Date.now(), p: p };
+    p.catch(function () { delete tafCache[id]; });
+    return p;
+  }
+  function hideTip() {
+    hover = null; $('tip').hidden = $('tipRing').hidden = true;
+    if (state.advHover) { state.advHover = null; drawOverlay(); }
+  }
+  function placeTip() {
+    if (!hover) return;
+    var tip = $('tip'), w = tip.offsetWidth, h = tip.offsetHeight, v = state.view;
+    var p = hover.adv ? { x: hover.x, y: hover.y } : toScreen(hover.lat, hover.lon), gap = hover.adv ? hover.half * 1.15 + 18 : 30; // the hovered tag is drawn a size larger
+    var x = p.x + gap, y = p.y - h / 2;
+    if (x + w > v.w - 10) x = p.x - gap - w;                // flip to the left near the right edge
+    tip.style.left = Math.max(10, x) + 'px';
+    tip.style.top = Math.max(10, Math.min(v.h - h - 10, y)) + 'px';
+    $('tipRing').style.left = p.x + 'px'; $('tipRing').style.top = p.y + 'px';
+  }
+  function showTip(m) {
+    hover = m;
+    var cat = m.fltCat || 'UNK', obs = m.obsTime ? hhmmZ(new Date(m.obsTime * 1000)) : '';
+    $('tip').innerHTML = '<div class="h"><span class="id">' + esc(m.icaoId) + '</span><span class="cat ' + esc(cat) + '">' + (cat === 'UNK' ? '----' : esc(cat)) + '</span>' +
+      '<span class="nm">' + esc((m.name || '').replace(/, US$/, '')) + '</span></div>' +
+      '<div class="k">METAR' + (obs ? ' · ' + obs : '') + '</div><div class="raw">' + esc(m.rawOb || 'No report') + '</div>' +
+      '<div class="k">TAF</div><div class="raw" id="tipTaf">Loading…</div>';
+    $('tip').hidden = $('tipRing').hidden = false;
+    placeTip();
+    tafFor(m.icaoId).then(function (t) {
+      if (hover !== m) return;
+      $('tipTaf').textContent = t ? tafLines(t.rawTAF) : 'No TAF for ' + m.icaoId;
+      placeTip();
+    }, function () { if (hover === m) $('tipTaf').textContent = 'The TAF couldn’t be loaded right now.'; });
+  }
+  function showPirepTip(pr) { // a PIREP: who, when, altitude and the raw report
+    var p = pr.p, obs = p.obsTime ? hhmmZ(new Date(p.obsTime * 1000)) : '';
+    var word = { NIL: 'No', LGT: 'Light', MOD: 'Moderate', SEV: 'Severe' };
+    var what = [pr.turb && word[pr.turb] + ' turbulence', pr.ice && word[pr.ice] + ' icing', pr.llws && 'Wind shear'].filter(Boolean).join(' · ');
+    hover = pr;
+    $('tip').innerHTML = '<div class="h"><span class="id">PIREP</span><span class="nm">' + esc(what) + '</span></div>' +
+      '<div class="k">' + esc([p.acType, p.fltLvl != null ? 'FL' + pad3(p.fltLvl) : '', obs].filter(Boolean).join(' · ')) + '</div>' +
+      '<div class="raw">' + esc(p.rawOb || '') + '</div>';
+    $('tip').hidden = $('tipRing').hidden = false;
+    placeTip();
+  }
+  // An advisory's map tag: what it is, when, altitudes, movement, and the text (SIGMETs) or purpose (TFRs). Its outline
+  // glows on the map while the panel is up (state.advHover, drawn in drawOverlay).
+  function alt100(v) { // G-AIRMET levels are in hundreds of feet, or words (SFC, FZL)
+    if (v == null || v === '') return '';
+    var n = +v;
+    return isNaN(n) ? (v === 'FZL' ? 'Freezing level' : String(v)) : n === 0 ? 'SFC' : fl(n * 100);
+  }
+  function advTipHtml(a) {
+    var sw = function (c, fg, t) { return '<span class="cat" style="background:' + c + ';color:' + fg + '">' + esc(t) + '</span>'; };
+    var k = function (t) { return '<div class="k">' + t + '</div>'; }, raw = function (t) { return '<div class="raw">' + esc(t) + '</div>'; };
+    if (!a.properties) { // a TFR
+      var live = a.from <= Date.now();
+      return '<div class="h">' + sw(TFR_RED, '#FFFFFF', 'TFR') + '<span class="id">' + esc(a.id) + '</span><span class="nm">' + esc(a.kind) + '</span></div>' +
+        k(live ? 'Active' : 'Starts ' + dayZ(a.from)) + raw((live ? '' : 'From ' + dayZ(a.from) + ' ') + (a.to ? 'until ' + dayZ(a.to) : 'until further notice')) +
+        k('Where · altitudes') + raw(a.where + (a.alt ? ' · ' + a.alt : '')) +
+        (a.purpose ? k('Purpose') + raw(a.purpose) : '');
+    }
+    var p = a.properties, s = styleFor(a), html;
+    if (a._kind === 'gairmet') {
+      var lv = [alt100(p.base), alt100(p.top)].filter(Boolean);
+      html = '<div class="h">' + sw(s.c, '#0B0F14', s.tag) + '<span class="id">G-AIRMET</span><span class="nm">' + esc(title1(p.product) + ' · ' + s.label) + '</span></div>' +
+        k('Valid') + raw(hhmmZ(new Date(p.validTime)) + (p.forecast ? ' (+' + p.forecast + ' h forecast)' : ' (current)'));
+      if (lv.length) html += k('Altitudes') + raw(lv.length === 2 ? lv[0] + ' to ' + lv[1] : 'Up to ' + lv[0]);
+      if (p.fzlbase || p.fzltop) html += k('Freezing level') + raw([alt100(p.fzlbase), alt100(p.fzltop)].filter(Boolean).join(' to '));
+      if (p.level) html += k('Level') + raw(alt100(p.level));
+      if (p.severity) html += k('Severity') + raw(title1(p.severity));
+      if (p.dueTo && p.dueTo !== p.hazard) html += k('Due to') + raw(title1(p.dueTo));
+      return html;
+    }
+    var conv = p.hazard === 'CONVECTIVE';
+    var name = conv ? 'Convective SIGMET' : p.airSigmetType === 'AIRMET' ? 'AIRMET' : 'SIGMET';
+    var tops = [p.altitudeLow1 ? fl(p.altitudeLow1) : '', p.altitudeHi1 ? fl(p.altitudeHi1) : ''];
+    html = '<div class="h">' + sw(s.c, '#0B0F14', s.tag) + '<span class="id">' + esc(p.seriesId || '') + '</span><span class="nm">' + esc(name + (conv ? '' : ' · ' + s.label)) + '</span></div>' +
+      k('Valid') + raw((p.validTimeFrom ? dayZ(Date.parse(p.validTimeFrom)) + ' – ' : '') + (p.validTimeTo ? dayZ(Date.parse(p.validTimeTo)) : ''));
+    if (tops[0] || tops[1]) html += k(conv ? 'Tops' : 'Altitudes') + raw(tops[0] && tops[1] ? tops[0] + ' to ' + tops[1] : tops[1] || 'From ' + tops[0]);
+    if (p.movementDir) html += k('Moving') + raw(pad3(p.movementDir) + '° at ' + p.movementSpd + ' kt');
+    if (p.rawAirSigmet) html += k('Text') + '<div class="raw adv-raw">' + esc(p.rawAirSigmet.replace(/^[\s\S]*?\n(?=(CONVECTIVE )?SIGMET|AIRMET)/, '')) + '</div>';
+    return html;
+  }
+  function showAdvTip(hit) {
+    var b = hit.box;
+    hover = { adv: hit.src, x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2, half: (b.x1 - b.x0) / 2 };
+    $('tip').innerHTML = advTipHtml(hit.src);
+    $('tip').hidden = false; $('tipRing').hidden = true;
+    state.advHover = hit.src; drawOverlay();
+    placeTip();
+  }
+  mapEl.addEventListener('mousemove', function (e) {
+    if (!state.view) return;
+    var r = mapEl.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, best = null, bd = 24 * 24;
+    // An advisory tag under the pointer comes first (the tags are what you aim at)
+    var tag = (state.tagHits || []).filter(function (h) { return x >= h.box.x0 - 4 && x <= h.box.x1 + 4 && y >= h.box.y0 - 4 && y <= h.box.y1 + 4; }).pop();
+    if (tag) {
+      clearTimeout(tipTimer); tipTimer = setTimeout(hideTip, 15000);
+      if (!hover || hover.adv !== tag.src) showAdvTip(tag);
+      return;
+    }
+    if (hover && hover.adv) hideTip();
+    state.metars.forEach(function (m) {
+      if (m.lat == null) return;
+      var p = toScreen(m.lat, m.lon), d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
+      if (d < bd) { bd = d; best = m; }
+    });
+    if (F.pireps && state.pireps) state.pireps.forEach(function (pr) {
+      var p = toScreen(pr.p.lat, pr.p.lon), d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
+      if (d < bd) { bd = d; best = pr; }
+    });
+    clearTimeout(tipTimer);
+    tipTimer = setTimeout(hideTip, 15000); // don't leave a panel up on the TV when someone walks away
+    if (!best) { if (hover) hideTip(); return; }
+    if (best.p) { if (hover !== best) showPirepTip(best); return; }
+    if (!hover || hover.icaoId !== best.icaoId) showTip(best);
+  });
+  mapEl.addEventListener('mouseleave', hideTip);
+
+  /* ---------- Show another airport or range from the board ---------- */
+  // Click the airport code and type another (3 letters get a K: PHX -> KPHX), click an airport on the map, or pick a
+  // range button. Nothing is saved: ?home= and ?homeRadius= remember the settings' airport and range, a "Back to" button
+  // returns to them, and so does AWAY_MIN minutes without mouse or keyboard use, so a TV isn't left on someone's lookup.
+  var HOME = (q.get('home') || CFG.station).toUpperCase(), HOME_R = +(q.get('homeRadius') || CFG.radiusNm);
+  var AWAY_MIN = 15, lastUse = Date.now(), RANGES = [25, 50, 100, 150, 200, 250];
+  function goView(station, radius) {
+    var u = new URLSearchParams(location.search);
+    u.set('station', station); u.set('radius', radius);
+    if (station === HOME) u.delete('home'); else u.set('home', HOME);
+    if (radius === HOME_R) u.delete('homeRadius'); else u.set('homeRadius', HOME_R);
+    location.search = u.toString();
+  }
+  function goStation(id) { goView(id, CFG.radiusNm); }
+  (function rangeButtons() {
+    var list = RANGES.indexOf(HOME_R) < 0 ? RANGES.concat(HOME_R).sort(function (a, b) { return a - b; }) : RANGES;
+    $('rangeBtns').innerHTML = list.map(function (r) {
+      return '<button type="button" data-r="' + r + '" class="' + (r === CFG.radiusNm ? 'on' : '') + (r === HOME_R ? ' def' : '') + '"' +
+        (r === HOME_R ? ' title="Default range"' : '') + ' aria-pressed="' + (r === CFG.radiusNm) + '">' + r + '</button>';
+    }).join('');
+    $('rangeBtns').addEventListener('click', function (e) {
+      var r = e.target.closest && e.target.closest('button');
+      if (r && +r.dataset.r !== CFG.radiusNm) goView(CFG.station, +r.dataset.r);
+    });
+  })();
+  function editStation() {
+    var el = $('stnId');
+    if ($('stnInput')) return;
+    el.innerHTML = '<input id="stnInput" maxlength="4" spellcheck="false" autocomplete="off" aria-label="Airport code">';
+    var inp = $('stnInput');
+    inp.value = CFG.station; inp.focus(); inp.select();
+    var done = function () { el.textContent = CFG.station; };
+    inp.addEventListener('keydown', function (e) {
+      e.stopPropagation();
+      if (e.key === 'Escape') { done(); return; }
+      if (e.key !== 'Enter') { inp.classList.remove('bad'); return; }
+      var v = inp.value.trim().toUpperCase();
+      if (!/^[A-Z0-9]{3,4}$/.test(v)) { inp.classList.add('bad'); return; }
+      if (v.length === 3 && /^[A-Z]{3}$/.test(v)) v = 'K' + v;
+      if (v === CFG.station) done(); else goStation(v);
+    });
+    inp.addEventListener('blur', done);
+  }
+  $('stnId').addEventListener('click', editStation);
+  mapEl.addEventListener('click', function () { if (hover && hover.icaoId && hover.icaoId !== CFG.station) goStation(hover.icaoId); });
+  mapEl.addEventListener('mousemove', function () { mapEl.classList.toggle('on-stn', !!hover); });
+  var otherStn = CFG.station !== HOME, otherR = CFG.radiusNm !== HOME_R;
+  if (otherStn || otherR) {
+    $('away').hidden = false;
+    $('awayText').textContent = otherStn && otherR ? 'Not the default view' : otherStn ? 'Not the default airport' : 'Not the default range';
+    $('awayBack').textContent = 'Back to ' + [otherStn ? HOME : '', otherR ? HOME_R + ' NM' : ''].filter(Boolean).join(', ');
+    $('awayBack').addEventListener('click', function () { goView(HOME, HOME_R); });
+    ['mousemove', 'keydown', 'mousedown'].forEach(function (t) { addEventListener(t, function () { lastUse = Date.now(); }, { passive: true }); });
+    setInterval(function () { if (Date.now() - lastUse > AWAY_MIN * 60000) goView(HOME, HOME_R); }, 30000);
+  }
+
+  /* =========================================================================================================
+     Features (settings → Features). Each is off unless switched on; CFG.feat says which.
+     ========================================================================================================= */
+  var F = CFG.feat, KT_RANK = { VFR: 0, MVFR: 1, IFR: 2, LIFR: 3 };
+
+  // ---- Shared: runways (true headings), ceiling, visibility, wind components, density altitude ----
+  // Runways from AWC's airport data; alignment is the first end's true heading, else runway number + magnetic variation.
+  function loadRunways() {
+    return getJSON('/api/data/airport?ids=' + encodeURIComponent(CFG.station) + '&format=json').then(function (list) {
+      var a = Array.isArray(list) && list[0];
+      if (!a) return;
+      var mv = parseInt(a.magdec, 10) || 0; if (/W/i.test(a.magdec || '')) mv = -mv;
+      if (CFG.elevFt == null && a.elev != null) CFG.elevFt = a.elev * 3.28084;
+      state.runways = (a.runways || []).map(function (r) {
+        var ids = String(r.id || '').split('/');
+        var n = parseInt(ids[0], 10);
+        if (!(n >= 1 && n <= 36)) return null; // helipads, water lanes
+        var h = r.alignment != null ? +r.alignment : (n * 10 + mv + 360) % 360;
+        return [{ id: ids[0], hdg: h }, { id: ids[1] || '', hdg: (h + 180) % 360 }];
+      }).filter(Boolean);
+      renderFeatures();
+    }).catch(function () { state.runways = null; });
+  }
+  function ceilingFt(m) {
+    var c = (m.clouds || []).filter(function (l) { return /BKN|OVC|OVX/.test(l.cover); })[0];
+    if (c && c.base != null) return c.base;
+    if (m.vertVis) return m.vertVis * 100;
+    return null; // no ceiling
+  }
+  function visSm(m) {
+    var v = String(m.visib == null ? '' : m.visib).replace('+', '').trim();
+    if (!v) return null;
+    var parts = v.split(' '), n = 0;
+    parts.forEach(function (p) { if (/\//.test(p)) { var f = p.split('/'); n += f[0] / f[1]; } else n += parseFloat(p) || 0; });
+    return n;
+  }
+  function components(wdir, spd, hdg) { // head (+) / tail (−) and crosswind (+ from the right) in knots
+    var a = (wdir - hdg) * Math.PI / 180;
+    return { hw: spd * Math.cos(a), xw: spd * Math.sin(a) };
+  }
+  // All runway ends with their components for the home METAR, best (most headwind) first
+  function runwayWinds(m) {
+    if (!state.runways || !m || m.wspd == null) return null;
+    var ends = [];
+    state.runways.forEach(function (pair) { pair.forEach(function (e) {
+      if (m.wdir === 'VRB' || !m.wspd) { ends.push({ id: e.id, hdg: e.hdg, hw: 0, xw: m.wspd || 0, gx: m.wgst || 0, vrb: m.wdir === 'VRB' }); return; }
+      var c = components(+m.wdir, m.wspd, e.hdg), cg = m.wgst ? components(+m.wdir, m.wgst, e.hdg) : null;
+      ends.push({ id: e.id, hdg: e.hdg, hw: c.hw, xw: c.xw, gh: cg && cg.hw, gx: cg ? cg.xw : null });
+    }); });
+    return ends.sort(function (a, b) { return b.hw - a.hw; });
+  }
+  function densityAlt(m) {
+    if (CFG.elevFt == null || m.temp == null || !m.altim) return null;
+    var inHg = m.altim * 0.0295300, pa = CFG.elevFt + (29.92 - inHg) * 1000, isa = 15 - 1.98 * pa / 1000;
+    return { pa: Math.round(pa / 10) * 10, da: Math.round((pa + 118.8 * (m.temp - isa)) / 10) * 10 };
+  }
+  function fmtFt(n) { return n.toLocaleString('en-US'); }
+  function daLevel(da) { return da >= CFG.daCrit ? 'red' : da >= CFG.daWarn ? 'amb' : ''; } // feature daFlag thresholds
+  function side(xw) { return Math.abs(Math.round(xw)) + (Math.round(xw) === 0 ? '' : xw > 0 ? ' R' : ' L'); }
+
+  // ---- 1B: training limits banner (only when the home airport is outside them) ----
+  function renderLimits(m) {
+    var el = $('limBanner');
+    if (!F.limits || !m) { el.hidden = true; return; }
+    var ends = runwayWinds(m), b = ends && ends.length ? ends[0] : null, xw = b ? Math.max(Math.abs(b.xw), Math.abs(b.gx || 0)) : 0;
+    var ce = ceilingFt(m), vs = visSm(m);
+    // One line per set of limits the airport is outside of (e.g. LOCAL SOLO NO-GO, NON-LOCAL SOLO NO-GO)
+    var lines = CFG.lims.map(function (L) {
+      var why = [];
+      if (L.wind === L.gust) { // one wind limit covers both: "Wind 12G25 kt (lim. 20)"
+        if (Math.max(m.wspd || 0, m.wgst || 0) > L.wind) why.push('Wind ' + m.wspd + (m.wgst ? 'G' + m.wgst : '') + ' kt (lim. ' + L.wind + ')');
+      } else {
+        if (m.wspd > L.wind) why.push('Wind ' + m.wspd + ' kt (lim. ' + L.wind + ')');
+        if (m.wgst && m.wgst > L.gust) why.push('Gusts ' + m.wgst + ' kt (lim. ' + L.gust + ')');
+      }
+      if (b && xw > L.xwind) why.push('XW ' + Math.round(xw) + ' kt on ' + b.id + ' (lim. ' + L.xwind + ')');
+      if (ce != null && ce < L.ceil) why.push('Ceil. ' + fmtFt(ce) + ' ft (lim. ' + fmtFt(L.ceil) + ')');
+      if (vs != null && vs < L.vis) why.push('Vis. ' + vs + ' SM (lim. ' + L.vis + ')');
+      return why.length ? '<div class="lim-row"><b>' + esc(L.name.toUpperCase()) + ' NO-GO</b><span>' + esc(why.join(' · ')) + '</span></div>' : '';
+    }).filter(Boolean);
+    el.hidden = !lines.length;
+    el.innerHTML = lines.join('');
+    placeLimBanner();
+  }
+
+  // ---- Thunderstorm alert (feature tstorm) ----
+  // Within TS_NM of the airport: a METAR reporting TS or VCTS in its present weather, or a convective SIGMET's area.
+  // The nearest goes in a red strip across the top of the conditions card and a red chip leads the bottom strip.
+  // At the airport itself, the remarks add where ("TS N-NE") and movement ("MOV NW"). Radar isn't read (its tiles are
+  // pictures), so a cell with no reporting airport near it only shows once a convective SIGMET covers it.
+  var TS_NM = +q.get('tsNm') || 20, BOLT = '<svg width="20" height="22" viewBox="0 0 20 22" aria-hidden="true"><path d="M12 0 2 13h6l-2 9 11-14h-6l3-8z" fill="currentColor"/></svg>';
+  var PT8 = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  function bearingTo(lat, lon) {
+    var r = Math.PI / 180, y = Math.sin((lon - CFG.lon) * r) * Math.cos(lat * r);
+    var x = Math.cos(CFG.lat * r) * Math.sin(lat * r) - Math.sin(CFG.lat * r) * Math.cos(lat * r) * Math.cos((lon - CFG.lon) * r);
+    return PT8[Math.round(((Math.atan2(y, x) / r + 360) % 360) / 45) % 8];
+  }
+  function thunderHits() {
+    var hits = [];
+    (state.metars || []).forEach(function (m) {
+      var wx = String(m.wxString || ''), vc = /VCTS/.test(wx), ts = /(^|\s)[-+]?TS/.test(wx);
+      if (!vc && !ts) return;
+      var d = distNm(CFG.lat, CFG.lon, m.lat, m.lon);
+      if (d > TS_NM) return;
+      var h = { d: d, brg: bearingTo(m.lat, m.lon), id: m.icaoId, vc: vc && !ts, home: m.icaoId === CFG.station };
+      if (h.home) { // the airport's own remarks: "TS N-NE MOV NW", "TS OHD", "VCTS ALQDS"
+        var rm = (String(m.rawOb || '').split(' RMK ')[1] || '').match(/\b(?:VC)?TS(?=\s|$)((?:\s+(?:OHD|VC|DSNT|ALQDS|[NESW]{1,2}(?:-[NESW]{1,2})*))*)(?:\s+MOV\s+([NESW]{1,3}))?/);
+        if (rm) { h.where = (rm[1] || '').trim().replace(/-/g, '–'); h.mov = rm[2] || ''; }
+      }
+      hits.push(h);
+    });
+    state.sigmets.forEach(function (f) {
+      var p = f.properties || {};
+      if (p.hazard !== 'CONVECTIVE') return;
+      var o = { x: 0, y: 0 }, best = null;
+      rings(f.geometry).forEach(function (ring) {
+        var pts = ring.map(function (c) { return local(c[1], c[0]); });
+        if (inside(o, pts)) best = { d: 0 };
+        for (var i = 1; i < pts.length; i++) {
+          var a = pts[i - 1], b = pts[i], dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy;
+          var t = L ? Math.max(0, Math.min(1, (-a.x * dx - a.y * dy) / L)) : 0, px = a.x + t * dx, py = a.y + t * dy, d = Math.sqrt(px * px + py * py);
+          if (!best || d < best.d) best = { d: d, x: px, y: py };
+        }
+      });
+      if (!best || best.d > TS_NM) return;
+      var lat = CFG.lat + (best.y || 0) / 60, lon = CFG.lon + (best.x || 0) / (60 * Math.cos(CFG.lat * Math.PI / 180));
+      hits.push({ d: best.d, brg: best.d ? bearingTo(lat, lon) : '', sigmet: 'Convective SIGMET ' + (p.seriesId || ''), mov: p.movementDir != null ? PT8[Math.round(((+p.movementDir + 180) % 360) / 45) % 8] : '' });
+    });
+    // Observed reports first (the airport's own, then by distance); a convective SIGMET's area only leads when no airport reports one
+    return hits.sort(function (a, b) { return (a.sigmet ? 1 : 0) - (b.sigmet ? 1 : 0) || (b.home ? 1 : 0) - (a.home ? 1 : 0) || a.d - b.d; });
+  }
+  function renderThunder() {
+    var el = $('tsStrip'), hits = F.tstorm ? thunderHits() : [], h = hits[0];
+    el.hidden = !h;
+    state.tsChip = '';
+    if (h) {
+      var nm = Math.max(1, Math.round(h.d)) + ' NM ' + h.brg, text, chip;
+      if (h.sigmet) { text = h.d ? h.sigmet + ' ' + nm : h.sigmet + ' over ' + CFG.station; chip = h.d ? 'Conv SIGMET ' + nm : 'Conv SIGMET overhead'; }
+      else if (h.home) { text = (h.vc ? 'Thunderstorm near ' : 'Thunderstorm at ') + h.id + (h.where ? ' · ' + h.where : h.vc ? ' · 5–10 SM' : ''); chip = 'TS at ' + h.id; }
+      else { text = 'Thunderstorm ' + nm + ' · ' + h.id + (h.vc ? ' VCTS' : ' TS'); chip = 'TS ' + nm; }
+      if (h.mov) text += ' · moving ' + h.mov;
+      el.innerHTML = BOLT + '<span>' + esc(text) + '</span>' + (hits.length > 1 ? '<span class="more">+' + (hits.length - 1) + ' more</span>' : '');
+      el.title = hits.map(function (x) { return x.sigmet || x.id; }).join(', ');
+      state.tsChip = '<span class="achip ts">' + BOLT + esc(chip) + '</span>';
+    }
+    layoutBar(); layoutSide();
+  }
+
+  // ---- 2A / 2B: runway winds and density altitude ----
+  function renderRunway(m) {
+    var el = $('rwyCard');
+    if (!F.runway || !m) { el.hidden = true; return; }
+    var ends = runwayWinds(m), da = densityAlt(m), wind = m.wspd === 0 ? 'Calm' : (m.wdir === 'VRB' ? 'VRB' : pad3(m.wdir) + '°') + ' ' + m.wspd + (m.wgst ? 'G' + m.wgst : '') + ' kt';
+    var daHi = da && F.daFlag === 'runway' && daLevel(da.da); // feature daFlag: a "HIGH DA" tag in place of the plain value
+    var daHtml = da ? '<div class="row2">' + (daHi ? '<span class="da-tag ' + daHi + '">HIGH DA ' + fmtFt(da.da) + ' ft</span>' : '<span>Density alt <b>' + fmtFt(da.da) + ' ft</b></span>') + '<span>Pressure alt <b>' + fmtFt(da.pa) + ' ft</b></span><span>Field <b>' + fmtFt(Math.round(CFG.elevFt / 10) * 10) + '</b></span></div>' : '';
+    var h = '<div class="hd"><span class="label">Runway winds · ' + esc(CFG.station) + '</span><span class="sub mono">' + esc(wind) + '</span></div>';
+    if (!ends || !ends.length) { el.innerHTML = h + '<div class="sub">' + (state.runways ? 'No runway data for this airport.' : 'Loading runways…') + '</div>' + daHtml; el.hidden = false; return; }
+    var calm = !m.wspd, vrb = m.wdir === 'VRB';
+    function hwText(e) { return calm ? '—' : vrb ? 'VRB' : '<span class="' + (Math.round(e.hw) >= 0 ? 'hw' : 'tw') + '">' + Math.abs(Math.round(e.hw)) + (Math.round(e.hw) >= 0 ? ' HW' : ' TW') + '</span>'; }
+    function xwText(e) { return calm ? '—' : '<span class="' + (Math.abs(e.xw) > Math.min.apply(null, CFG.lims.map(function (L) { return L.xwind; })) ? 'xw-hi' : '') + '">' + side(e.xw) + ' XW</span>'; }
+    if (F.runway === 'table') {
+      h += '<table class="rtab"><thead><tr><th>Rwy</th><th>Head</th><th>Cross</th><th>Gust X</th></tr></thead><tbody>' + ends.slice(0, 4).map(function (e, i) { // the 4 most into-wind ends
+        return '<tr' + (i === 0 && !calm ? ' class="best"' : '') + '><td>' + esc(e.id) + '</td><td>' + hwText(e) + '</td><td>' + xwText(e) + '</td><td>' + (e.gx != null && !calm ? side(e.gx) : '—') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    } else { // diagram: every runway drawn at its true heading, wind arrow from the reported direction
+      var svg = '<svg viewBox="0 0 170 170" width="136" height="136" role="img" aria-label="Runway layout with wind arrow">' +
+        '<circle cx="85" cy="85" r="78" fill="var(--bg)" stroke="var(--line-strong)"/>' +
+        ['N', 'E', 'S', 'W'].map(function (c, i) { var a = i * Math.PI / 2; return '<text x="' + (85 + 70 * Math.sin(a)) + '" y="' + (89 - 70 * Math.cos(a)) + '" text-anchor="middle" font-size="11" fill="var(--muted)">' + c + '</text>'; }).join('');
+      state.runways.forEach(function (pair) {
+        svg += '<g transform="rotate(' + pair[0].hdg + ' 85 85)"><rect x="79" y="30" width="12" height="110" rx="2" fill="var(--line-strong)"/>' +
+          '<text x="85" y="45" text-anchor="middle" font-size="10" font-weight="700" fill="var(--fg)">' + esc(pair[1].id) + '</text>' +
+          '<text x="85" y="133" text-anchor="middle" font-size="10" font-weight="700" fill="var(--fg)">' + esc(pair[0].id) + '</text></g>';
+      });
+      if (!calm && !vrb) svg += '<g transform="rotate(' + (+m.wdir) + ' 85 85)"><line x1="85" y1="6" x2="85" y2="52" stroke="var(--accent)" stroke-width="5" stroke-linecap="round"/><path d="M85 64 L75 47 L95 47 Z" fill="var(--accent)"/></g>';
+      svg += '</svg>';
+      var b = ends[0];
+      var rest = ends.slice(1, 4).map(function (e) { return '<div class="sub mono">' + esc(e.id) + ' · ' + hwText(e) + ' · ' + xwText(e) + '</div>'; }).join('');
+      h += '<div class="rwy">' + svg + '<div class="nums"><div class="lbl2">Runway ' + esc(b.id) + (calm ? '' : ' · best') + '</div>' +
+        '<div class="big">' + hwText(b) + ' · ' + xwText(b) + '</div>' +
+        (b.gx != null && !calm ? '<div class="sub mono">gusts ' + Math.abs(Math.round(b.gh)) + (b.gh >= 0 ? ' HW' : ' TW') + ' · ' + side(b.gx) + ' XW</div>' : '') + rest + '</div></div>';
+    }
+    el.innerHTML = h + daHtml;
+    el.hidden = false;
+  }
+
+  // ---- The airport's time zone, for the sun times (the clock and other times use the computer's) ----
+  // aviationweather.gov's station info has the state and country but no time zone, so it's worked out here: one zone per
+  // state or province, and the states split between two zones decided by position (close to the real lines at the
+  // airports; a few counties near a line can come out wrong). null = unknown: the computer's zone is used.
+  var STATE_TZ = {
+    CT: 'NY', DE: 'NY', DC: 'NY', GA: 'NY', ME: 'NY', MD: 'NY', MA: 'NY', NH: 'NY', NJ: 'NY', NY: 'NY', NC: 'NY', OH: 'NY',
+    PA: 'NY', RI: 'NY', SC: 'NY', VT: 'NY', VA: 'NY', WV: 'NY',
+    AL: 'CH', AR: 'CH', IL: 'CH', IA: 'CH', LA: 'CH', MN: 'CH', MS: 'CH', MO: 'CH', OK: 'CH', WI: 'CH',
+    CO: 'DN', MT: 'DN', NM: 'DN', UT: 'DN', WY: 'DN', AZ: 'America/Phoenix',
+    CA: 'LA', WA: 'LA', HI: 'Pacific/Honolulu', PR: 'America/Puerto_Rico', VI: 'America/St_Thomas', GU: 'Pacific/Guam',
+    AS: 'Pacific/Pago_Pago', MP: 'Pacific/Saipan'
+  };
+  var CA_TZ = { BC: 'America/Vancouver', AB: 'America/Edmonton', SK: 'America/Regina', MB: 'America/Winnipeg', ON: 'America/Toronto',
+    QC: 'America/Toronto', NB: 'America/Halifax', NS: 'America/Halifax', PE: 'America/Halifax', NL: 'America/St_Johns',
+    YT: 'America/Whitehorse', NT: 'America/Yellowknife', NU: 'America/Iqaluit' };
+  var TZ_SHORT = { NY: 'America/New_York', CH: 'America/Chicago', DN: 'America/Denver', LA: 'America/Los_Angeles' };
+  function airportZone(st, country, lat, lon) {
+    st = String(st || '').toUpperCase(); country = String(country || '').toUpperCase();
+    var z = null;
+    if (country === 'CA') z = CA_TZ[st] || null;
+    else if (country === 'US' || country === '') {
+      z = STATE_TZ[st] || null;
+      if (st === 'FL') z = lon < -85.0 ? 'CH' : 'NY';                                 // panhandle west of the Apalachicola
+      if (st === 'TX') z = lon < -104.9 ? 'DN' : 'CH';                                // El Paso and Hudspeth counties
+      if (st === 'KS') z = lon < -101.5 ? 'DN' : 'CH';                                // the four western border counties
+      if (st === 'NE') z = lon < -101.2 ? 'DN' : 'CH';                                // the panhandle
+      if (st === 'SD') z = lon < -100.6 ? 'DN' : 'CH';                                // west river (Pierre stays Central)
+      if (st === 'ND') z = lon < -101.0 && lat < 47.5 ? 'DN' : 'CH';                  // southwest corner
+      if (st === 'ID') z = lat > 45.5 ? 'LA' : 'America/Boise';                       // the north is Pacific
+      if (st === 'OR') z = lon > -118.2 && lat < 44.5 ? 'America/Boise' : 'LA';       // Malheur County
+      if (st === 'NV') z = lon > -114.1 ? 'DN' : 'LA';                                // West Wendover
+      if (st === 'TN') z = lon > -85.4 ? 'NY' : 'CH';                                 // east Tennessee
+      if (st === 'KY') z = lon > -86.0 ? 'NY' : 'CH';                                 // east Kentucky
+      if (st === 'IN') z = lon < -86.9 && (lat > 41.0 || lat < 38.5) ? 'CH' : 'America/Indiana/Indianapolis'; // NW and SW corners
+      if (st === 'MI') z = lon < -87.4 && lat > 45 ? 'CH' : 'America/Detroit';        // western Upper Peninsula
+      if (st === 'AK') z = lon < -169.5 ? 'America/Adak' : 'America/Anchorage';
+    }
+    z = TZ_SHORT[z] || z;
+    try { if (z) new Intl.DateTimeFormat('en-US', { timeZone: z }); } catch (e) { z = null; }
+    return z;
+  }
+  // The parts of a moment's date and time in the airport's zone (the computer's when unknown)
+  function zoneParts(d) {
+    var o = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: CFG.tz || undefined, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' })
+      .formatToParts(d).forEach(function (p) { o[p.type] = +p.value; });
+    return o;
+  }
+  function zoneOffsetMs(d) { var p = zoneParts(d); return Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute) - Math.floor(d.getTime() / 6e4) * 6e4; }
+  // A sun time on the clock at the airport: "6:58 AM" (or "06:58"), plus its zone ("PST") when it isn't the computer's
+  function airportTime(d, noZone) {
+    var p = zoneParts(d), t = CFG.clock24 ? pad(p.hour % 24) + ':' + pad(p.minute) : ((p.hour % 12) || 12) + ':' + pad(p.minute) + (p.hour < 12 ? ' AM' : ' PM');
+    return t + (!noZone && sunZoneLabel() ? ' ' + sunZoneLabel() : '');
+  }
+  function sunZoneLabel() { // the airport's zone abbreviation, only when it differs from the computer's
+    if (!CFG.tz) return '';
+    var now = new Date(), mine = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (CFG.tz === mine || zoneOffsetMs(now) === -now.getTimezoneOffset() * 6e4) return '';
+    var n = new Intl.DateTimeFormat('en-US', { timeZone: CFG.tz, timeZoneName: 'short' }).formatToParts(now).filter(function (p) { return p.type === 'timeZoneName'; })[0];
+    return n ? n.value : '';
+  }
+
+  // ---- 3A / 3B: sunrise, sunset, end of civil twilight (night for logging) and sunset + 1 h (night currency) ----
+  // NOAA "Almanac for Computers" method; zenith 90.833° (sunrise/sunset) or 96° (civil twilight). `day` is the
+  // airport's date { y, m (0-11), d } and `off` its UTC offset in ms, so "today" is the airport's day.
+  function sunEvent(day, off, lat, lon, zenith, rising) {
+    var rad = Math.PI / 180, N = Math.round((Date.UTC(day.y, day.m, day.d) - Date.UTC(day.y, 0, 0)) / 864e5);
+    var lngHour = lon / 15, t = N + ((rising ? 6 : 18) - lngHour) / 24;
+    var M = 0.9856 * t - 3.289;
+    var L = (M + 1.916 * Math.sin(M * rad) + 0.020 * Math.sin(2 * M * rad) + 282.634 + 360) % 360;
+    var RA = (Math.atan(0.91764 * Math.tan(L * rad)) / rad + 360) % 360;
+    RA = (RA + Math.floor(L / 90) * 90 - Math.floor(RA / 90) * 90) / 15;
+    var sinDec = 0.39782 * Math.sin(L * rad), cosDec = Math.cos(Math.asin(sinDec));
+    var cosH = (Math.cos(zenith * rad) - sinDec * Math.sin(lat * rad)) / (cosDec * Math.cos(lat * rad));
+    if (cosH > 1 || cosH < -1) return null;
+    var H = (rising ? 360 - Math.acos(cosH) / rad : Math.acos(cosH) / rad) / 15;
+    var UT = ((H + RA - 0.06571 * t - 6.622 - lngHour) % 24 + 24) % 24;
+    // Pick the UTC day that puts the event closest to the right part of the local day (morning / evening)
+    var base = Date.UTC(day.y, day.m, day.d) + UT * 36e5, target = Date.UTC(day.y, day.m, day.d, rising ? 6 : 18) - off, best = base;
+    [-864e5, 864e5].forEach(function (d) { if (Math.abs(base + d - target) < Math.abs(best - target)) best = base + d; });
+    return new Date(best);
+  }
+  function sunTimes() {
+    var now = new Date(), p = zoneParts(now), day = { y: p.year, m: p.month - 1, d: p.day }, off = zoneOffsetMs(now), lat = CFG.lat, lon = CFG.lon;
+    var rise = sunEvent(day, off, lat, lon, 90.833, true), set = sunEvent(day, off, lat, lon, 90.833, false), dusk = sunEvent(day, off, lat, lon, 96, false);
+    return { rise: rise, set: set, dusk: dusk, cur: set && new Date(set.getTime() + 36e5) };
+  }
+  var sunDay = '';
+  function renderSun() {
+    var strip = $('sunStrip'), card = $('sunCard'), small = card.classList.contains('squeezed'); // arc squeezed out: show the strip
+    strip.hidden = !(F.sun === 'strip' || (F.sun === 'arc' && small)); card.hidden = F.sun !== 'arc';
+    renderSunCount();
+    if (!F.sun) return;
+    var s = sunTimes(), t = function (x) { return x ? airportTime(x) : '—'; }; // on the airport's clock, not the computer's
+    var sc = F.sunCount === 'strip' && !strip.hidden ? sunCount() : null; // feature sunCount, strip: the sunset tile counts down
+    strip.innerHTML = [['Sunrise', s.rise], ['Sunset', s.set], ['Night log', s.dusk], ['Night cur.', s.cur]].map(function (r, i) {
+      if (i === 1 && sc) return '<div class="' + sc.lvl + '"><span class="k">Sunset in ' + sc.text + '</span><span class="t">' + t(r[1]) + '</span>' +
+        '<span class="drain"><i style="width:' + (sc.frac * 100).toFixed(1) + '%"></i></span></div>';
+      return '<div><span class="k">' + r[0] + '</span><span class="t">' + t(r[1]) + '</span></div>'; }).join('');
+    if (F.sun === 'strip') return;
+    t = function (x) { return x ? airportTime(x, true) : '—'; }; // the arc names the zone once, in its heading
+    var zone = sunZoneLabel();
+    // Day arc: sun's position between sunrise and sunset, with the twilight bands at both ends
+    var now = Date.now(), up = s.rise && s.set && now > s.rise && now < s.set, f = up ? (now - s.rise) / (s.set - s.rise) : now >= (s.set || 0) ? 1 : 0;
+    var x0 = 40, x1 = 300, py = function (u) { return 96 - 92 * 4 * u * (1 - u); }, sx = x0 + (x1 - x0) * f;
+    var left = !s.set ? '' : up ? 'Sunset in ' + dur(s.set - now) : now < s.rise ? 'Sunrise in ' + dur(s.rise - now) : now < s.dusk ? 'Civil twilight' : 'Night';
+    card.innerHTML = '<div class="hd"><span class="label">Daylight · ' + esc(CFG.station) + (zone ? ' · ' + esc(zone) : '') + '</span><span class="sub">' + left + '</span></div>' +
+      '<svg viewBox="0 0 340 120" width="100%" role="img" aria-label="Sun path from sunrise to sunset">' +
+      '<rect x="0" y="96" width="340" height="2" fill="var(--line-strong)"/><rect x="0" y="98" width="' + x0 + '" height="14" fill="rgba(80,110,170,.28)"/><rect x="' + x1 + '" y="98" width="40" height="14" fill="rgba(80,110,170,.28)"/>' +
+      '<path d="M' + x0 + ' 96 Q170 -88 ' + x1 + ' 96" fill="none" stroke="var(--warn)" stroke-width="2.5" stroke-dasharray="3 5"/>' +
+      (up ? '<circle cx="' + sx.toFixed(1) + '" cy="' + py(f).toFixed(1) + '" r="10" fill="var(--warn)"/>' : '') +
+      '<text x="' + x0 + '" y="117" font-size="13" fill="var(--fg-2)" text-anchor="middle">' + t(s.rise) + '</text><text x="' + x1 + '" y="117" font-size="13" fill="var(--fg-2)" text-anchor="middle">' + t(s.set) + '</text></svg>' +
+      '<div class="row2"><span>Night logging from <b>' + t(s.dusk) + '</b></span><span>Currency from <b>' + t(s.cur) + '</b></span></div>';
+  }
+  // ---- Sunset countdown (feature sunCount): the last SUNCT_MIN minutes of daylight at the airport; amber under an hour,
+  //      red under 30 minutes. "strip" puts it on the sun strip's sunset tile; while the strip isn't showing (sun times
+  //      off, or the daylight arc) it goes in the clock row instead. ----
+  var SUNCT_MIN = 120, SUNCT_SHIFT = (+q.get('sunShift') || 0) * 60000; // ?sunShift=minutes moves "now" forward (testing only)
+  function sunCount() {
+    if (!F.sunCount || CFG.lat == null) return null;
+    var s = sunTimes(), left = s.set ? s.set - Date.now() - SUNCT_SHIFT : -1;
+    if (left <= 0 || left > SUNCT_MIN * 60000) return null;
+    var min = Math.ceil(left / 60000);
+    return { text: Math.floor(min / 60) + ':' + pad(min % 60), frac: left / (SUNCT_MIN * 60000), lvl: min <= 30 ? 'red' : min <= 60 ? 'amb' : '' };
+  }
+  function renderSunCount() {
+    var el = $('sunCt'), onStrip = F.sunCount === 'strip' && !$('sunStrip').hidden, c = F.sunCount && !onStrip ? sunCount() : null;
+    el.hidden = !c;
+    $('local').textContent = localTime(new Date()) + (c ? '' : ' local'); // room for the countdown: the time alone (Zulu has its Z)
+    if (!c) return;
+    el.className = 'sunct ' + c.lvl;
+    el.innerHTML = SUN_ICON + 'Sunset in <b>' + c.text + '</b>';
+  }
+  var SUN_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></svg>';
+  function dur(ms) { var m = Math.round(ms / 60000); return (m >= 60 ? Math.floor(m / 60) + ' h ' : '') + (m % 60) + ' min'; }
+
+  // ---- 4A: PIREPs, drawn with aviationweather.gov's own symbols (24×24 paths from its map legend; white halo,
+  //      intensity colours: NIL blue, light green, moderate dark orange, severe dark red) ----
+  var PIREP_SYM = {
+    turb: { NIL: 'M7,7 L17,17 M16,12 A4,4 0 1,1 8,12 A4,4 0 1,1 16,12', LGT: 'M8,16 L12,8 L16,16', MOD: 'M4,16 L8,16 L12,8 L16,16 L20,16', SEV: 'M4,16 L8,16 L12,8 L16,16 L20,16 M8,10 L12,2 L16,10' },
+    ice: { NIL: 'M7,17 L17,7 M16,12 A4,4 0 1,1 8,12 A4,4 0 1,1 16,12', LGT: 'M6,4 L6,12 C10,16 14,16 18,12 L18,4 M12,10 L12,20', MOD: 'M6,4 L6,12 C10,16 14,16 18,12 L18,4 M10,10 L10,20 M14,10 L14,20', SEV: 'M6,4 L6,12 C10,16 14,16 18,12 L18,4 M9,10 L9,20 M12,10 L12,20 M15,10 L15,20' },
+    llws: 'M4,9 C6,5 10,5 12,9 C14,13 18,13 20,9 M4,14 C6,10 10,10 11,14 C14,18 18,18 20,14'
+  };
+  var PIREP_COLOR = { NIL: 'blue', LGT: 'green', MOD: 'darkorange', SEV: 'darkred' }, ICE_BLUE = '#1E88FF';
+  function pirepLevel(s, ice) {
+    s = String(s || '').toUpperCase();
+    if (!s) return null;
+    if (/SEV|EXTRM|HVY/.test(s)) return 'SEV';
+    if (/MOD/.test(s)) return 'MOD';
+    if (/LGT|TRC|TRACE/.test(s)) return 'LGT';
+    if (/NEG|SMTH|NIL/.test(s)) return 'NIL';
+    return ice ? 'LGT' : null;
+  }
+  function loadPireps() {
+    if (!F.pireps) return;
+    return getJSON('/api/data/pirep?id=' + encodeURIComponent(CFG.station) + '&distance=' + CFG.radiusNm + '&age=1.5&format=json').then(function (list) {
+      state.pireps = (Array.isArray(list) ? list : []).filter(function (p) { return p.lat != null && p.lon != null; }).map(function (p) {
+        return { p: p, lat: p.lat, lon: p.lon, turb: pirepLevel(p.tbInt1, false), ice: pirepLevel(p.icgInt1, true), llws: /LLWS/.test(p.rawOb || '') };
+      }).filter(function (x) { return x.turb || x.ice || x.llws; });
+      drawOverlay();
+    }).catch(function () {});
+  }
+  function drawSymbol(g, path, color, x, y, s) {
+    g.save(); g.translate(x - 12 * s, y - 12 * s); g.scale(s, s);
+    var p = new Path2D(path);
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    g.lineWidth = 4.4; g.strokeStyle = '#fff'; g.stroke(p);   // AWC's white halo
+    g.lineWidth = 2.4; g.strokeStyle = color; g.stroke(p);
+    g.restore();
+  }
+  function drawPireps(g) {
+    if (!F.pireps || !state.pireps) return;
+    var hl = state.hl;
+    state.pireps.forEach(function (x) {
+      var pt = toScreen(x.p.lat, x.p.lon), syms = [], on = hl && hlMatch(hl, x), k = on ? 1.35 : 1;
+      g.globalAlpha = hl && !on ? 0.18 : 1; // a hovered legend item fades the rest (see drawOverlay)
+      if (x.turb) syms.push([PIREP_SYM.turb[x.turb], PIREP_COLOR[x.turb]]);
+      if (x.ice) syms.push([PIREP_SYM.ice[x.ice], ICE_BLUE]); // icing is always blue; the number of bars gives the intensity
+      if (x.llws) syms.push([PIREP_SYM.llws, 'darkred']);
+      syms.forEach(function (s, i) { drawSymbol(g, s[0], s[1], pt.x + (i - (syms.length - 1) / 2) * 30 * k, pt.y, 1.3 * k); });
+      if (x.p.fltLvl > 0) label(g, pad3(x.p.fltLvl), pt.x + syms.length * 15 * k + 6, pt.y + 2, 14, '#E8EEF5', 'rgba(11,15,20,.78)', 'left');
+    });
+    g.globalAlpha = 1;
+  }
+  function pirepSymbolDataUrl(path, color) { // legend copy: no white halo (it turned the small icon into a blob on the dark strip)
+    return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="' + path + '" fill="none" stroke="' + color + '" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  }
+
+  // ---- 5A: wind barbs (staff points into the wind; pennant 50 kt, long feather 10, short 5; calm = ring) ----
+  function drawBarb(g, x, y, m, r) {
+    if (m.wspd == null) return;
+    g.save(); g.lineCap = 'round';
+    if (m.wspd === 0) { g.beginPath(); g.arc(x, y, r + 6, 0, Math.PI * 2); g.lineWidth = 2; g.strokeStyle = '#0B0F14'; g.stroke(); g.restore(); return; }
+    if (m.wdir === 'VRB' || m.wdir == null) { g.restore(); return; }
+    var len = r + 34, a = (+m.wdir) * Math.PI / 180, kt = Math.round(m.wspd / 5) * 5;
+    g.translate(x, y); g.rotate(a);
+    var path = new Path2D(), y0 = -len, pos = y0;
+    path.moveTo(0, -r - 2); path.lineTo(0, y0);
+    var pennants = Math.floor(kt / 50), full = Math.floor((kt % 50) / 10), half = (kt % 10) >= 5;
+    for (var i = 0; i < pennants; i++) { path.moveTo(0, pos); path.lineTo(14, pos + 4); path.lineTo(0, pos + 8); pos += 10; }
+    for (i = 0; i < full; i++) { path.moveTo(0, pos); path.lineTo(15, pos - 5); pos += 6; }
+    if (half) { if (!pennants && !full) pos += 6; path.moveTo(0, pos); path.lineTo(8, pos - 3); }
+    g.lineWidth = 5; g.strokeStyle = 'rgba(255,255,255,.75)'; g.stroke(path);
+    g.lineWidth = 2.2; g.strokeStyle = '#0B0F14'; g.stroke(path);
+    if (pennants) { g.fillStyle = '#0B0F14'; var pf = new Path2D(); pos = y0; for (i = 0; i < pennants; i++) { pf.moveTo(0, pos); pf.lineTo(14, pos + 4); pf.lineTo(0, pos + 8); pos += 10; } g.fill(pf); }
+    g.restore();
+  }
+
+  // ---- 6A: home airport, last 12 hours: flight category bar, wind and gust lines ----
+  function renderTrend() {
+    var el = $('trendCard');
+    if (!F.trend) { el.hidden = true; return; }
+    var hist = (state.history || []).filter(function (m) { return m.obsTime; }).sort(function (a, b) { return a.obsTime - b.obsTime; });
+    var now = Date.now() / 1000, t0 = now - 12 * 3600;
+    hist = hist.filter(function (m) { return m.obsTime >= t0 - 3600; });
+    if (hist.length < 2) { el.hidden = false; el.innerHTML = '<div class="hd"><span class="label">' + esc(CFG.station) + ' · last 12 hours</span></div><div class="sub">Not enough reports yet.</div>'; return; }
+    var W = 480, X = function (t) { return Math.max(0, Math.min(W, (t - t0) / (now - t0) * W)); };
+    var maxW = Math.max(20, Math.max.apply(null, hist.map(function (m) { return Math.max(m.wspd || 0, m.wgst || 0); })));
+    var Y = function (v) { return 82 - v / maxW * 52; };
+    var bar = hist.map(function (m, i) {
+      var x = X(m.obsTime), xe = i < hist.length - 1 ? X(hist[i + 1].obsTime) : W;
+      return xe > x ? '<rect x="' + x.toFixed(1) + '" y="4" width="' + Math.max(1, xe - x - 1).toFixed(1) + '" height="16" rx="2" fill="' + (CAT[m.fltCat] || '#8892A0') + '"/>' : '';
+    }).join('');
+    var pts = function (k) { return hist.filter(function (m) { return m[k] != null; }).map(function (m) { return X(m.obsTime).toFixed(1) + ',' + Y(m[k]).toFixed(1); }).join(' '); };
+    var gusts = hist.filter(function (m) { return m.wgst; });
+    var first = hist[0], last = hist[hist.length - 1];
+    var r0 = KT_RANK[first.fltCat], r1 = KT_RANK[last.fltCat], trend = r0 == null || r1 == null || r0 === r1 ? 'steady' : r1 > r0 ? 'worse' : 'better';
+    var c0 = ceilingFt(first), c1 = ceilingFt(last), cf = function (c) { return c == null ? 'none' : fmtFt(c); };
+    var hz = function (t) { return hhmmZ(new Date(t * 1000)); };
+    el.innerHTML = '<div class="hd"><span class="label">' + esc(CFG.station) + ' · last 12 hours</span><span class="tchip ' + trend + '">' + { worse: 'Getting worse', better: 'Improving', steady: 'Steady' }[trend] + '</span></div>' +
+      '<svg viewBox="0 0 ' + W + ' 100" width="100%" role="img" aria-label="Flight category and wind over the last 12 hours">' + bar +
+      '<g stroke="var(--line)"><line x1="0" y1="34" x2="' + W + '" y2="34"/><line x1="0" y1="59" x2="' + W + '" y2="59"/><line x1="0" y1="84" x2="' + W + '" y2="84"/></g>' +
+      '<polyline points="' + pts('wspd') + '" fill="none" stroke="var(--accent)" stroke-width="2.5"/>' +
+      (gusts.length ? '<polyline points="' + pts('wgst') + '" fill="none" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="3 3"/>' : '') +
+      '<text x="0" y="98" font-size="11" fill="var(--muted)">' + hz(t0) + '</text><text x="' + W + '" y="98" font-size="11" fill="var(--muted)" text-anchor="end">' + hz(now) + '</text></svg>' +
+      '<div class="row2"><span>Wind <b>' + (first.wspd || 0) + ' → ' + (last.wspd || 0) + ' kt</b></span>' + (gusts.length ? '<span>Gusts to <b>' + Math.max.apply(null, gusts.map(function (m) { return m.wgst; })) + '</b></span>' : '') +
+      '<span>Ceiling <b>' + cf(c0) + ' → ' + cf(c1) + '</b></span></div>';
+    el.hidden = false;
+  }
+
+  function renderFeatures() {
+    var m = state.home;
+    renderLimits(m); renderRunway(m); renderTrend(); renderSun();
+    if (F.tstorm) renderThunder();
+    layoutSide();
+  }
+  if (F.pireps) {
+    $('pirepLegend').hidden = false;
+    $('pirepLegend').querySelector('[data-sym=turb]').src = pirepSymbolDataUrl(PIREP_SYM.turb.MOD, 'darkorange');
+    $('pirepLegend').querySelector('[data-sym=ice]').src = pirepSymbolDataUrl(PIREP_SYM.ice.MOD, ICE_BLUE);
+  }
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function renderStatus() {
+    var names = ['METARs', 'TAF', 'SIGMETs', 'G-AIRMETs', 'Radar'].concat(F.tfrs ? ['TFRs'] : [], F.aloft ? ['Winds aloft'] : []);
+    var limits = { METARs: CFG.refresh.metar, TAF: CFG.refresh.taf, SIGMETs: CFG.refresh.sigmet, 'G-AIRMETs': CFG.refresh.gairmet, Radar: CFG.refresh.radar, TFRs: CFG.refresh.tfr, 'Winds aloft': CFG.refresh.aloft };
+    // One "Updated" time when everything is current; any late or failed source is named after it
+    var blocked = false, latest = 0, pending = false, problems = [], each = [];
+    names.forEach(function (n) {
+      var s = state.status[n];
+      if (!s) { pending = true; return; }
+      if (!s.ok) { if (/fetch/i.test(s.err)) blocked = true; problems.push('<span class="bad">' + n + ' failed</span>'); return; }
+      var age = (Date.now() - s.at) / 60000;
+      if (age > limits[n] * 2.5) problems.push('<span class="stale">' + n + ' late · ' + localTime(new Date(s.at)) + '</span>');
+      latest = Math.max(latest, s.at);
+      each.push(n + ' ' + localTime(new Date(s.at)));
+    });
+    $('status').innerHTML = (latest ? '<span title="' + esc(each.join(', ')) + '">Updated ' + localTime(new Date(latest)) + '</span>' : '<span>' + (pending ? 'Loading…' : '') + '</span>') + problems.join('');
+    var b = $('banner');
+    if (blocked) { b.hidden = false; b.textContent = 'Weather data is blocked in this window. Open the dashboard with the "Start weather dashboard" launcher.'; }
+    else if (state.stationError) { b.hidden = false; b.textContent = state.stationError; }
+    else b.hidden = true;
+    // For the shell's Display info and corner check panel
+    if (window.dashHost && dashHost.report) dashHost.report({
+      state: problems.length || blocked || state.stationError ? (/failed/.test(problems.join('')) || blocked ? 'bad' : 'late') : pending ? 'late' : 'ok',
+      text: latest ? 'Updated ' + localTime(new Date(latest)) + (problems.length ? ' · ' + problems.length + ' issue' + (problems.length > 1 ? 's' : '') : '') : 'Loading'
+    });
+  }
+
+  function tickClock() {
+    var d = new Date();
+    $('zulu').textContent = pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + 'Z';
+    $('local').textContent = localTime(d) + ' local';
+    if (F.sun && CFG.lat != null) renderSun(); else renderSunCount(); // (renderSunCount drops "local" while the countdown shows)
+    if (F.catChange) renderCatChange(); // the "min ago" count, and dropping the old badge after an hour
+  }
+
+  /* ---------- Boot ---------- */
+  function rebuild() { computeView(); drawBase(); if (state.frames.length) drawRadar(true); drawOverlay(); layoutSide(); layoutBar(); }
+  var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(rebuild, 250); });
+
+  // Legend lists only the advisory types drawn on the map
+  tickClock(); setInterval(tickClock, 1000 * 10);
+  setInterval(renderStatus, 60000);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { drawOverlay(); sideSig = barSig = ''; layoutSide(); if (barChips) layoutBar(); });
+  if (CFG.decoded === 'off') $('obs').hidden = true;
+
+  // Find the airport's position first: the map, range rings and METAR search are all centered on it.
+  // KSGU's position is built in, so the default board still works if this lookup fails.
+  function locateStation() {
+    return getJSON('/api/data/stationinfo?ids=' + encodeURIComponent(CFG.station) + '&format=json').then(function (list) {
+      var s = Array.isArray(list) && list[0];
+      if (!s || s.lat == null) throw new Error('not found');
+      CFG.lat = s.lat; CFG.lon = s.lon;
+      CFG.tz = airportZone(s.state, s.country, s.lat, s.lon); // for the sun times (see airportZone)
+      if (s.elev != null) CFG.elevFt = s.elev * 3.28084; // metres
+      $('stnName').textContent = s.site || '';
+      state.stationError = '';
+    });
+  }
+  // After the first load at startup, refreshes run on the clock (:00, :05, :10 … for 5 minutes) rather than counted
+  // from when the page opened, so the update times read cleanly. Re-aimed each time, so it never drifts.
+  function onClock(minutes, fn) {
+    var period = minutes * 60000;
+    (function next() { setTimeout(function () { fn(); next(); }, period - Date.now() % period + 1000); })();
+  }
+  function start() {
+    state.stationError = '';
+    renderStatus(); rebuild();
+    loadRadar(); loadMetars(); loadTaf(); loadSigmets(); loadGairmets();
+    if (F.runway || F.limits) loadRunways();
+    if (F.pireps) { loadPireps(); onClock(5, loadPireps); }
+    if (F.tfrs) { loadTfrs(); onClock(CFG.refresh.tfr, loadTfrs); }
+    if (F.aloft) { loadAloft(); onClock(CFG.refresh.aloft, loadAloft); }
+    renderSun();
+    onClock(CFG.refresh.metar, loadMetars);
+    onClock(CFG.refresh.taf, loadTaf);
+    onClock(CFG.refresh.sigmet, loadSigmets);
+    onClock(CFG.refresh.gairmet, loadGairmets);
+    onClock(CFG.refresh.radar, loadRadar);
+  }
+  function boot() {
+    locateStation().then(start, function (e) {
+      if (CFG.station === 'KSGU') { start(); return; }
+      state.stationError = /fetch|HTTP|Timed/i.test(String(e && e.message))
+        ? 'Can’t look up ' + CFG.station + ' right now. Retrying in a minute.'
+        : 'Airport ' + CFG.station + ' wasn’t found. ' + (CFG.station !== HOME ? 'Click the airport code to try another, or go back to ' + HOME + '.' : 'Check the airport code in the dashboard settings.');
+      renderStatus();
+      setTimeout(boot, 60000);
+    });
+  }
+  $('stnId').textContent = CFG.station;
+  $('stnName').textContent = CFG.station === 'KSGU' ? 'St. George' : '';
+  boot();
+})();
+</script>
+</body>
+</html>
