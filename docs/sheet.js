@@ -13,6 +13,8 @@
 
   function getText(url) {
     if (window.chrome && window.chrome.webview && window.dashHost && window.dashHost.getText) return window.dashHost.getText(url);
+    // The web version (docs/dash): through the relay, which answers this with the tab names only, never the sheet
+    if (window.WXC_WEB && window.WXC_WEB.relay) url = window.WXC_WEB.relay + '/?u=' + encodeURIComponent(url);
     return fetch(url, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); });
   }
   function parse(html) {
