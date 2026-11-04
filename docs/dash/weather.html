@@ -422,19 +422,27 @@ html[data-theme="light"] .range button.on { color: #fff; }
   // other web pages to read its data). The test launcher opens this file in an Edge profile that allows it.
   // The web version (docs/dash on GitHub Pages; config.js sets WXC_WEB) reads them through the relay (relay/worker.js).
   function viaRelay(url) { return window.WXC_WEB && WXC_WEB.relay ? WXC_WEB.relay + '/?u=' + encodeURIComponent(url) : url; }
+  // aviationweather.gov answers 502/504 now and then; like the app's host, try twice more (after 2 s, then 5 s)
+  function fetchRetry(url, tries) {
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (r.status >= 500 && tries > 0) throw new Error('retry');
+      if (!r.ok) { var e = new Error('HTTP ' + r.status); e.final = true; throw e; }
+      return r;
+    }).catch(function (e) {
+      if (e.final || tries <= 0) throw e;
+      return new Promise(function (ok) { setTimeout(ok, tries > 1 ? 2000 : 5000); }).then(function () { return fetchRetry(url, tries - 1); });
+    });
+  }
   function getJSON(path) {
     var url = path.indexOf('http') === 0 ? path : CFG.awc + path;
     if (window.chrome && window.chrome.webview && window.dashHost && window.dashHost.getJSON) {
       return window.dashHost.getJSON(url);
     }
-    return fetch(viaRelay(url), { cache: 'no-store' }).then(function (r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    });
+    return fetchRetry(viaRelay(url), 2).then(function (r) { return r.json(); });
   }
   function getText(url) {
     if (window.chrome && window.chrome.webview && window.dashHost && window.dashHost.getText) return window.dashHost.getText(url);
-    return fetch(viaRelay(url), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); });
+    return fetchRetry(viaRelay(url), 2).then(function (r) { return r.text(); });
   }
   function mark(name, ok, err) {
     state.status[name] = { ok: ok, at: Date.now(), err: err ? String(err.message || err) : '' };
@@ -649,7 +657,9 @@ html[data-theme="light"] .range button.on { color: #fff; }
   var CAT = { VFR: '#2FB55A', MVFR: '#2F7BF0', IFR: '#E5403A', LIFR: '#C23BD4' };
 
   function drawOverlay() {
-    var v = state.view, dpr = v.dpr;
+    var v = state.view;
+    if (!v) return; // fonts or data arrived before the map was laid out; it's drawn once it is
+    var dpr = v.dpr;
     canvas.width = Math.round(v.w * dpr); canvas.height = Math.round(v.h * dpr);
     var g = canvas.getContext('2d');
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
