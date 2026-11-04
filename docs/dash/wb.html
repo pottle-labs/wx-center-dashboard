@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="config.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SGU Weight &amp; Balance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout: approved design B4 (paged cards) with B5's 3-column aircraft cards. Drawn on a fixed 1920x1080 stage that is scaled to fit the window. */
+:root {
+  --bg: #0B0F14;
+  --panel: #121820;
+  --line: #1E2836;
+  --line-strong: #2A3646;
+  --fg: #E8EEF5;
+  --fg-2: #C9D3DF;
+  --muted: #93A1B3;
+  --accent: #7CC4FF;
+  --warn: #F5B841;
+  --crit: #FF6A4D;
+  --font-ui: 'Barlow Semi Condensed', 'Segoe UI', system-ui, sans-serif;
+  --font-data: 'JetBrains Mono', Consolas, 'Cascadia Mono', ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-ui); overflow: hidden; }
+.stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; padding: 32px 48px; display: flex; flex-direction: column; gap: 22px; }
+.mono { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+
+/* Header */
+.top { display: flex; align-items: center; justify-content: space-between; height: 60px; flex: 0 0 auto; }
+.top .l, .top .r { display: flex; align-items: center; gap: 22px; }
+.top .l > *, .top .r > *, .src > div { flex-shrink: 0; white-space: nowrap; } /* overflow, don't wrap, so short page labels can kick in */
+
+/* Light mode (?theme=light, "Appearance" setting): same layout, light surfaces, brand dark blue as the accent,
+   and the deviation / warning colors darkened enough to read on white */
+html[data-theme="light"] {
+  --bg: #EEF2F6; --panel: #FFFFFF; --line: #D5DDE6; --line-strong: #B8C4D2;
+  --fg: #0F1A26; --fg-2: #334255; --muted: #5E6E82; --accent: #0B6CB5; --warn: #8F5B00; --crit: #C2361C;
+  color-scheme: light;
+}
+html[data-theme="light"] .pc, html[data-theme="light"] .ic { box-shadow: 0 1px 3px rgba(15,26,38,.08); }
+html[data-theme="light"] .base, html[data-theme="light"] .chips span.on { color: #fff; }
+html[data-theme="light"] .mock { background: rgba(255,120,60,.16); color: #B03A0E; }
+html[data-theme="light"] .d0 { color: #7A8798; }
+html[data-theme="light"] .d1 { background: rgba(11,108,181,.10); }
+html[data-theme="light"] .d2 { color: #8A5A00; background: rgba(245,184,65,.30); }
+html[data-theme="light"] .d4 { color: #B03A0E; background: rgba(255,120,60,.20); }
+html[data-theme="light"] .pc .badge { background: #E6ECF2; }
+html[data-theme="light"] .pc .badge.yes { background: rgba(11,108,181,.12); }
+html[data-theme="light"] .pc .badge.warn { background: rgba(255,120,60,.16); color: #B03A0E; }
+html[data-theme="light"] .pc .sw { border-color: #8794A6; }
+html[data-theme="light"] .pc .sw.white { background: #FFFFFF; }
+html[data-theme="light"] .warn { background: rgba(245,184,65,.22); border-color: rgba(176,120,0,.45); }
+
+/* School logo (?logo=header|plate|footer|none). Files in assets/, made by assets/make-logo.ps1 */
+.brand { display: none; }
+.logo-header .brand.h { display: flex; align-items: center; gap: 22px; }
+.logo-header .brand.h img { display: block; height: 54px; }
+.logo-header .brand.h::after { content: ''; width: 2px; height: 44px; background: var(--line-strong); }
+.logo-plate .brand.p { display: block; padding: 7px 16px; border-radius: 10px; background: #fff; }
+.logo-plate .brand.p img { display: block; height: 42px; }
+.logo-footer .brand.f { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; margin-top: -6px; padding-top: 14px; border-top: 1px solid var(--line); }
+.logo-footer .brand.f img { display: block; height: 46px; }
+.brand.f .tag { font-size: 22px; color: var(--muted); letter-spacing: .5px; }
+.top .r { gap: 28px; }
+.base { background: var(--accent); color: var(--bg); font-weight: 700; font-size: 36px; padding: 2px 18px; border-radius: 10px; letter-spacing: 1px; }
+.title { font-size: 44px; font-weight: 600; }
+.mock { padding: 2px 12px; border-radius: 6px; background: rgba(255,143,90,.22); color: #FFA77A; font-size: 22px; font-weight: 700; letter-spacing: 2px; }
+.chips { display: flex; align-items: center; gap: 10px; }
+.chips span { padding: 4px 16px; border-radius: 8px; font-size: 24px; font-weight: 600; background: var(--panel); color: var(--muted); }
+.chips span.on { background: var(--accent); color: var(--bg); }
+.chips .left { margin-left: 8px; width: 64px; padding: 0; background: none; font-family: var(--font-data); font-size: 22px; font-weight: 400; color: var(--muted); }
+.src { text-align: right; font-size: 22px; color: var(--muted); line-height: 1.35; }
+.src .stale { color: var(--warn); }
+.src .bad { color: var(--crit); }
+
+/* Sections */
+.sect { display: flex; flex-direction: column; gap: 12px; flex: 0 0 auto; }
+.sect-h { display: flex; align-items: baseline; justify-content: space-between; }
+.label { font-size: 28px; font-weight: 600; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; }
+.key { display: flex; align-items: center; gap: 16px; font-size: 20px; color: var(--muted); }
+.key span { padding: 0 8px; border-radius: 4px; }
+.d0 { color: #8E9BAD; }
+.d1 { color: var(--fg); background: rgba(124,196,255,.12); }
+.d2 { color: #F7C55E; background: rgba(245,184,65,.16); }
+.d4 { color: #FFA77A; background: rgba(255,143,90,.24); font-weight: 700; }
+
+/* Card sizes are the approved design sizes times --k (1 = as designed). When cards leave empty space, fitCards() raises --k
+   as far as the page height and the compass/number widths allow. */
+
+/* Aircraft cards, 2 columns (default) */
+.planes { --k: 1; --kc: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: calc(196px * var(--k)); gap: 16px 24px; }
+.pc { padding: calc(14px * var(--k)) 24px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+.pc .row1 { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pc .id { display: flex; align-items: baseline; gap: calc(16px * var(--k)); min-width: 0; white-space: nowrap; }
+.pc .tail { font-size: calc(44px * var(--k)); font-weight: 700; letter-spacing: .5px; line-height: 1; }
+.pc .call { font-size: calc(28px * var(--k)); color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; }
+.pc .badges { display: flex; align-items: center; gap: calc(12px * var(--k)); font-size: calc(22px * var(--k)); white-space: nowrap; }
+.pc .badge { padding: 0 calc(10px * var(--k)); border-radius: 5px; background: #1A222D; color: var(--muted); }
+.pc .badge.yes { background: rgba(124,196,255,.16); color: var(--accent); }
+.pc .badge.warn { background: rgba(255,143,90,.22); color: #FFA77A; }
+.pc .sw { width: calc(22px * var(--k)); height: calc(22px * var(--k)); border-radius: 50%; border: 1px solid #5B6B80; background: #3A4656; }
+.pc .sw.blue { background: linear-gradient(90deg, #2F6FD6 50%, #F2F4F7 50%); }
+.pc .sw.white { background: #F2F4F7; }
+.pc .paint { color: var(--fg-2); }
+.pc .wts { display: flex; align-items: baseline; gap: calc(36px * var(--k)); white-space: nowrap; }
+.pc .bew { font-size: calc(38px * var(--k)); font-weight: 500; }
+.pc .mom { font-size: calc(26px * var(--k)); color: var(--fg-2); }
+.pc .u { font-size: calc(22px * var(--k)); color: var(--muted); }
+.pc .mom .u { font-size: calc(20px * var(--k)); }
+.pc .cc { display: grid; grid-template-columns: calc(76px * (.5 + var(--kc) / 2)) repeat(12, minmax(0, 1fr)); row-gap: calc(2px * var(--kc)); align-items: center; text-align: center; font-family: var(--font-data); }
+.pc .cc .k { text-align: left; font-family: var(--font-ui); font-size: calc(18px * var(--kc)); color: var(--muted); }
+.pc .cc .h { font-size: calc(18px * var(--kc)); color: var(--muted); font-weight: 700; }
+.pc .cc .s { margin: 0 2px; padding: calc(1px * var(--kc)) 0; border-radius: 5px; font-size: calc(26px * var(--kc)); white-space: nowrap; overflow: hidden; }
+.pc .cc .s.dot { color: var(--muted); opacity: .6; } /* heading needs no correction */
+.pc .nocomp { font-size: calc(26px * var(--kc)); color: var(--muted); padding: 10px 0 6px; }
+.pc .lbl { font-family: var(--font-ui); font-size: calc(18px * var(--k)); font-weight: 600; letter-spacing: 1px; color: var(--muted); margin-right: calc(10px * var(--k)); }
+.pc .ap { color: var(--muted); } .pc .ap.yes { color: var(--accent); }
+
+/* Aircraft board (Aircraft layout setting: auto uses it for 7 or more aircraft): one row per aircraft, the compass headings as
+   columns labeled once in the header, and only the headings that need a correction show a number */
+.board-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.bcols { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) repeat(12, minmax(0, .38fr)); align-items: center; padding: 0 24px; }
+.bcols > :nth-child(-n+3) { padding-right: 20px; } /* room between aircraft, weight and moment; compass cells sit close like the card's table */
+.bh { height: 40px; font-size: 18px; font-weight: 600; letter-spacing: 1px; color: var(--muted); border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
+.bh .c { text-align: center; font-family: var(--font-data); font-weight: 700; letter-spacing: 0; }
+.planes.board { grid-template-columns: 1fr; grid-auto-rows: calc(58px * var(--k)); gap: 0; }
+.board .pc { display: grid; padding: 0 24px; background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; box-shadow: none; }
+.board .pc:last-child { border-bottom: 0; }
+.board .id { display: block; overflow: hidden; line-height: 1.05; }
+.board .tail { display: block; font-size: calc(28px * var(--k)); }
+.board .sub { display: block; font-size: calc(17px * (.5 + var(--k) / 2)); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: calc(3px * var(--k)); }
+.board .sub .yes { color: var(--accent); } .board .sub .bad { color: #FFA77A; }
+.board .wts { display: block; overflow: hidden; white-space: nowrap; }
+.board .bw { font-size: calc(28px * (.4 + var(--k) * .6)); font-weight: 500; }
+.board .bm { font-size: calc(22px * (.4 + var(--k) * .6)); color: var(--fg-2); }
+.board .cc { display: contents; }
+.board .cc .s { margin: 0 3px; padding: calc(2px * var(--kc)) 0; border-radius: 5px; text-align: center; font-family: var(--font-data); font-size: calc(24px * var(--kc)); white-space: nowrap; overflow: hidden; }
+.board .nocomp { grid-column: span 12; padding: 0; text-align: center; font-size: calc(22px * var(--kc)); }
+/* Aircraft status (optional Status column in the sheet). Cards: out-of-service cards fade with the tail struck through.
+   Board: a STATUS column (only when some aircraft has one) and dimmed rows. */
+.stat { display: inline-block; max-width: 100%; padding: 0 calc(10px * var(--k)); border-radius: 6px; font-size: calc(22px * var(--k)); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.stat.down { background: rgba(255,143,90,.22); color: #FFA77A; }
+.stat.note { background: rgba(245,184,65,.16); color: #F7C55E; }
+.stat.ok { background: rgba(124,196,255,.16); color: var(--accent); }
+.pc .badges .stat { max-width: 22em; }
+.pc.down > :not(.row1), .pc.down .call, .pc.down .badges > :not(.stat) { opacity: .45; }
+.pc.down .tail { text-decoration: line-through; text-decoration-thickness: 3px; opacity: .6; }
+.board-wrap.st .bcols { grid-template-columns: minmax(0, 1.5fr) minmax(0, .95fr) minmax(0, .95fr) minmax(0, 1.25fr) repeat(12, minmax(0, .36fr)); }
+.board-wrap.st .bcols > :nth-child(4) { padding-right: 16px; }
+.board .bst { min-width: 0; overflow: hidden; }
+/* Two badges (status + maintenance) can outgrow the card's top row: the tail number keeps its room, the call sign goes
+   first, then the badges shorten with an ellipsis (the full text is in their tooltip) */
+.pc .row1 > .badges { flex-shrink: 0; min-width: 0; overflow: hidden; max-width: calc(100% - 176px * var(--k)); } /* a 6-character tail at 44 px, plus its gap */
+.c3 .pc .row1 > .badges { max-width: calc(100% - 152px * var(--k)); }                              /* the same at 38 px */
+.pc .badges .stat { flex: 0 1 auto; min-width: 4em; }
+.pc .badges .stat.mtb { flex-shrink: 0; } /* the maintenance badge is short; the status badge gives way */
+/* Maintenance countdown (feature maint): cards' bar row, and the board's column (after STATUS) */
+.pc .mt { display: flex; align-items: center; gap: calc(12px * var(--k)); font-size: calc(16px * var(--k)); line-height: 1; color: var(--muted); white-space: nowrap; }
+.pc .mt .k { font-weight: 600; letter-spacing: 1px; }
+.pc .mt .mbar { flex: 1 1 auto; height: calc(7px * var(--k)); border-radius: 4px; background: var(--line-strong); overflow: hidden; }
+.pc .mt .mbar i { display: block; height: 100%; border-radius: 4px; background: #2FB55A; }
+.pc .mt .v { color: var(--fg-2); }
+.pc .mt.note, .pc .mt.note .v { color: #F7C55E; } .pc .mt.note .mbar i { background: var(--warn); }
+.pc .mt.down, .pc .mt.down .v { color: #FFA77A; } .pc .mt.down .mbar i { background: #FF7A45; }
+.board-wrap.mt .bcols { grid-template-columns: minmax(0, 1.45fr) minmax(0, .9fr) minmax(0, .9fr) minmax(0, .85fr) repeat(12, minmax(0, .36fr)); }
+.board-wrap.st.mt .bcols { grid-template-columns: minmax(0, 1.35fr) minmax(0, .85fr) minmax(0, .85fr) minmax(0, 1.1fr) minmax(0, .85fr) repeat(12, minmax(0, .34fr)); }
+.board-wrap.mt .bcols > :nth-child(4), .board-wrap.st.mt .bcols > :nth-child(5) { padding-right: 16px; }
+.board .bmt { min-width: 0; overflow: hidden; white-space: nowrap; font-size: calc(24px * (.4 + var(--k) * .6)); color: var(--fg-2); }
+.board .bmt .n { display: inline-block; min-width: 2.2em; padding: 0 4px; border-radius: 4px; background: var(--line-strong); color: var(--fg-2); font-size: .72em; text-align: center; vertical-align: .12em; }
+.board .bmt.note { color: #F7C55E; } .board .bmt.down { color: #FFA77A; font-weight: 700; }
+html[data-theme="light"] .pc .mt.note, html[data-theme="light"] .pc .mt.note .v, html[data-theme="light"] .board .bmt.note { color: #8A5A00; }
+html[data-theme="light"] .pc .mt.down, html[data-theme="light"] .pc .mt.down .v, html[data-theme="light"] .board .bmt.down { color: #B03A0E; }
+.board .bst .stat { font-size: calc(19px * (.5 + var(--k) / 2)); }
+.board .pc.down > :not(.bst):not(.cc), .board .pc.down .cc .s { opacity: .4; } /* .cc is display: contents, so its cells fade one by one */
+html[data-theme="light"] .stat.down { background: rgba(255,120,60,.16); color: #B03A0E; }
+html[data-theme="light"] .stat.note { background: rgba(245,184,65,.30); color: #8A5A00; }
+html[data-theme="light"] .stat.ok { background: rgba(11,108,181,.12); }
+html[data-theme="light"] .board .pc { box-shadow: none; }
+html[data-theme="light"] .board-wrap { box-shadow: 0 1px 3px rgba(15,26,38,.08); }
+html[data-theme="light"] .board .sub .bad { color: #B03A0E; }
+
+/* Aircraft cards, 3 columns (9 or more aircraft): paint name dropped, type about 20% smaller */
+/* Aircraft detail (settings → Features): click a card for a big popup (9A) or to expand it over the page (9B) */
+.pick .pc { cursor: pointer; } .pick .pc:hover { border-color: var(--line-strong); }
+.detail { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(5,8,12,.72); }
+.detail[hidden] { display: none; }
+.detail .planes { --k: 1.75; --kc: 1.75; width: 1500px; grid-template-columns: 1fr; grid-auto-rows: auto; }
+.detail .pc { gap: 28px; padding: 28px 40px; box-shadow: 0 24px 80px rgba(0,0,0,.55); border-color: var(--line-strong); }
+.detail .hint, .solo-hint { font-size: 20px; color: var(--muted); text-align: center; margin-top: 14px; }
+.planes.solo { grid-template-columns: 1fr; }
+.lstn { display: flex; flex-direction: column; gap: calc(6px * var(--k)); }
+.lstn .k { font-size: calc(14px * var(--k)); font-weight: 600; letter-spacing: 1px; color: var(--muted); }
+.lstn .g { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: calc(8px * var(--k)); }
+.lstn .it { display: flex; flex-direction: column; align-items: center; padding: calc(4px * var(--k)) 6px; border-radius: 8px; background: rgba(124,196,255,.10); }
+.lstn .n { font-size: calc(14px * var(--k)); color: var(--fg-2); }
+.lstn .a { font-size: calc(22px * var(--k)); font-weight: 500; }
+.lstn .r { font-size: calc(11px * var(--k)); color: var(--muted); }
+html[data-theme="light"] .lstn .it { background: rgba(11,108,181,.08); }
+.planes.solo .pc { gap: 24px; }
+.planes.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 20px; }
+.c3 .pc { padding: calc(12px * var(--k)) 16px; }
+.c3 .pc .id { gap: calc(12px * var(--k)); }
+.c3 .pc .tail { font-size: calc(38px * var(--k)); letter-spacing: 0; }
+.c3 .pc .call { font-size: calc(24px * var(--k)); }
+.c3 .pc .badges { gap: calc(10px * var(--k)); font-size: calc(20px * var(--k)); }
+.c3 .pc .badge { padding: 0 calc(8px * var(--k)); }
+.c3 .pc .sw { width: calc(20px * var(--k)); height: calc(20px * var(--k)); }
+.c3 .pc .paint { display: none; }
+.c3 .pc .wts { justify-content: space-between; gap: 12px; }
+.c3 .pc .bew { font-size: calc(34px * var(--k)); }
+.c3 .pc .bew .u { font-size: calc(20px * var(--k)); }
+.c3 .pc .mom { font-size: calc(22px * var(--k)); }
+.c3 .pc .mom .u { display: none; }
+.c3 .pc .cc { grid-template-columns: calc(52px * (.5 + var(--kc) / 2)) repeat(12, minmax(0, 1fr)); }
+.c3 .pc .cc .k { font-size: calc(16px * var(--kc)); }
+.c3 .pc .cc .h { font-size: calc(15px * var(--kc)); }
+.c3 .pc .cc .s { margin: 0 1px; border-radius: 4px; font-size: calc(21px * var(--kc)); letter-spacing: -.5px; }
+.c3 .pc .nocomp { font-size: calc(22px * var(--kc)); }
+
+/* Instructor tiles */
+.cfis { --k: 1; --row: 150px; --wt: 52px; display: grid; gap: 14px 16px; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: calc(var(--row) * var(--k)); }
+.cfis.both { grid-template-columns: repeat(5, minmax(0, 1fr)); --row: 140px; --wt: 46px; }
+.cfis.both.tight { --row: 130px; }
+.ic { padding: calc(12px * var(--k)) calc(22px * var(--k)); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; justify-content: center; gap: calc(2px * var(--k)); min-width: 0; }
+.ic .n { font-size: calc(30px * var(--k)); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ic .w { font-family: var(--font-data); font-weight: 500; line-height: 1.1; font-size: calc(var(--wt) * var(--k)); white-space: nowrap; }
+.ic .w .u { font-size: calc(22px * var(--k)); color: var(--muted); }
+.ic .p { font-family: var(--font-data); font-size: calc(22px * var(--k)); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Parts of the tab that couldn't be read (new wording or layout in the sheet) */
+.warn { flex: 0 0 auto; margin-top: -8px; padding: 8px 18px; border-radius: 10px; background: rgba(245,184,65,.14); border: 1px solid rgba(245,184,65,.4); color: var(--warn); font-size: 22px; text-align: center; }
+.warn[hidden] { display: none; }
+.msg { margin: auto; max-width: 1200px; text-align: center; font-size: 34px; color: var(--muted); line-height: 1.4; }
+.msg b { display: block; color: var(--fg); font-size: 44px; margin-bottom: 12px; }
+
+/* Web version on a phone (html.mobile, set in the script): a normal page that scrolls instead of the scaled 1920x1080
+   stage. One aircraft card per row (sizes through --k / --kc like the TV cards), instructors two to a row. */
+html.mobile, html.mobile body { height: auto; }
+html.mobile body { overflow: auto; }
+html.mobile .stage { position: static; width: auto; height: auto; padding: 12px 12px 24px; gap: 14px; transform: none; }
+html.mobile .top { height: auto; flex-wrap: wrap; gap: 8px; }
+html.mobile .top .l { gap: 10px; } html.mobile .top .r { gap: 10px; }
+html.mobile .base { font-size: 22px; padding: 1px 10px; } html.mobile .title { font-size: 24px; }
+html.mobile .src { font-size: 14px; text-align: left; }
+html.mobile #body { overflow: visible !important; gap: 16px !important; }
+html.mobile .sect-h { flex-wrap: wrap; gap: 6px; }
+html.mobile .label { font-size: 17px; letter-spacing: 1px; }
+html.mobile .key { font-size: 13px; gap: 8px; }
+html.mobile .planes { --k: .62 !important; --kc: .5 !important; grid-template-columns: minmax(0, 1fr) !important; grid-auto-rows: auto !important; gap: 10px; }
+html.mobile .pc { padding: 10px 12px; gap: 8px; }
+html.mobile .pc .row1 { flex-wrap: wrap; row-gap: 4px; }
+html.mobile .pc .row1 > .badges { max-width: 100%; }
+html.mobile .pc .wts { flex-wrap: wrap; gap: 4px 16px; }
+html.mobile .pc .cc { grid-template-columns: 34px repeat(12, minmax(0, 1fr)); }
+html.mobile .pc .cc .k { font-size: 11px; } html.mobile .pc .cc .h { font-size: 11px; }
+html.mobile .pc .cc .s { margin: 0 1px; font-size: 13px; letter-spacing: -.5px; }
+html.mobile .cfis { --k: .62 !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; grid-auto-rows: auto !important; gap: 8px; }
+html.mobile .ic { padding: 8px 12px; }
+html.mobile .warn { font-size: 15px; }
+html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="top">
+    <div class="l"><div class="brand h"><img src="assets/logo-light.png" alt="Epic Flight Academy"></div>
+      <div class="brand p"><img src="assets/logo-color.png" alt="Epic Flight Academy"></div>
+      <div class="base" id="base">SGU</div><div class="title">Weight &amp; Balance</div><div class="mock" id="mock" hidden>MOCK DATA</div></div>
+    <div class="r">
+      <div class="chips" id="chips"></div>
+      <div class="src"><div id="srcName">Weight and Balance Sheet › SGU tab</div><div id="srcTime">Loading…</div></div>
+    </div>
+  </div>
+  <div id="body" style="display:flex;flex-direction:column;gap:22px;flex:1 1 auto;min-height:0;overflow:hidden"></div>
+  <div class="warn" id="warn" role="status" hidden></div>
+  <div class="brand f"><span class="tag" id="footTag"></span><img src="assets/logo-light.png" alt="Epic Flight Academy"></div>
+</div>
+
+<script src="sheet.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- Settings (override with ?tab=SGU&cycle=15&phones=1&refresh=5) ---------- */
+  var q = new URLSearchParams(location.search);
+  var CFG = {
+    tab: (q.get('tab') || 'SGU').toUpperCase(),
+    gid: q.get('gid'),                     // normally looked up from the sheet's tab list (sheet.js)
+    cycle: Math.max(5, +(q.get('cycle') || 15)),   // seconds per page
+    phones: q.get('phones') !== '0',
+    refresh: Math.max(1, +(q.get('refresh') || 5)), // minutes between sheet reads
+    mock: q.get('mock'),                   // "planes,instructors", e.g. 12,30, to preview page layouts
+    logo: (q.get('logo') || 'header').toLowerCase(), // school logo: header (chosen design A) | none; plate and footer were mockups B and C
+    light: q.get('theme') === 'light',     // Appearance setting
+    clock24: q.get('clock') === '24',      // "Synced 14:05" instead of "Synced 2:05 PM"
+    acDetail: /^(popup|expand)$/.test(q.get('acDetail')) ? q.get('acDetail') : '', // click an aircraft card: popup | expand | off
+    stations: q.get('stations') === '1',   // loading stations (arms) in the aircraft detail popup / expanded card
+    layout: /^(cards|board)$/.test(q.get('layout')) ? q.get('layout') : 'auto', // aircraft: cards, board, or auto (cards up to BOARD_FROM - 1)
+    // Maintenance countdown (optional "100 hr due", "50 hr due" and "Current tach" columns in the sheet): cards show a badge
+    // (only when close) or a bar (always); the board gets a column either way
+    maint: /^(badge|bar)$/.test(q.get('maint')) ? q.get('maint') : '',
+    maintWarn: q.get('maintWarn') != null && +q.get('maintWarn') >= 0 ? +q.get('maintWarn') : 10,
+    maintCrit: q.get('maintCrit') != null && +q.get('maintCrit') >= 0 ? +q.get('maintCrit') : 3,
+    csv: q.get('csv')                      // testing: read this CSV URL instead of the sheet (e.g. a reworded copy of a tab)
+  };
+  // The web version (docs/dash on GitHub Pages; config.js sets WXC_WEB): never shows instructor phone numbers (the relay
+  // also strips them from the sheet before they reach the browser), no logo or click-for-detail. On a phone-width screen
+  // (MOBILE) every aircraft and instructor is on one page that scrolls, laid out for the narrow screen.
+  var WEB = !!window.WXC_WEB, MOBILE = WEB && innerWidth < 760, WEB_RELAY = WEB ? window.WXC_WEB.relay || '' : '';
+  if (WEB) { CFG.phones = false; CFG.logo = 'none'; CFG.acDetail = ''; }
+  if (MOBILE) { CFG.layout = 'cards'; document.documentElement.classList.add('mobile'); }
+
+  var FOR = [360, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
+  var HDG = ['N', '30', '60', 'E', '120', '150', 'S', '210', '240', 'W', '300', '330'];
+  var PLANES_2COL = 8, PLANES_3COL = 12, CFIS_PER_PAGE = 30, BOARD_FROM = 7, BOARD_ROWS = 13;
+
+  var $ = function (id) { return document.getElementById(id); };
+  // Light surfaces take the logo in its original colors. The shell can switch the theme live (Appearance: Auto follows
+  // sunrise and sunset at the base), and a page that reloads on its own asks which one is current.
+  function applyTheme(light) {
+    CFG.light = light;
+    if (light) document.documentElement.dataset.theme = 'light'; else delete document.documentElement.dataset.theme;
+    Array.prototype.forEach.call(document.querySelectorAll('.brand.h img, .brand.f img'), function (img) { img.src = 'assets/logo-' + (light ? 'color' : 'light') + '.png'; });
+  }
+  applyTheme(CFG.light);
+  if (window.dashHost && dashHost.on) {
+    dashHost.on(function (m) { if (m.cmd === 'theme') applyTheme(m.light); });
+    dashHost.call('getTheme').then(function (t) { if (t.light !== CFG.light) applyTheme(t.light); }, function () {});
+  }
+  var state = { data: null, syncedAt: 0, error: '', page: 0, elapsed: 0, pages: [] };
+  var CACHE_KEY = 'sgu-wb-' + CFG.tab;
+
+  /* ---------- Fit the 1920x1080 stage to the window ---------- */
+  function fit() {
+    var st = $('stage');
+    if (MOBILE) { st.style.transform = ''; return; } // laid out for the phone instead of a scaled-down TV page
+    var s = Math.min(innerWidth / 1920, innerHeight / 1080);
+    st.style.transform = 'translate(' + (innerWidth - 1920 * s) / 2 + 'px,' + (innerHeight - 1080 * s) / 2 + 'px) scale(' + s + ')';
+  }
+  addEventListener('resize', fit); fit();
+  if (WEB) addEventListener('resize', function () { if ((innerWidth < 760) !== MOBILE) location.reload(); }); // turned between phone and wide layouts
+
+  /* ---------- Data access ---------- */
+  // Inside the app shell the host fetches for the page; otherwise use fetch (the CSV export allows cross-origin reads).
+  function getText(url) {
+    if (window.chrome && window.chrome.webview && window.dashHost && window.dashHost.getText) return window.dashHost.getText(url);
+    if (WEB && WEB_RELAY && !CFG.csv) url = WEB_RELAY + '/?u=' + encodeURIComponent(url); // the relay, which strips phone numbers
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    });
+  }
+  // The CSV export needs the tab's gid (reading by tab name through gviz garbles text columns); a new tab is found by name
+  function csvUrl() {
+    if (CFG.csv) return Promise.resolve(CFG.csv);
+    if (CFG.gid) return Promise.resolve(WXSheet.csvUrl(CFG.gid));
+    return WXSheet.tabs().then(function (tabs) {
+      var t = WXSheet.find(tabs, CFG.tab);
+      if (!t) throw new Error('The weight and balance sheet has no “' + CFG.tab + '” tab' +
+        (tabs.source === 'sheet' ? '.' : ' that this PC knows of (the sheet’s tab list couldn’t be read).') + ' Pick a base in the dashboard settings.');
+      return WXSheet.csvUrl(t.gid);
+    });
+  }
+
+  /* ---------- CSV + sheet parsing ---------- */
+  function parseCsv(text) {
+    var rows = [], row = [], cell = '', i = 0, quoted = false, c;
+    for (; i < text.length; i++) {
+      c = text[i];
+      if (quoted) {
+        if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else quoted = false; }
+        else cell += c;
+      } else if (c === '"') quoted = true;
+      else if (c === ',') { row.push(cell); cell = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(cell); rows.push(row); row = []; cell = '';
+      } else cell += c;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    return rows.map(function (r) { return r.map(function (s) { return s.trim(); }); });
+  }
+  function num(s) { var n = parseFloat(String(s || '').replace(/,/g, '')); return isFinite(n) ? n : null; }
+  function norm(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+  // Header and section text is matched loosely, so wording like "Tail #", "Weight (lbs)", "Instructor Weight" or "CFI Name"
+  // in a new tab still reads. Anything that can't be found is reported on screen (data.warnings) instead of silently missing.
+  var COLS = {
+    call: /^call\s*sign/i, tail: /tail/i, bew: /^b\.?e\.?w\.?$|empty\s*w(eigh)?t/i, mom: /moment/i,
+    paint: /colou?r|paint/i, ap: /auto\s*-?\s*pilot|^a\/?p$/i, adsb: /ads\s*-?\s*b/i,
+    status: /^(aircraft\s*)?status$|^availab/i, // optional; typed in the sheet, never on the TVs
+    // optional: tach times the next inspections are due at, and the current tach ("100 hr due", "50-hour due", "Current tach")
+    due100: /^100\s*-?\s*(hr|hrs|hour|hours)?\.?\s*(insp\w*\s*)?due/i,
+    due50: /^50\s*-?\s*(hr|hrs|hour|hours)?\.?\s*(insp\w*\s*)?due/i,
+    tach: /^(current\s*)?tach(ometer)?(\s*time)?$/i
+  };
+  var COMPASS = [/^(n|0|360|north)$/i, /^0?30$/, /^0?60$/, /^(e|0?90|east)$/i, /^120$/, /^150$/,
+    /^(s|180|south)$/i, /^210$/, /^240$/, /^(w|270|west)$/i, /^300$/, /^330$/];
+  var CFI_LABEL = /^(instructor|cfi)s?(\s*weights?)?$/i;           // section label row, e.g. "Instructor Weights"
+  var CFI_SIDE = /^(instructor|cfi)s?\s*weights?$/i;                // the same label to the right of the aircraft (TLH)
+  var CFI_HEADER = /^((instructor|cfi)s?\s*)?names?$/i;            // header row, e.g. "Instructor Name"
+  var CFI_PHONES = /^(instructor|cfi)s?\s*(phone|cell|contact)/i;  // side-table phone block label
+  // The inspection due first: hours left = due tach − current tach. The 50-hr counts only when it comes before the 100-hr
+  // (due at the same time: the 100-hr). null when the sheet has no tach or no due times for the aircraft.
+  function nextInspection(due100, due50, tach) {
+    if (tach == null) return null;
+    var a = due100 != null ? { name: '100-hr', every: 100, left: due100 - tach } : null;
+    var b = due50 != null ? { name: '50-hr', every: 50, left: due50 - tach } : null;
+    var m = a && b ? (b.left < a.left ? b : a) : a || b;
+    if (m) m.h100 = a ? a.left : null; // the 100-hr's hours left, even when the 50-hr is the one shown (see autoDown)
+    return m;
+  }
+  function findCol(row, re, skip) { for (var i = 0; i < row.length; i++) if (i !== skip && re.test(row[i])) return i; return -1; }
+
+  // Most tabs list instructors below the aircraft. Some (TLH) put them in a side table to the right instead:
+  // an "Instructor Weights" block (name, weight) and an "Instructor Phone Numbers" block (name, phone).
+  // The side table is cut off and read separately, so the aircraft rows parse the same either way.
+  function parseSheet(rows) {
+    var side = -1, data;
+    rows.forEach(function (r) { r.forEach(function (c, i) { if (i > 0 && side < 0 && CFI_SIDE.test(c)) side = i; }); });
+    if (side < 0) data = parseMain(rows);
+    else {
+      data = parseMain(rows.map(function (r) { return r.slice(0, side); }));
+      parseSide(rows.map(function (r) { return r.slice(side); }), data.cfis);
+      data.sawCfis = true;
+    }
+    if (!data.sawCfis) data.warnings.push('no instructor list was found');
+    else if (!data.cfis.length && !/Weight column/.test(data.warnings.join())) data.warnings.push('the instructor list has no names with weights');
+    delete data.sawCfis;
+    return data;
+  }
+  function parseSide(rows, cfis) {
+    var mode = '', phones = {}, seen = {};
+    rows.forEach(function (r) {
+      var a = r[0] || '', b = r[1] || '';
+      if (CFI_SIDE.test(a)) { mode = 'w'; return; }
+      if (CFI_PHONES.test(a)) { mode = 'p'; return; }
+      if (!a || CFI_HEADER.test(a)) return;
+      if (mode === 'w') {
+        var w = num(b), key = a + '|' + b;
+        if (w != null && !seen[key]) { seen[key] = 1; cfis.push({ name: a, weight: Math.round(w), phone: '' }); }
+      } else if (mode === 'p' && b) phones[norm(a)] = b;
+    });
+    cfis.forEach(function (c) { if (!c.phone && phones[norm(c.name)]) c.phone = phones[norm(c.name)]; });
+  }
+
+  // Finds the header and section rows by their text, not by fixed row numbers
+  function parseMain(rows) {
+    var planes = [], cfis = [], groups = [], seen = {}, warnings = [];
+    var hdr = null, ihdr = null, group = '', inCfis = false, sawCfis = false;
+    rows.forEach(function (r) {
+      var a = r[0] || '', filled = r.filter(Boolean).length;
+      if (!filled) return;
+      if (COLS.call.test(a)) {
+        hdr = { call: 0 };
+        ['tail', 'bew', 'mom', 'paint', 'ap', 'adsb', 'status', 'due100', 'due50', 'tach'].forEach(function (k) { hdr[k] = findCol(r, COLS[k], 0); });
+        hdr.compass = COMPASS.map(function (re) { var i = findCol(r, re, 0); return i < 0 ? null : i; });
+        inCfis = false; return;
+      }
+      if (CFI_HEADER.test(a)) {
+        ihdr = { weight: findCol(r, /weight|^wt\b|lbs|pounds/i, 0), phone: findCol(r, /phone|cell|mobile|contact/i, 0) };
+        if (ihdr.weight < 0) warnings.push('the instructor list has no Weight column');
+        inCfis = sawCfis = true; return;
+      }
+      if (filled === 1 && CFI_LABEL.test(a)) { inCfis = sawCfis = true; return; }
+      if (inCfis) {
+        if (!ihdr || ihdr.weight < 0) return;
+        var w = num(r[ihdr.weight]), key = r.join('|');
+        if (!a || w == null || seen[key]) return; // skip blanks and exact repeats
+        seen[key] = 1;
+        cfis.push({ name: a, weight: Math.round(w), phone: ihdr.phone >= 0 ? (r[ihdr.phone] || '') : '' });
+        return;
+      }
+      if (!hdr) return;
+      if (filled === 1 && a) { group = a; if (groups.indexOf(a) < 0) groups.push(a); return; } // group label row, e.g. C172-NAVIII
+      var tail = hdr.tail >= 0 ? r[hdr.tail] : '';
+      if (!tail) return;
+      var get = function (i) { return i >= 0 ? (r[i] || '') : ''; };
+      var noCompass = /no\s*magnetic\s*compass/i.test(r.join(' '));
+      planes.push({
+        call: get(hdr.call), tail: tail, group: group,
+        bew: num(get(hdr.bew)), mom: num(get(hdr.mom)),
+        paint: get(hdr.paint), ap: get(hdr.ap), adsb: get(hdr.adsb), status: get(hdr.status), maint: nextInspection(num(get(hdr.due100)), num(get(hdr.due50)), num(get(hdr.tach))),
+        steer: noCompass ? null : hdr.compass.map(function (i) { return i == null ? null : num(r[i]); })
+      });
+    });
+    if (!hdr) throw new Error('The ' + CFG.tab + ' tab has no aircraft header row (a row starting with “Call Sign”).');
+    if (hdr.tail < 0) warnings.push('no Tail Number column, so no aircraft could be read');
+    else {
+      if (hdr.bew < 0) warnings.push('no BEW column');
+      if (hdr.mom < 0) warnings.push('no Moment column');
+      var missing = HDG.filter(function (h, i) { return hdr.compass[i] == null; });
+      if (missing.length) warnings.push('compass column' + (missing.length > 1 ? 's ' : ' ') + missing.join(', ') + ' not found');
+    }
+    return { planes: planes, cfis: cfis, groups: groups, warnings: warnings, sawCfis: sawCfis };
+  }
+
+  /* ---------- Mock data for previewing layouts (?mock=12,30) ---------- */
+  function mockData(spec) {
+    var n = spec.split(',').map(Number), np = Math.min(40, n[0] || 12), nc = Math.min(90, n[1] == null ? 30 : n[1]);
+    var names = ['Alex Rivera', 'Jordan Price', 'Taylor Brooks', 'Morgan Hayes', 'Casey Morgan', 'Riley Bennett', 'Jamie Ortiz', 'Avery Collins', 'Quinn Foster', 'Drew Sullivan'];
+    var planes = [], cfis = [], i;
+    for (i = 0; i < np; i++) {
+      var noComp = i === np - 1 && np > 3;
+      planes.push({ call: 'EPI ' + (101 + i), tail: 'N' + (101 + i) + 'MK', group: noComp ? 'PA-44' : 'C172-NAVIII',
+        bew: 1680 + (i * 37) % 50 + .4, mom: 69000 + (i * 911) % 3000 + .25, paint: i % 3 ? 'Blue on White' : 'White',
+        ap: i % 2 ? 'No' : 'Yes', adsb: 'Yes', status: ['', 'Down · Maintenance', 'Annual until 11/8', '', 'Squawk · see dispatch'][i % 5],
+        maint: nextInspection(2000 + [62.5, 41, 58.3, 8.2, 77.3, 101.6, 95, -0.4][i % 8], 2000 + [62.5, 12, 58.3, 30, 27.3, 1.6, 45, 20][i % 8], 2000),
+        steer: noComp ? null : FOR.map(function (f, k) { return (f + [0, 0, 1, -1, 2, 0, 4, 0, -3, 0, 1, 0][(k + i) % 12] + 359) % 360 + 1; }) });
+    }
+    for (i = 0; i < nc; i++) cfis.push({ name: names[i % 10] + (i >= 10 ? ' ' + (i / 10 | 0) : ''), weight: 140 + (i * 13) % 70, phone: '(435) 555-01' + String(i).padStart(2, '0') });
+    return { planes: planes, cfis: cfis, groups: planes.some(function (p) { return p.group === 'PA-44'; }) ? ['C172-NAVIII', 'PA-44'] : ['C172-NAVIII'] };
+  }
+
+  /* ---------- Loading ---------- */
+  function load() {
+    if (CFG.mock) { state.data = mockData(CFG.mock); state.syncedAt = Date.now(); state.error = ''; build(); return; }
+    csvUrl().then(getText).then(function (text) {
+      var data = parseSheet(parseCsv(text));
+      if (WEB) data.cfis.forEach(function (c) { c.phone = ''; }); // never kept or shown on the web version
+      state.data = data; state.syncedAt = Date.now(); state.error = '';
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: state.syncedAt, data: data })); } catch (e) {}
+      build();
+    }).catch(function (e) {
+      state.error = String(e && e.message || e);
+      if (!state.data) { // first load failed: fall back to the last good copy, if any
+        try { var c = JSON.parse(localStorage.getItem(CACHE_KEY)); if (c && c.data) { state.data = c.data; state.syncedAt = c.at; } } catch (x) {}
+      }
+      build();
+    });
+  }
+
+  /* ---------- Paging (user-approved rules) ---------- */
+  function chunk(xs, n) { var out = []; for (var i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n)); return out; }
+  function makePages(d) {
+    var np = d.planes.length, nc = d.cfis.length;
+    if (MOBILE) return [{ kind: 'both', planes: d.planes, cfis: d.cfis, board: false }]; // one page that scrolls
+    var board = CFG.layout === 'board' || (CFG.layout === 'auto' && np >= BOARD_FROM);
+    if ((np <= 2 && nc <= 15) || (np <= 4 && nc <= 10)) return [{ kind: 'both', planes: d.planes, cfis: d.cfis, board: board }];
+    var per = board ? BOARD_ROWS : np > PLANES_2COL ? PLANES_3COL : PLANES_2COL;
+    var pp = chunk(d.planes, per), cp = chunk(d.cfis, CFIS_PER_PAGE);
+    return pp.map(function (xs, i) { return { kind: 'planes', planes: xs, board: board, cols: per === PLANES_3COL ? 3 : 2, label: pp.length > 1 ? 'Aircraft ' + (i + 1) : 'Aircraft', from: i * per + 1 }; })
+      .concat(cp.map(function (xs, i) { return { kind: 'cfis', cfis: xs, label: cp.length > 1 ? 'Instructors ' + (i + 1) : 'Instructors', from: i * CFIS_PER_PAGE + 1 }; }));
+  }
+
+  /* ---------- Rendering ---------- */
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function pad3(n) { return String(n).padStart(3, '0'); }
+  function fmt(n) { return n == null ? '--' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function devClass(s, i) {
+    if (s == null) return 'd0';
+    var a = Math.abs(((s - FOR[i]) % 360 + 540) % 360 - 180);
+    return a === 0 ? 'd0' : a === 1 ? 'd1' : a <= 3 ? 'd2' : 'd4';
+  }
+  function groupName(g) { return String(g).replace(/-/g, ' ').replace(/NAV(I+)\b/, 'NAV $1'); }
+  function range(from, n, total) { return total > n ? ' · ' + from + '–' + (from + n - 1) + ' of ' + total : ' · ' + total; }
+
+  // A heading that needs no correction shows a dot, so the corrections stand out
+  function steerCell(s, i) {
+    var c = devClass(s, i);
+    return '<div class="s ' + c + (s != null && c === 'd0' ? ' dot' : '') + '">' + (s == null ? '—' : c === 'd0' ? '·' : pad3(s)) + '</div>';
+  }
+  // Status column (optional): blank or "Available" = in service; words like down, maintenance, annual, grounded = out of
+  // service (the card fades and the tail is struck through); anything else is a note, shown in amber
+  // Status keywords (settings → Weight & balance, local or central): comma-separated, case doesn't matter, and each one
+  // matches at the start of a word, so "maint" matches "maintenance". Red is checked first, then yellow, then blue; a
+  // status that matches none is a note (yellow). STATUS_DEF matches the settings window's and settings.ini's defaults.
+  var STATUS_DEF = {
+    down: 'down, maint, annual, 100 hr, 100hr, 100 hour, ground, inop, aog, unavailable, out of service, oos, not available, shop, repair',
+    note: 'squawk, limited, caution, see dispatch',
+    ok: 'ok, okay, available, in service, up, ready, good, flyable'
+  };
+  var STATUS_RX = ['down', 'note', 'ok'].map(function (k) {
+    var list = q.get('status' + k.charAt(0).toUpperCase() + k.slice(1));
+    var words = (list == null ? STATUS_DEF[k] : list).split(',').map(function (w) { return w.trim(); }).filter(Boolean)
+      .map(function (w) { // a space or hyphen in a keyword matches either ("100 hr" = "100-hr" = "100hr");
+        // keywords under 4 letters match whole words only, so "up" doesn't match "upgraded"
+        var rx = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[\s-]+/g, '[\\s-]*');
+        return (/^\w/.test(w) ? '\\b' : '') + rx + (w.replace(/[^A-Za-z0-9]/g, '').length < 4 && /\w$/.test(w) ? '\\b' : '');
+      });
+    return { kind: k, rx: words.length ? new RegExp(words.join('|'), 'i') : null };
+  });
+  function statusKind(s) {
+    s = String(s || '').trim();
+    if (!s) return '';
+    for (var i = 0; i < STATUS_RX.length; i++) if (STATUS_RX[i].rx && STATUS_RX[i].rx.test(s)) return STATUS_RX[i].kind;
+    return 'note';
+  }
+  // With the maintenance countdown on, an aircraft whose 100-hr is under 1 hour away (or overdue) counts as down even if
+  // the sheet's Status says nothing (user rule, 2026-11-04): red badge "100-hr due", faded card, struck-through tail.
+  function autoDown(p) { return !!CFG.maint && !!p.maint && typeof p.maint === 'object' && p.maint.h100 != null && p.maint.h100 < 1; }
+  function planeStatus(p) {
+    var k = statusKind(p.status), t = p.status;
+    if (autoDown(p) && k !== 'down') { k = 'down'; t = '100-hr due' + (p.status ? ' · ' + p.status : ''); }
+    return { kind: k, text: t };
+  }
+  function isDown(p) { return planeStatus(p).kind === 'down'; }
+  function statusBadge(p, showOk) {
+    var s = planeStatus(p);
+    if (!s.kind || (s.kind === 'ok' && !showOk)) return '';
+    return '<span class="stat ' + s.kind + '" title="' + esc(s.text) + '">' + esc(s.text) + '</span>';
+  }
+  // Maintenance countdown (feature maint): p.maint = the inspection due first ({ name: '100-hr' | '50-hr', every, left },
+  // from nextInspection). Yellow at maintWarn hours left or less, red at maintCrit or less (and when overdue).
+  // Badge: only once it's yellow, and never on an aircraft whose status is red (it's out of service anyway).
+  // Bar: always, filling as the hours are used up. One countdown per aircraft.
+  function hasMaint(p) { var m = p.maint; return !!CFG.maint && !!m && typeof m === 'object' && isFinite(m.left); }
+  function maintLevel(v) { return v <= CFG.maintCrit ? 'down' : v <= CFG.maintWarn ? 'note' : ''; }
+  function maintHrs(v) { return (Math.round(v * 10) / 10).toFixed(1); }
+  function maintBadge(p) {
+    if (!hasMaint(p) || CFG.maint !== 'badge' || !maintLevel(p.maint.left) || isDown(p)) return '';
+    var m = p.maint, t = m.name + (m.left <= 0 ? ' overdue' : ' in ' + maintHrs(m.left));
+    return '<span class="stat mtb ' + maintLevel(m.left) + '" title="' + esc(t) + '">' + esc(t) + '</span>';
+  }
+  function maintBar(p) {
+    if (!hasMaint(p) || CFG.maint !== 'bar') return '';
+    var m = p.maint, lv = maintLevel(m.left), used = Math.max(0, Math.min(1, 1 - m.left / m.every));
+    return '<div class="mt ' + lv + '"><span class="k">NEXT ' + esc(m.name.toUpperCase()) + '</span><span class="mbar"><i style="width:' + (used * 100).toFixed(1) + '%"></i></span>' +
+      '<span class="v mono">' + (m.left <= 0 ? 'overdue' : maintHrs(m.left) + ' h left') + '</span></div>';
+  }
+  function maintCell(p) {
+    if (!hasMaint(p)) return '<div class="bmt"></div>';
+    var m = p.maint;
+    return '<div class="bmt mono ' + maintLevel(m.left) + '"><span class="n">' + m.name.replace('-hr', '') + '</span> ' + (m.left <= 0 ? '−' + maintHrs(-m.left) : maintHrs(m.left)) + '</div>'; // overdue: hours past due
+  }
+  // Loading stations (feature 10C), shown only in the aircraft detail. Arms in inches aft of the datum, from the C172 POH
+  // loading drawing the user supplied; other types (PA-44) show none until their arms are added and checked.
+  var STATIONS = {
+    c172: [['Front seats', 37, '34–46'], ['Fuel', 48, ''], ['Rear seats', 73, ''], ['Baggage A', 95, '82–108'], ['Baggage B', 123, '108–142']]
+  };
+  function stationsHtml(p) {
+    var s = /172/.test(p.group || '') ? STATIONS.c172 : null;
+    if (!CFG.stations || !s) return '';
+    return '<div class="lstn"><div class="k">LOADING STATIONS · ARM, IN</div><div class="g">' + s.map(function (x) {
+      return '<div class="it"><span class="n">' + x[0] + '</span><span class="a mono">' + x[1] + '</span>' + (x[2] ? '<span class="r mono">' + x[2] + '</span>' : '') + '</div>';
+    }).join('') + '</div></div>';
+  }
+  function planeCard(p, multiGroup, detail) {
+    var yes = /^y/i.test(p.ap), paint = p.paint.toLowerCase();
+    var sw = /blue/.test(paint) ? 'blue' : /white/.test(paint) ? 'white' : '';
+    var h = '<div class="pc' + (isDown(p) ? ' down' : '') + '" data-tail="' + esc(p.tail) + '"><div class="row1"><div class="id"><span class="tail mono">' + esc(p.tail) + '</span>' +
+      '<span class="call">' + esc(p.call) + (multiGroup && p.group ? ' · ' + esc(groupName(p.group)) : '') + '</span></div>' +
+      '<div class="badges">' + statusBadge(p) + maintBadge(p) + (/^n/i.test(p.adsb) ? '<span class="badge warn">No ADS-B In</span>' : '') +
+      '<span class="ap' + (yes ? ' yes' : '') + '">' + (yes ? 'Autopilot' : 'No autopilot') + '</span>' +
+      '<span class="sw ' + sw + '" aria-hidden="true"></span><span class="paint">' + esc(p.paint) + '</span></div></div>' +
+      '<div class="wts mono"><span class="bew"><span class="lbl">EMPTY WT</span>' + fmt(p.bew) + '<span class="u"> lb</span></span>' +
+      '<span class="mom"><span class="lbl">MOMENT</span>' + fmt(p.mom) + '<span class="u"> lb-in</span></span></div>' + maintBar(p);
+    var extra = detail ? stationsHtml(p) : '';
+    if (!p.steer) return h + '<div class="nocomp">No magnetic compass</div>' + extra + '</div>';
+    h += '<div class="cc"><div class="k">FOR</div>' + HDG.map(function (x) { return '<div class="h">' + x + '</div>'; }).join('') + '<div class="k">STEER</div>';
+    h += p.steer.map(steerCell).join('');
+    return h + '</div>' + extra + '</div>';
+  }
+  function boardHead(st, mt) {
+    return '<div class="bcols bh"><span>AIRCRAFT</span><span>EMPTY WT · LB</span><span>MOMENT · LB-IN</span>' + (st ? '<span>STATUS</span>' : '') +
+      (mt ? '<span>NEXT INSP. · H</span>' : '') +
+      HDG.map(function (x) { return '<span class="c">' + x + '</span>'; }).join('') + '</div>';
+  }
+  function boardRow(p, multiGroup, st, mt) {
+    var yes = /^y/i.test(p.ap);
+    var sub = esc(p.call) + (multiGroup && p.group ? ' · ' + esc(groupName(p.group)) : '') +
+      ' · <span' + (yes ? ' class="yes"' : '') + '>' + (yes ? 'Autopilot' : 'No autopilot') + '</span>' +
+      (p.paint ? ' · ' + esc(p.paint) : '') + (/^n/i.test(p.adsb) ? ' · <span class="bad">No ADS-B In</span>' : '');
+    return '<div class="pc bcols' + (isDown(p) ? ' down' : '') + '" data-tail="' + esc(p.tail) + '"><div class="id"><span class="tail mono">' + esc(p.tail) + '</span><span class="sub">' + sub + '</span></div>' +
+      '<div class="wts mono bw">' + fmt(p.bew) + '</div><div class="wts mono bm">' + fmt(p.mom) + '</div>' +
+      (st ? '<div class="bst">' + statusBadge(p, true) + '</div>' : '') + (mt ? maintCell(p) : '') +
+      (p.steer ? '<div class="cc">' + p.steer.map(steerCell).join('') + '</div>' : '<div class="nocomp">No magnetic compass</div>') + '</div>';
+  }
+  function planesHtml(planes, pg, multi) {
+    // The status column appears only when some aircraft on the tab has a status
+    var st = state.data.planes.some(function (p) { return !!p.status || autoDown(p); });
+    var mt = state.data.planes.some(hasMaint); // likewise the maintenance column (feature maint)
+    if (pg.board) return '<div class="board-wrap' + (st ? ' st' : '') + (mt ? ' mt' : '') + '">' + boardHead(st, mt) + '<div class="planes board">' + planes.map(function (p) { return boardRow(p, multi, st, mt); }).join('') + '</div></div>';
+    return '<div class="planes' + (pg.cols === 3 ? ' c3' : '') + '">' + planes.map(function (p) { return planeCard(p, multi); }).join('') + '</div>';
+  }
+  function cfiTile(c) {
+    return '<div class="ic"><span class="n">' + esc(c.name) + '</span><span class="w">' + c.weight + '<span class="u"> lb</span></span>' +
+      (CFG.phones && c.phone ? '<span class="p">' + esc(c.phone) + '</span>' : '') + '</div>';
+  }
+  var KEY = '<div class="key"><span style="padding:0">Compass deviation</span><span class="d1">1°</span><span class="d2">2–3°</span><span class="d4">4°+</span></div>';
+
+  function build() {
+    var d = state.data;
+    state.pages = d ? makePages(d) : [];
+    if (state.page >= state.pages.length) state.page = 0;
+    render();
+  }
+  function render() {
+    var d = state.data, body = $('body');
+    $('base').textContent = CFG.tab;
+    $('mock').hidden = !CFG.mock;
+    $('stage').className = 'stage logo-' + CFG.logo;
+    $('footTag').textContent = CFG.tab + ' base · aircraft and instructor weights';
+    $('srcName').textContent = 'Weight and Balance Sheet › ' + CFG.tab + ' tab';
+    renderSync();
+    var warns = d && d.warnings || [];
+    $('warn').hidden = !warns.length;
+    $('warn').textContent = warns.length ? 'Check the ' + CFG.tab + ' tab in the sheet: ' + warns.join('; ') + '.' : '';
+    if (!d) {
+      body.innerHTML = '<div class="msg">' + (state.error ? '<b>Can’t read the sheet</b>' + esc(state.error) + '<br>Retrying every ' + CFG.refresh + ' min.' : 'Loading the weight and balance sheet…') + '</div>';
+      $('chips').innerHTML = ''; return;
+    }
+    if (!d.planes.length && !d.cfis.length) { body.innerHTML = '<div class="msg"><b>The ' + esc(CFG.tab) + ' tab is empty</b></div>'; $('chips').innerHTML = ''; return; }
+    var pg = state.pages[state.page], html = '', multi = d.groups.length > 1;
+    var groups = d.groups.map(groupName).join(' / ');
+    var open = state.detail && d.planes.filter(function (p) { return p.tail === state.detail; })[0];
+    if (state.detail && !open) state.detail = null; // gone from the sheet
+    if (open && CFG.acDetail === 'expand') { // 9B: the one card fills the page until it's clicked again or times out
+      body.innerHTML = '<section class="sect"><div class="sect-h"><div class="label">' + esc(open.tail) + ' · ' + esc(open.call) + '</div>' + KEY + '</div>' +
+        '<div class="planes solo">' + planeCard(open, multi, true) + '</div><div class="solo-hint">Click the card to go back · back on its own in a minute</div></section>';
+      fitCards(); renderChips();
+      return;
+    }
+    if (pg.kind !== 'cfis' && pg.planes.length) {
+      var lbl = 'Aircraft' + (groups ? ' · ' + groups : '') + (pg.kind === 'both' ? ' · ' + d.planes.length : range(pg.from, pg.planes.length, d.planes.length));
+      html += '<section class="sect"><div class="sect-h"><div class="label">' + esc(lbl) + '</div>' + KEY + '</div>' +
+        planesHtml(pg.planes, pg, multi) + '</section>';
+    }
+    if (pg.kind !== 'planes' && pg.cfis.length) {
+      var cl = 'Instructor weights' + (pg.kind === 'both' ? ' · ' + d.cfis.length : range(pg.from, pg.cfis.length, d.cfis.length));
+      html += '<section class="sect"><div class="label">' + esc(cl) + '</div><div class="cfis' + (pg.kind === 'both' ? ' both' + (d.cfis.length > 10 ? ' tight' : '') : '') + '">' +
+        pg.cfis.map(cfiTile).join('') + '</div></section>';
+    }
+    body.innerHTML = html;
+    body.classList.toggle('pick', !!CFG.acDetail);
+    fitCards();
+    renderDetail();
+    // Page buttons use full names ("Aircraft 2") unless the header can't fit them; then short ones ("A2", "I1")
+    state.shortChips = false;
+    renderChips();
+    var top = document.querySelector('.top');
+    if (top.scrollWidth > top.clientWidth + 1) { state.shortChips = true; renderChips(); }
+    if (top.scrollWidth > top.clientWidth + 1) $('srcName').textContent = CFG.tab + ' tab'; // still too wide: drop "Weight and Balance Sheet ›"
+  }
+
+  /* ---------- Grow cards into empty space ---------- */
+  // Aircraft first (up to FIT_MAX x the design size), then instructors with whatever height is left.
+  // A size fits when the page doesn't overflow, nothing gets cut off that wasn't at design size, and compass
+  // numbers sit no tighter in their cells than they do at design size. Height still left over goes to the card rows.
+  var FIT_MAX = 2;
+  var textRange = document.createRange();
+  function clipped(root) {
+    var n = 0, i, els = root.querySelectorAll('.row1, .id, .wts');
+    for (i = 0; i < els.length; i++) if (els[i].scrollWidth > els[i].clientWidth) n++;
+    // Text that ends in "…" can overflow by a fraction of a pixel that scrollWidth rounds away, so measure the text itself
+    els = root.querySelectorAll('.call, .ic .n, .ic .w, .ic .p');
+    for (i = 0; i < els.length; i++) {
+      textRange.selectNodeContents(els[i]);
+      if (textRange.getBoundingClientRect().width > els[i].getBoundingClientRect().width + 0.01) n++;
+    }
+    return n;
+  }
+  // How full the compass cells are: the widest heading number or header ("330") over its cell's width. Dots (no
+  // correction) don't count: a page whose first cards are all dots once let the compass grow until every other card's
+  // numbers overflowed (HEG, page 2 of 26 aircraft).
+  function tightness(root) {
+    var cells = root.querySelectorAll('.cc .s:not(.dot), .cc .h'), r = 0;
+    for (var i = 0; i < cells.length; i++) {
+      var cw = cells[i].getBoundingClientRect().width;
+      if (!cw) continue;
+      textRange.selectNodeContents(cells[i]);
+      r = Math.max(r, textRange.getBoundingClientRect().width / cw);
+    }
+    return r;
+  }
+  function rowsOf(grid) {
+    return grid ? Math.ceil(grid.children.length / getComputedStyle(grid).gridTemplateColumns.split(' ').length) : 0;
+  }
+  function fitCards() {
+    if (MOBILE) return; // sized by the phone layout's CSS
+    var body = $('body'), planes = body.querySelector('.planes'), cfis = body.querySelector('.cfis');
+    [planes, cfis].forEach(function (el) { if (el) { el.style.setProperty('--k', 1); el.style.setProperty('--kc', 1); el.style.removeProperty('grid-auto-rows'); } });
+    // Compass numbers may fill up to 82% of their cell (the 3-column design is already tighter; it just can't get worse)
+    var base = clipped(body), tight = Math.max(tightness(body) + 0.01, 0.82);
+    var used = function () { var last = body.lastElementChild; return last ? last.offsetTop + last.offsetHeight - body.offsetTop : 0; };
+    var fits = function () { return used() <= body.clientHeight && clipped(body) <= base && tightness(body) <= tight; };
+    // Compass first (it runs out of width soonest), then the rest of the aircraft card, then instructors
+    [[planes, '--kc'], [planes, '--k'], [cfis, '--k']].forEach(function (step) {
+      var el = step[0], prop = step[1];
+      if (!el) return;
+      var lo = 1, hi = FIT_MAX;
+      el.style.setProperty(prop, hi);
+      if (fits()) return;
+      for (var i = 0; i < 7; i++) {
+        var mid = (lo + hi) / 2;
+        el.style.setProperty(prop, mid);
+        if (fits()) lo = mid; else hi = mid;
+      }
+      el.style.setProperty(prop, lo);
+    });
+    var left = body.clientHeight - used(), rows = rowsOf(planes) + rowsOf(cfis);
+    if (left > 4 && rows) {
+      var add = Math.floor(left / rows);
+      [planes, cfis].forEach(function (el) {
+        if (!el) return;
+        var h = parseFloat(getComputedStyle(el).gridAutoRows);
+        el.style.gridAutoRows = h + Math.min(add, Math.round(h * 0.5)) + 'px'; // at most half again as tall, so tiles don't turn into mostly empty boxes
+      });
+    }
+  }
+  function renderChips() {
+    if (state.pages.length < 2) { $('chips').innerHTML = ''; return; }
+    $('chips').innerHTML = state.pages.map(function (p, i) {
+      var label = state.shortChips ? p.label.charAt(0) + p.label.replace(/\D/g, '') : p.label; // Aircraft 2 -> A2, Instructors -> I
+      return '<span' + (i === state.page ? ' class="on"' : '') + (state.shortChips ? ' title="' + p.label + '"' : '') + '>' + label + '</span>';
+    }).join('') +
+      '<span class="left">' + Math.max(1, CFG.cycle - state.elapsed) + 's</span>';
+  }
+  function renderSync() {
+    var el = $('srcTime');
+    if (!state.syncedAt) { el.innerHTML = state.error ? '<span class="bad">Sync failed</span>' : 'Loading…'; return; }
+    var d = new Date(state.syncedAt);
+    var t = CFG.clock24 ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    var stale = Date.now() - state.syncedAt > CFG.refresh * 60000 * 2.5;
+    if (state.error) el.innerHTML = '<span class="bad">Sync failed · showing ' + t + ' copy</span>';
+    else el.innerHTML = '<span class="' + (stale ? 'stale' : '') + '">Synced ' + t + '</span>';
+    report(state.error ? 'bad' : stale ? 'late' : 'ok', state.error ? 'Sync failed · ' + t + ' copy' : 'Synced ' + t);
+  }
+  function report(st, text) { // for the shell's Display info and corner check panel
+    if (window.dashHost && dashHost.report) dashHost.report({ state: st, text: text });
+  }
+
+  /* ---------- Aircraft detail (feature 9A popup / 9B expand) ---------- */
+  // Click a card: it opens big, the page cycle pauses, and it closes on a click, Esc, or after DETAIL_SEC.
+  var DETAIL_SEC = 60, detailTimer;
+  function renderDetail() {
+    var box = $('detail'), d = state.data;
+    if (!box) return;
+    var p = CFG.acDetail === 'popup' && state.detail && d && d.planes.filter(function (x) { return x.tail === state.detail; })[0];
+    box.hidden = !p;
+    box.innerHTML = p ? '<div><div class="planes">' + planeCard(p, d.groups.length > 1, true) + '</div><div class="hint">Click anywhere to close</div></div>' : '';
+  }
+  function openDetail(tail) {
+    state.detail = tail;
+    clearTimeout(detailTimer);
+    detailTimer = setTimeout(closeDetail, DETAIL_SEC * 1000);
+    render();
+  }
+  function closeDetail() { clearTimeout(detailTimer); if (!state.detail) return; state.detail = null; state.elapsed = 0; render(); }
+  if (CFG.acDetail) {
+    document.body.insertAdjacentHTML('beforeend', '<div class="detail" id="detail" role="dialog" aria-label="Aircraft detail" hidden></div>');
+    $('detail').addEventListener('click', closeDetail);
+    $('body').addEventListener('click', function (e) {
+      var card = e.target.closest && e.target.closest('.pc');
+      if (state.detail) closeDetail(); else if (card) openDetail(card.dataset.tail);
+    });
+    addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDetail(); });
+  }
+
+  /* ---------- Page cycle ---------- */
+  setInterval(function () {
+    if (state.pages.length < 2 || state.detail) return;
+    state.elapsed++;
+    if (state.elapsed >= CFG.cycle) { state.elapsed = 0; state.page = (state.page + 1) % state.pages.length; render(); }
+    else renderChips();
+  }, 1000);
+
+  /* ---------- Boot ---------- */
+  load();
+  // Refit once the web fonts arrive: they are wider than the fallbacks the first fit measured
+  if (document.fonts) document.fonts.addEventListener('loadingdone', function () { if (state.data) render(); });
+  // After the first load, re-read the sheet on the clock (:00, :05, :10 … for 5 minutes), not counted from page open
+  (function next() { var p = CFG.refresh * 60000; setTimeout(function () { load(); next(); }, p - Date.now() % p + 1000); })();
+  setInterval(renderSync, 60000);
+})();
+</script>
+</body>
+</html>
