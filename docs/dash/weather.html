@@ -142,6 +142,9 @@ html[data-theme="light"] { --bar: #F7F9FB; }
 html[data-theme="light"] .range button.on { color: #fff; }
 .map { position: relative; flex: 1 1 auto; min-width: 0; overflow: hidden; background: #DDE3D6; }
 .map .layer { position: absolute; inset: 0; pointer-events: none; }
+/* Drag to pan, pinch / wheel to zoom: the page doesn't scroll or zoom while a finger is on the map */
+.map { touch-action: none; cursor: grab; }
+.map.dragging { cursor: grabbing; }
 .map img.tile { position: absolute; display: block; user-select: none; -webkit-user-drag: none; }
 .map .radar { opacity: .72; }
 .map .radar img.tile { image-rendering: auto; }
@@ -462,8 +465,10 @@ html[data-theme="light"] .range button.on { color: #fff; }
     var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(aLat * r) * Math.cos(bLat * r) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
     return 2 * R_EARTH * Math.asin(Math.sqrt(h)) / NM;
   }
+  // Airports are loaded out to the range, or further when the map has been moved or zoomed out past it (dataR)
+  function dataRadius() { return Math.max(CFG.radiusNm, state.dataR || 0); }
   function bbox() {
-    var dLat = CFG.radiusNm / 60, dLon = CFG.radiusNm / (60 * Math.cos(CFG.lat * Math.PI / 180));
+    var r = dataRadius(), dLat = r / 60, dLon = r / (60 * Math.cos(CFG.lat * Math.PI / 180));
     return [CFG.lat - dLat, CFG.lon - dLon, CFG.lat + dLat, CFG.lon + dLon].map(function (n) { return n.toFixed(2); }).join(',');
   }
   // Local flat projection in NM around the station, for "does this polygon touch the circle"
@@ -501,14 +506,23 @@ html[data-theme="light"] .range button.on { color: #fff; }
     });
   }
 
-  /* ---------- View: fixed center, scale fit so the range ring fills the map ---------- */
-  function computeView() {
-    var w = mapEl.clientWidth, h = mapEl.clientHeight;
+  /* ---------- View: centered on the airport, scaled so the range ring fills the map ---------- */
+  // Dragging and zooming the map (mouse or touch, see "Move the map") set state.moved = { lat, lon, z }: the view's
+  // center and zoom until "Back to" or a few minutes without use put it back on the airport.
+  function homeZoom(w, h) {
     var ringPx = Math.min(w, h) * 0.45;
     var mPerPxAtZ0 = 2 * Math.PI * R_EARTH / 256 * Math.cos(CFG.lat * Math.PI / 180);
-    var z = Math.log2(ringPx * mPerPxAtZ0 / (CFG.radiusNm * NM));
-    var c = worldPx(CFG.lat, CFG.lon, z);
+    return Math.log2(ringPx * mPerPxAtZ0 / (CFG.radiusNm * NM));
+  }
+  function computeView() {
+    var w = mapEl.clientWidth, h = mapEl.clientHeight, m = state.moved;
+    var z = m ? m.z : homeZoom(w, h);
+    var c = m ? worldPx(m.lat, m.lon, z) : worldPx(CFG.lat, CFG.lon, z);
     state.view = { w: w, h: h, z: z, left: c.x - w / 2, top: c.y - h / 2, dpr: window.devicePixelRatio || 1 };
+  }
+  function worldToLatLon(x, y, z) { // inverse of worldPx
+    var s = 256 * Math.pow(2, z), lon = x / s * 360 - 180, n = Math.PI - 2 * Math.PI * y / s;
+    return { lat: 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))), lon: lon };
   }
   function toScreen(lat, lon) {
     var p = worldPx(lat, lon, state.view.z);
@@ -935,7 +949,7 @@ html[data-theme="light"] .range button.on { color: #fff; }
         .sort(function (a, b) { return b.obsTime - a.obsTime; })[0];
       list = list.filter(function (m) { return m.icaoId !== CFG.station; });
       if (home) list.push(home);
-      state.metars = list.filter(function (m) { return distNm(CFG.lat, CFG.lon, m.lat, m.lon) <= CFG.radiusNm + 5; });
+      state.metars = list.filter(function (m) { return distNm(CFG.lat, CFG.lon, m.lat, m.lon) <= dataRadius() + 5; });
       state.home = home || null; state.history = mine;
       renderStation(home);
       mark('METARs', true); drawOverlay(); renderFeatures();
@@ -1479,17 +1493,122 @@ html[data-theme="light"] .range button.on { color: #fff; }
     inp.addEventListener('blur', done);
   }
   $('stnId').addEventListener('click', editStation);
-  mapEl.addEventListener('click', function () { if (hover && hover.icaoId && hover.icaoId !== CFG.station) goStation(hover.icaoId); });
+  mapEl.addEventListener('click', function () {
+    if (gesture.justMoved) return; // the end of a drag, not a click on an airport
+    if (hover && hover.icaoId && hover.icaoId !== CFG.station) goStation(hover.icaoId);
+  });
   mapEl.addEventListener('mousemove', function () { mapEl.classList.toggle('on-stn', !!hover); });
-  var otherStn = CFG.station !== HOME, otherR = CFG.radiusNm !== HOME_R;
-  if (otherStn || otherR) {
-    $('away').hidden = false;
-    $('awayText').textContent = otherStn && otherR ? 'Not the default view' : otherStn ? 'Not the default airport' : 'Not the default range';
-    $('awayBack').textContent = 'Back to ' + [otherStn ? HOME : '', otherR ? HOME_R + ' NM' : ''].filter(Boolean).join(', ');
-    $('awayBack').addEventListener('click', function () { goView(HOME, HOME_R); });
-    ['mousemove', 'keydown', 'mousedown'].forEach(function (t) { addEventListener(t, function () { lastUse = Date.now(); }, { passive: true }); });
-    setInterval(function () { if (Date.now() - lastUse > AWAY_MIN * 60000) goView(HOME, HOME_R); }, 30000);
+
+  /* ---------- Move the map: drag to pan, wheel / pinch to zoom ---------- */
+  // While a finger or the mouse is down (or the wheel turns) the chart, radar and overlay move together as one picture
+  // (a CSS transform); when it stops, the view is set (state.moved) and everything is drawn again for it. Airports
+  // outside what was loaded are fetched then (state.dataR). The range rings stay on the airport.
+  var gesture = { pts: {}, start: null, t: null, justMoved: false, wheelTimer: 0 };
+  var Z_MAX = 12.6; // the sectional's most detailed tiles (12) a little magnified
+  function zMin() { return Math.max(4.5, homeZoom(mapEl.clientWidth, mapEl.clientHeight) - 3); }
+  function setTransform(tx, ty, s) {
+    var css = s === 1 && !tx && !ty ? '' : 'translate(' + tx + 'px,' + ty + 'px) scale(' + s + ')';
+    [baseEl, radarEl, canvas].forEach(function (el) { el.style.transformOrigin = '0 0'; el.style.transform = css; });
   }
+  // The picture moved so that map point (x0, y0) is now at screen point (x1, y1) and scaled by s: make that the view
+  function commit(x0, y0, x1, y1, s) {
+    var v = state.view, z = Math.max(zMin(), Math.min(Z_MAX, v.z + Math.log2(s)));
+    s = Math.pow(2, z - v.z);
+    var left = (v.left + x0) * s - x1, top = (v.top + y0) * s - y1;
+    var c = worldToLatLon(left + v.w / 2, top + v.h / 2, z);
+    state.moved = { lat: c.lat, lon: c.lon, z: z };
+    setTransform(0, 0, 1);
+    computeView(); drawBase(); if (state.frames.length) drawRadar(true); drawOverlay();
+    showAway();
+    // Load airports out to the farthest corner now on the map (up to 400 NM from the airport)
+    var far = 0; [[0, 0], [v.w, 0], [0, v.h], [v.w, v.h]].forEach(function (p) {
+      var ll = worldToLatLon(state.view.left + p[0], state.view.top + p[1], z); far = Math.max(far, distNm(CFG.lat, CFG.lon, ll.lat, ll.lon));
+    });
+    if (far > dataRadius() + 10 && dataRadius() < 400) { state.dataR = Math.min(400, Math.ceil(far / 25) * 25 + 25); loadMetars(); }
+  }
+  function resetView() {
+    if (!state.moved) return;
+    state.moved = null; setTransform(0, 0, 1);
+    computeView(); drawBase(); if (state.frames.length) drawRadar(true); drawOverlay();
+    showAway();
+  }
+  function ptr(e) { var r = mapEl.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+  function pinchInfo() {
+    var p = Object.keys(gesture.pts).map(function (k) { return gesture.pts[k]; });
+    if (p.length < 2) return { x: p[0].x, y: p[0].y, d: 0 };
+    return { x: (p[0].x + p[1].x) / 2, y: (p[0].y + p[1].y) / 2, d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) };
+  }
+  function begin() { var i = pinchInfo(); gesture.start = i; gesture.t = { x: i.x, y: i.y, s: 1 }; }
+  mapEl.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.target.closest && e.target.closest('.map-chip, .lim-banner, .stn-tip, button, a, input')) return;
+    gesture.pts[e.pointerId] = ptr(e);
+    try { mapEl.setPointerCapture(e.pointerId); } catch (x) {}
+    begin(); gesture.moved = false;
+  });
+  mapEl.addEventListener('pointermove', function (e) {
+    if (!gesture.pts[e.pointerId]) return;
+    gesture.pts[e.pointerId] = ptr(e);
+    var i = pinchInfo(), st = gesture.start, s = st.d && i.d ? i.d / st.d : 1;
+    if (!gesture.moved && Math.hypot(i.x - st.x, i.y - st.y) < 6 && Math.abs(s - 1) < 0.03) return; // a tap, so far
+    if (!gesture.moved) { gesture.moved = true; if (typeof hideTip === 'function') hideTip(); mapEl.classList.add('dragging'); }
+    // keep the zoom inside its limits while pinching
+    var z = state.view.z + Math.log2(s); if (z > Z_MAX) s = Math.pow(2, Z_MAX - state.view.z); else if (z < zMin()) s = Math.pow(2, zMin() - state.view.z);
+    gesture.t = { x: i.x, y: i.y, s: s };
+    setTransform(i.x - st.x * s, i.y - st.y * s, s);
+    lastUse = Date.now();
+  });
+  function end(e) {
+    if (!gesture.pts[e.pointerId]) return;
+    delete gesture.pts[e.pointerId];
+    var st = gesture.start, t = gesture.t, moved = gesture.moved;
+    if (Object.keys(gesture.pts).length) { // one finger of a pinch lifted: carry on from here as a drag
+      if (moved) commit(st.x, st.y, t.x, t.y, t.s);
+      begin(); gesture.moved = false; return;
+    }
+    mapEl.classList.remove('dragging');
+    if (moved) { commit(st.x, st.y, t.x, t.y, t.s); gesture.justMoved = true; setTimeout(function () { gesture.justMoved = false; }, 50); }
+    gesture.moved = false;
+  }
+  mapEl.addEventListener('pointerup', end);
+  mapEl.addEventListener('pointercancel', end);
+  // Mouse wheel / trackpad: zoom toward the pointer; the view is set a moment after the wheel stops
+  var wheel = null;
+  mapEl.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    var p = ptr(e);
+    // wheel = the picture so far: map point (x, y) of the drawn view shown at screen (px, py), scaled by s
+    if (!wheel) wheel = { x: p.x, y: p.y, s: 1, px: p.x, py: p.y };
+    var s = wheel.s * Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0018));
+    var z = state.view.z + Math.log2(s); if (z > Z_MAX) s = Math.pow(2, Z_MAX - state.view.z); else if (z < zMin()) s = Math.pow(2, zMin() - state.view.z);
+    // zoom about the pointer: the map point under it now stays under it
+    var tx = wheel.px - wheel.x * wheel.s, ty = wheel.py - wheel.y * wheel.s;
+    var mx = (p.x - tx) / wheel.s, my = (p.y - ty) / wheel.s;
+    wheel = { x: mx, y: my, s: s, px: p.x, py: p.y };
+    setTransform(p.x - mx * s, p.y - my * s, s);
+    if (typeof hideTip === 'function') hideTip();
+    lastUse = Date.now();
+    clearTimeout(gesture.wheelTimer);
+    gesture.wheelTimer = setTimeout(function () { var w = wheel; wheel = null; commit(w.x, w.y, w.px, w.py, w.s); }, 250);
+  }, { passive: false });
+
+  // "Back to": another airport or range (a different page address), or a moved map; either returns by itself after
+  // AWAY_MIN minutes without use, so a TV isn't left on someone's lookup
+  var otherStn = CFG.station !== HOME, otherR = CFG.radiusNm !== HOME_R;
+  function showAway() {
+    var moved = !!state.moved, any = otherStn || otherR || moved;
+    $('away').hidden = !any;
+    if (!any) return;
+    $('awayText').textContent = otherStn && otherR ? 'Not the default view' : otherStn ? 'Not the default airport' : otherR ? 'Not the default range' : 'Map moved';
+    $('awayBack').textContent = 'Back to ' + ([otherStn ? HOME : '', otherR ? HOME_R + ' NM' : ''].filter(Boolean).join(', ') || CFG.station);
+  }
+  $('awayBack').addEventListener('click', function () { if (otherStn || otherR) goView(HOME, HOME_R); else resetView(); });
+  ['mousemove', 'keydown', 'mousedown', 'pointerdown', 'wheel', 'touchstart'].forEach(function (t) { addEventListener(t, function () { lastUse = Date.now(); }, { passive: true }); });
+  setInterval(function () {
+    if (Date.now() - lastUse <= AWAY_MIN * 60000) return;
+    if (otherStn || otherR) goView(HOME, HOME_R); else resetView();
+  }, 30000);
+  showAway();
 
   /* =========================================================================================================
      Features (settings → Features). Each is off unless switched on; CFG.feat says which.
