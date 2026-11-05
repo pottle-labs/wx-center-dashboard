@@ -1741,26 +1741,35 @@ html[data-theme="light"] .range button.on { color: #fff; }
   // ---- 3A / 3B: sunrise, sunset, end of civil twilight (night for logging) and sunset + 1 h (night currency) ----
   // NOAA "Almanac for Computers" method; zenith 90.833° (sunrise/sunset) or 96° (civil twilight). `day` is the
   // airport's date { y, m (0-11), d } and `off` its UTC offset in ms, so "today" is the airport's day.
+  // NOAA Solar Calculator method (Meeus; gml.noaa.gov/grad/solcalc): the sun's position is worked out again at the
+  // event's own time, to well under a minute. `day` is the airport's date { y, m (0-11), d } and `off` its UTC offset in
+  // ms; the event is the one in that local day's morning (rising) or evening. Rounded to the nearest minute.
   function sunEvent(day, off, lat, lon, zenith, rising) {
-    var rad = Math.PI / 180, N = Math.round((Date.UTC(day.y, day.m, day.d) - Date.UTC(day.y, 0, 0)) / 864e5);
-    var lngHour = lon / 15, t = N + ((rising ? 6 : 18) - lngHour) / 24;
-    var M = 0.9856 * t - 3.289;
-    var L = (M + 1.916 * Math.sin(M * rad) + 0.020 * Math.sin(2 * M * rad) + 282.634 + 360) % 360;
-    var RA = (Math.atan(0.91764 * Math.tan(L * rad)) / rad + 360) % 360;
-    RA = (RA + Math.floor(L / 90) * 90 - Math.floor(RA / 90) * 90) / 15;
-    var sinDec = 0.39782 * Math.sin(L * rad), cosDec = Math.cos(Math.asin(sinDec));
-    var cosH = (Math.cos(zenith * rad) - sinDec * Math.sin(lat * rad)) / (cosDec * Math.cos(lat * rad));
-    if (cosH > 1 || cosH < -1) return null;
-    var H = (rising ? 360 - Math.acos(cosH) / rad : Math.acos(cosH) / rad) / 15;
-    var UT = ((H + RA - 0.06571 * t - 6.622 - lngHour) % 24 + 24) % 24;
-    // Pick the UTC day that puts the event closest to the right part of the local day (morning / evening)
-    var base = Date.UTC(day.y, day.m, day.d) + UT * 36e5, target = Date.UTC(day.y, day.m, day.d, rising ? 6 : 18) - off, best = base;
-    [-864e5, 864e5].forEach(function (d) { if (Math.abs(base + d - target) < Math.abs(best - target)) best = base + d; });
-    return new Date(best);
+    var r = Math.PI / 180, jd0 = Date.UTC(day.y, day.m, day.d) / 864e5 + 2440587.5;
+    var time = (rising ? 360 : 1080) - off / 6e4; // first guess: 6 AM / 6 PM local, in minutes after 0h UTC
+    for (var i = 0; i < 3; i++) {
+      var t = (jd0 + time / 1440 - 2451545) / 36525;
+      var L0 = ((280.46646 + t * (36000.76983 + t * 0.0003032)) % 360 + 360) % 360, M = 357.52911 + t * (35999.05029 - 0.0001537 * t);
+      var e = 0.016708634 - t * (0.000042037 + 0.0000001267 * t);
+      var C = Math.sin(M * r) * (1.914602 - t * (0.004817 + 0.000014 * t)) + Math.sin(2 * M * r) * (0.019993 - 0.000101 * t) + Math.sin(3 * M * r) * 0.000289;
+      var om = 125.04 - 1934.136 * t, lambda = L0 + C - 0.00569 - 0.00478 * Math.sin(om * r);
+      var eps = 23 + (26 + (21.448 - t * (46.815 + t * (0.00059 - t * 0.001813))) / 60) / 60 + 0.00256 * Math.cos(om * r);
+      var dec = Math.asin(Math.sin(eps * r) * Math.sin(lambda * r)), y = Math.pow(Math.tan(eps * r / 2), 2);
+      var eq = 4 / r * (y * Math.sin(2 * L0 * r) - 2 * e * Math.sin(M * r) + 4 * e * y * Math.sin(M * r) * Math.cos(2 * L0 * r) - 0.5 * y * y * Math.sin(4 * L0 * r) - 1.25 * e * e * Math.sin(2 * M * r));
+      var cosH = Math.cos(zenith * r) / (Math.cos(lat * r) * Math.cos(dec)) - Math.tan(lat * r) * Math.tan(dec);
+      if (cosH > 1 || cosH < -1) return null; // no sunrise / sunset that day (far north)
+      var ha = Math.acos(cosH) / r;
+      time = 720 - 4 * (lon + (rising ? ha : -ha)) - eq;
+    }
+    return new Date(Math.round((Date.UTC(day.y, day.m, day.d) + time * 6e4) / 6e4) * 6e4);
   }
+  // Sunrise and sunset match ForeFlight (user request, 2026-11-04): it times them with the sun's center 0.645° below the
+  // horizon (fitted to 10 of its times at 5 bases, all exact), a minute or so inside the official 0.833° (USNO). Night
+  // for logging stays the official end of civil twilight (6° below); night currency is that sunset + 1 hour.
+  var SUN_ZENITH = 90.645;
   function sunTimes() {
     var now = new Date(), p = zoneParts(now), day = { y: p.year, m: p.month - 1, d: p.day }, off = zoneOffsetMs(now), lat = CFG.lat, lon = CFG.lon;
-    var rise = sunEvent(day, off, lat, lon, 90.833, true), set = sunEvent(day, off, lat, lon, 90.833, false), dusk = sunEvent(day, off, lat, lon, 96, false);
+    var rise = sunEvent(day, off, lat, lon, SUN_ZENITH, true), set = sunEvent(day, off, lat, lon, SUN_ZENITH, false), dusk = sunEvent(day, off, lat, lon, 96, false);
     return { rise: rise, set: set, dusk: dusk, cur: set && new Date(set.getTime() + 36e5) };
   }
   var sunDay = '';
