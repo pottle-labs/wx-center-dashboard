@@ -182,6 +182,8 @@
         var p = JSON.parse(JSON.stringify(old)); p.settings = keep; pushes.push(p);
       });
       d.pushes = pushes.concat(fresh);
+      d.defaults = { all: cleanSect((given.defaults || {}).all) }; // new-install settings, kept until changed
+
       if (given.updateCheck === true) d.updateCheck = d.published;
       var payload = JSON.stringify(d);
       return subtle.sign('RSASSA-PKCS1-v1_5', me.signKey, utf8(SET_PREFIX + payload)).then(function (sig) {

@@ -70,6 +70,8 @@ button:disabled { opacity: .55; cursor: default; }
 .ctl[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--bg); }
 html[data-theme="light"] .ctl[aria-pressed="true"] { color: #fff; }
 .ctl[data-state="push"] { border: 1px dashed var(--accent); color: var(--accent); }
+.ctl[data-state="install"] { border: 1px solid #2FB55A; color: #2FB55A; }
+html[data-theme="light"] .ctl[data-state="install"] { border-color: #1E7F3C; color: #1E7F3C; }
 .row.is-local > :not(label), .row.locked > :not(label) { opacity: .45; }
 .badge { display: inline-block; margin-left: 8px; padding: 0 8px; border-radius: 10px; font-size: 13px; font-weight: 600; background: var(--accent); color: var(--bg); vertical-align: 2px; }
 .bases { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
@@ -583,7 +585,8 @@ button.quiet:hover { color: var(--crit); background: none; }
   // ---- Central settings editor (Central settings.cmd) ----
   // model = what gets published: { sameForAll, all: { key: value }, bases: { SGU: { central, settings } } }.
   // A setting marked Central in a section is saved in it; one marked Local is left out (each dashboard keeps its own).
-  var model = { sameForAll: false, all: {}, bases: {}, push: {}, pushes: [] }, section = 'all', baseNames = [];
+  // model.defaults = { key: value }: "New installs", the settings a newly installed dashboard starts with (All locations only)
+  var model = { sameForAll: false, all: {}, bases: {}, push: {}, pushes: [], defaults: {} }, section = 'all', baseNames = [];
   function sectionValues(name) {
     if (name === 'all') return model.all;
     var b = model.bases[name] = model.bases[name] || { central: false, settings: {} };
@@ -595,8 +598,10 @@ button.quiet:hover { color: var(--crit); background: none; }
     return rows;
   }
   // Each row's state: 'local' (left out), 'central' (set and locked on the dashboards), or 'push' (written once into
-  // each dashboard's own settings at the next publish, then local again; model.push[section] = { key: value })
-  var CTL_TEXT = { local: 'Local', central: 'Central', push: 'Push once' };
+  // each dashboard's own settings at the next publish, then local again; model.push[section] = { key: value }), or
+  // 'install' (All locations only: written into a dashboard's own settings once, when it's newly installed; stays
+  // published until changed; model.defaults)
+  var CTL_TEXT = { local: 'Local', central: 'Central', push: 'Push once', install: 'New installs' };
   function setCtl(row, state) {
     if (state === true) state = 'central'; else if (!state) state = 'local';
     var b = row.querySelector('.ctl');
@@ -622,29 +627,31 @@ button.quiet:hover { color: var(--crit); background: none; }
   }
   function loadSection(name) {
     section = name;
-    var vals = sectionValues(name), push = model.push[name] || {}, shown = {};
+    var vals = sectionValues(name), push = model.push[name] || {}, inst = name === 'all' ? model.defaults : {}, shown = {};
     FIELDS.forEach(function (k) {
-      shown[k] = push[k] != null ? String(push[k]) : vals[k] != null ? String(vals[k]) : (name !== 'all' && model.all[k] != null ? String(model.all[k]) : '');
+      shown[k] = push[k] != null ? String(push[k]) : inst[k] != null ? String(inst[k]) : vals[k] != null ? String(vals[k]) : (name !== 'all' && model.all[k] != null ? String(model.all[k]) : '');
     });
     setForm(shown);
     centralRows().forEach(function (row) {
       var ks = keysOf(row);
-      setCtl(row, ks.some(function (k) { return push[k] != null; }) ? 'push' : ks.some(function (k) { return vals[k] != null; }) ? 'central' : 'local');
+      setCtl(row, ks.some(function (k) { return push[k] != null; }) ? 'push' : ks.some(function (k) { return inst[k] != null; }) ? 'install'
+        : ks.some(function (k) { return vals[k] != null; }) ? 'central' : 'local');
     });
     $('sectionNote').textContent = (name === 'all'
       ? (model.sameForAll ? 'Central: used by every base under central control.' : 'Central: only used while “All locations use the same settings” is on.') +
-        ' Push once: goes to every dashboard, under central control or not.'
+        ' Push once: goes to every dashboard, under central control or not.' +
+        ' New installs: a newly installed dashboard (or a phone opening the web dashboard for the first time) starts with these, then follows the central settings as usual; existing dashboards aren’t changed.'
       : (!model.bases[name].central ? name + ' is under local control, so Central settings don’t apply until it’s checked above.'
         : model.sameForAll ? 'Central settings here aren’t used while all locations use the same settings.' : 'Central: used by the ' + name + ' dashboards.') +
         ' Push once: goes to the ' + name + ' dashboards.') + pushHistory(name);
   }
   function storeSection() {
-    var v = getForm(), vals = {}, push = {};
+    var v = getForm(), vals = {}, push = {}, inst = {};
     centralRows().forEach(function (row) {
       var st = ctlState(row);
-      if (st !== 'local') keysOf(row).forEach(function (k) { (st === 'central' ? vals : push)[k] = v[k]; });
+      if (st !== 'local') keysOf(row).forEach(function (k) { (st === 'central' ? vals : st === 'install' ? inst : push)[k] = v[k]; });
     });
-    if (section === 'all') model.all = vals;
+    if (section === 'all') { model.all = vals; model.defaults = inst; }
     else { sectionValues(section); model.bases[section].settings = vals; }
     if (Object.keys(push).length) model.push[section] = push; else delete model.push[section];
   }
@@ -669,10 +676,10 @@ button.quiet:hover { color: var(--crit); background: none; }
     $('cancel').textContent = 'Close';
     centralRows().forEach(function (row) {
       var lab = row.querySelector('label');
-      lab.insertAdjacentHTML('afterbegin', '<button type="button" class="ctl" aria-pressed="false" data-state="local" title="Click to change. Local: each dashboard keeps its own. Central: set from here and locked on the dashboards this section applies to. Push once: written into those dashboards’ own settings at the next publish, then they can change it again.">Local</button>');
+      lab.insertAdjacentHTML('afterbegin', '<button type="button" class="ctl" aria-pressed="false" data-state="local" title="Click to change. Local: each dashboard keeps its own. Central: set from here and locked on the dashboards this section applies to. Push once: written into those dashboards’ own settings at the next publish, then they can change it again. New installs (All locations): what a newly installed dashboard starts with.">Local</button>');
       row.querySelector('.ctl').addEventListener('click', function (e) {
         e.preventDefault();
-        var next = { local: 'central', central: 'push', push: 'local' };
+        var next = section === 'all' ? { local: 'central', central: 'push', push: 'install', install: 'local' } : { local: 'central', central: 'push', push: 'local' };
         setCtl(row, next[ctlState(row)]);
       });
     });
@@ -727,7 +734,7 @@ button.quiet:hover { color: var(--crit); background: none; }
     }
     if (pub) drawPeople(c.people || []);
     var d = c.doc || {};
-    model = { sameForAll: !!d.sameForAll, all: d.all || {}, bases: {}, push: {}, pushes: d.pushes || [] };
+    model = { sameForAll: !!d.sameForAll, all: d.all || {}, bases: {}, push: {}, pushes: d.pushes || [], defaults: (d.defaults && d.defaults.all) || {} };
     Object.keys(d.bases || {}).forEach(function (n) { model.bases[n] = { central: !!d.bases[n].central, settings: d.bases[n].settings || {} }; });
     baseNames = tabsSeen.map(function (t) { return t.name.replace(/[^A-Za-z0-9]/g, '').toUpperCase(); });
     Object.keys(model.bases).forEach(function (n) { if (baseNames.indexOf(n) < 0) baseNames.push(n); });
@@ -1015,10 +1022,11 @@ button.quiet:hover { color: var(--crit); background: none; }
     });
     if (!confirm('Publish the central settings? ' + (on.length ? 'Bases under central control: ' + on.join(', ') + '.' : 'No base is under central control.') +
       (pushTo.length ? ' One-time push to ' + pushTo.join(' and ') + ': each dashboard writes these into its own settings once, and can change them again afterwards.' : '') +
+      (Object.keys(model.defaults).length ? ' New installs start with ' + Object.keys(model.defaults).length + ' setting' + (Object.keys(model.defaults).length === 1 ? '' : 's') + ' from here; existing dashboards aren’t changed.' : '') +
       ($('askUpdate').checked ? ' Every dashboard also checks for an app update when it picks this up, and installs one if there is one.' : ''))) return;
     $('save').disabled = true; msg('Signing and publishing…');
     var ask = $('askUpdate').checked;
-    host.call('saveCentral', { doc: { sameForAll: model.sameForAll, all: model.all, bases: model.bases, push: model.push, updateCheck: ask } }).then(function (serial) {
+    host.call('saveCentral', { doc: { sameForAll: model.sameForAll, all: model.all, bases: model.bases, push: model.push, defaults: { all: model.defaults }, updateCheck: ask } }).then(function (serial) {
       var keep = section;
       return host.call('getCentral').then(function (c) { // reload: the pushed rows go back to Local and the push history updates
         loaded(c);

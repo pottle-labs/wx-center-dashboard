@@ -4,6 +4,7 @@
 //    the update key and the signed people list). A base under central control sets the settings listed for it, and
 //    those can't be changed on the phone, exactly like on its TVs.
 //  - One-time pushes for this phone's base (or all) are written into its local settings once (pushedAt).
+//  - On a phone's first visit, the central "New installs" settings are written into its local settings once (installed).
 // What applies = the TVs' defaults (settings.ini) <- phone defaults <- local <- central. pageUrl() turns that into the
 // pages' addresses the same way the Windows app's PageUrl does.
 (function () {
@@ -20,6 +21,8 @@
   var store = {};
   function fresh() { store = read(); store.values = store.values || {}; return store; }
   fresh();
+  // Nothing stored yet: this phone has never opened the web dashboard (before loading the central file stores its serial)
+  var firstVisit = !store.installed && !store.serial && !store.pushedAt && !Object.keys(store.values).length;
 
   // ---- signed files (same formats and checks as the Windows app) ----
   function b64ToB64u(s) { return s.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
@@ -87,6 +90,18 @@
     store.pushedAt = latest; write(store);
     return n > 0;
   }
+  // A phone opening the web dashboard for the first time is a new install: it takes the central "New installs" settings
+  // once (like a TV's newInstall=1), then they're its own local settings. A phone that used it before this existed
+  // (anything already stored) just gets marked. Waits while the central file couldn't be read.
+  function applyInstallDefaults() {
+    if (!central || central.failed) return false;
+    fresh();
+    if (store.installed) return false;
+    var n = 0, s = firstVisit && central.doc && central.doc.defaults ? central.doc.defaults.all || {} : {};
+    Object.keys(s).forEach(function (k) { if (allowed(k) && s[k] != null) { store.values[k] = String(s[k]); n++; } });
+    store.installed = new Date().toISOString(); write(store);
+    return n > 0;
+  }
   function effective() {
     var c = centralFor(base()), v = {}, d = CFG.defaults || {}; // base() reads the saved settings again
     Object.keys(d).forEach(function (k) { v[k] = d[k]; });
@@ -126,7 +141,7 @@
   }
 
   window.WXCWeb = {
-    ready: function () { return loadCentral().then(function () { applyPushes(); return true; }); },
+    ready: function () { return loadCentral().then(function () { applyPushes(); applyInstallDefaults(); return true; }); },
     base: base,
     setBase: function (b) { fresh(); store.values.tab = String(b).toUpperCase(); write(store); applyPushes(); },
     effective: effective,

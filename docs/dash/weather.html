@@ -492,10 +492,10 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
     var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(aLat * r) * Math.cos(bLat * r) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
     return 2 * R_EARTH * Math.asin(Math.sqrt(h)) / NM;
   }
-  // Airports are loaded out to the range, or further when the map has been moved or zoomed out past it (dataR)
-  function dataRadius() { return Math.max(CFG.radiusNm, state.dataR || 0); }
+  // Airports within the range are always loaded (state.areaMetars); once the map is moved, those in view too (see
+  // loadViewMetars)
   function bbox() {
-    var r = dataRadius(), dLat = r / 60, dLon = r / (60 * Math.cos(CFG.lat * Math.PI / 180));
+    var r = CFG.radiusNm, dLat = r / 60, dLon = r / (60 * Math.cos(CFG.lat * Math.PI / 180));
     return [CFG.lat - dLat, CFG.lon - dLon, CFG.lat + dLat, CFG.lon + dLon].map(function (n) { return n.toFixed(2); }).join(',');
   }
   // Local flat projection in NM around the station, for "does this polygon touch the circle"
@@ -555,7 +555,9 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
   // (a phone) and as the map is zoomed out (they'd crowd together), a little bigger zoomed in
   function dotScale(v) {
     var size = Math.max(0.65, Math.min(1, Math.min(v.w, v.h) / 700));
-    return Math.max(0.42, Math.min(1.3, size * Math.pow(2, (v.z - homeZoom(v.w, v.h)) * 0.5)));
+    // the smallest: 0.42 on a TV, 30% smaller (0.29) on a phone-sized map, in between for sizes between
+    var floor = 0.42 * (0.7 + 0.3 * (size - 0.65) / 0.35);
+    return Math.max(floor, Math.min(1.3, size * Math.pow(2, (v.z - homeZoom(v.w, v.h)) * 0.5)));
   }
   function toScreen(lat, lon) {
     var p = worldPx(lat, lon, state.view.z);
@@ -987,12 +989,43 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
         .sort(function (a, b) { return b.obsTime - a.obsTime; })[0];
       list = list.filter(function (m) { return m.icaoId !== CFG.station; });
       if (home) list.push(home);
-      state.metars = list.filter(function (m) { return distNm(CFG.lat, CFG.lon, m.lat, m.lon) <= dataRadius() + 5; });
+      state.areaMetars = list.filter(function (m) { return distNm(CFG.lat, CFG.lon, m.lat, m.lon) <= CFG.radiusNm + 5; });
+      mergeMetars();
       state.home = home || null; state.history = mine;
       renderStation(home);
       mark('METARs', true); drawOverlay(); renderFeatures();
+      if (state.moved) loadViewMetars(true); // refresh the moved map's airports along with the rest
     }).catch(function (e) { mark('METARs', false, e); });
   }
+  // The airports on the map: those within the range plus, on a moved map, the ones loaded for the view
+  function mergeMetars() {
+    var seen = {}, out = [];
+    (state.areaMetars || []).concat(state.viewMetars || []).forEach(function (m) {
+      if (m.lat == null || seen[m.icaoId]) return;
+      seen[m.icaoId] = 1; out.push(m);
+    });
+    state.metars = out;
+  }
+  // Airports in view: when the map is dragged or zoomed so that it shows more than what's loaded, the airports in the
+  // visible area plus a quarter of it on each side are loaded (one request; AWC sends at most 400). Panning within
+  // that margin loads nothing more. They're dropped when the map goes back to the airport.
+  var viewSeq = 0;
+  function viewBounds(pad) {
+    var v = state.view, a = worldToLatLon(v.left - v.w * pad, v.top - v.h * pad, v.z), b = worldToLatLon(v.left + v.w * (1 + pad), v.top + v.h * (1 + pad), v.z);
+    return { s: Math.max(-89, b.lat), n: Math.min(89, a.lat), w: Math.max(-180, a.lon), e: Math.min(180, b.lon) };
+  }
+  function loadViewMetars(refresh) {
+    if (!state.moved || !state.view) return;
+    var need = viewBounds(0), have = state.viewBox;
+    if (!refresh && have && need.s >= have.s && need.n <= have.n && need.w >= have.w && need.e <= have.e) return;
+    var box = refresh && have ? have : viewBounds(0.25), seq = ++viewSeq;
+    getJSON('/api/data/metar?bbox=' + [box.s, box.w, box.n, box.e].map(function (n) { return n.toFixed(2); }).join(',') + '&format=json&taf=false').then(function (list) {
+      if (seq !== viewSeq || !state.moved) return; // a newer request, or the map went home meanwhile
+      state.viewMetars = Array.isArray(list) ? list : []; state.viewBox = box;
+      mergeMetars(); drawOverlay();
+    }).catch(function () {}); // the airports already shown stay; the next move or refresh tries again
+  }
+  function dropViewMetars() { viewSeq++; state.viewMetars = null; state.viewBox = null; mergeMetars(); }
   function loadTaf() {
     return getJSON('/api/data/taf?ids=' + CFG.station + '&format=json').then(function (list) {
       state.taf = list[0] || null; renderTaf(); mark('TAF', true);
@@ -1542,7 +1575,7 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
   /* ---------- Move the map: drag to pan, wheel / pinch to zoom ---------- */
   // While a finger or the mouse is down (or the wheel turns) the chart, radar and overlay move together as one picture
   // (a CSS transform); when it stops, the view is set (state.moved) and everything is drawn again for it. Airports
-  // outside what was loaded are fetched then (state.dataR). The range rings stay on the airport.
+  // in view that aren't loaded yet are fetched then (loadViewMetars). The range rings stay on the airport.
   var gesture = { pts: {}, start: null, t: null, justMoved: false, wheelTimer: 0 };
   var Z_MAX = 12.6; // the sectional's most detailed tiles (12) a little magnified
   function zMin() { return Math.max(4.5, homeZoom(mapEl.clientWidth, mapEl.clientHeight) - 3); }
@@ -1560,15 +1593,11 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
     setTransform(0, 0, 1);
     computeView(); drawBase(); if (state.frames.length) drawRadar(true); drawOverlay();
     showAway();
-    // Load airports out to the farthest corner now on the map (up to 400 NM from the airport)
-    var far = 0; [[0, 0], [v.w, 0], [0, v.h], [v.w, v.h]].forEach(function (p) {
-      var ll = worldToLatLon(state.view.left + p[0], state.view.top + p[1], z); far = Math.max(far, distNm(CFG.lat, CFG.lon, ll.lat, ll.lon));
-    });
-    if (far > dataRadius() + 10 && dataRadius() < 400) { state.dataR = Math.min(400, Math.ceil(far / 25) * 25 + 25); loadMetars(); }
+    loadViewMetars(); // airports now in view that aren't loaded yet
   }
   function resetView() {
     if (!state.moved) return;
-    state.moved = null; setTransform(0, 0, 1);
+    state.moved = null; setTransform(0, 0, 1); dropViewMetars();
     computeView(); drawBase(); if (state.frames.length) drawRadar(true); drawOverlay();
     showAway();
   }
