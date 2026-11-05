@@ -73,6 +73,28 @@ html[data-theme="light"] .ctl[aria-pressed="true"] { color: #fff; }
 .ctl[data-state="install"] { border: 1px solid #2FB55A; color: #2FB55A; }
 html[data-theme="light"] .ctl[data-state="install"] { border-color: #1E7F3C; color: #1E7F3C; }
 .row.is-local > :not(label), .row.locked > :not(label) { opacity: .45; }
+/* Central editor: what the section sets, in one collapsible line (open state remembered on this PC) */
+.sumbox { margin: 0 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.sumbox summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 9px 12px; cursor: pointer; list-style: none; color: var(--fg-2); }
+.sumbox summary::-webkit-details-marker { display: none; }
+.sumbox summary::before { content: '▸'; color: var(--muted); width: 10px; }
+.sumbox[open] summary::before { content: '▾'; }
+.sumbox .sum-t { font-weight: 600; color: var(--fg); }
+#sumLine { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; color: var(--muted); }
+.sumbox .sum-n { white-space: nowrap; color: var(--fg-2); }
+.sumbox .sum-n b { font-family: var(--font-data); font-weight: 500; }
+#sumList { padding: 0 12px 10px; }
+.sumgrp { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 0; border-top: 1px solid var(--line); }
+.sumgrp > span { width: 100%; font-size: 13px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+.sumchip { max-width: 100%; height: auto; min-height: 28px; padding: 3px 10px; border-radius: 14px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--fg); font: 15px var(--font-ui); text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.sumchip i { font-style: normal; color: var(--muted); }
+.sumgrp.central .sumchip { border-color: var(--accent); }
+.sumgrp.push .sumchip { border: 1px dashed var(--accent); }
+.sumgrp.install .sumchip { border-color: #2FB55A; }
+html[data-theme="light"] .sumgrp.install .sumchip { border-color: #1E7F3C; }
+.sumempty { padding: 6px 0; color: var(--muted); border-top: 1px solid var(--line); }
+.row.flash { animation: rowflash 1.6s ease-out; }
+@keyframes rowflash { 0%, 30% { background: color-mix(in srgb, var(--accent) 22%, transparent); } 100% { background: transparent; } }
 .badge { display: inline-block; margin-left: 8px; padding: 0 8px; border-radius: 10px; font-size: 13px; font-weight: 600; background: var(--accent); color: var(--bg); vertical-align: 2px; }
 .bases { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
 .bases label { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 8px; border: 1px solid var(--line-strong); cursor: pointer; font: 600 16px var(--font-ui); }
@@ -174,6 +196,7 @@ button.quiet:hover { color: var(--crit); background: none; }
         <span class="switch"><input type="checkbox" id="askUpdate"><span></span></span></div>
       <div class="row"><label for="section">Settings for<small id="sectionNote">Pick All locations or a base. Click a setting’s pill: Local leaves it to each dashboard, Central sets and locks it from here, Push once writes it into each dashboard’s own settings one time.</small></label>
         <select id="section"></select></div>
+      <details class="sumbox" id="sumBox"><summary><span class="sum-t">In this section</span><span id="sumLine"></span></summary><div id="sumList"></div></details>
     </fieldset>
     <fieldset id="peopleSet" hidden>
       <legend>People who can change these settings</legend>
@@ -644,6 +667,50 @@ button.quiet:hover { color: var(--crit); background: none; }
       : (!model.bases[name].central ? name + ' is under local control, so Central settings don’t apply until it’s checked above.'
         : model.sameForAll ? 'Central settings here aren’t used while all locations use the same settings.' : 'Central: used by the ' + name + ' dashboards.') +
         ' Push once: goes to the ' + name + ' dashboards.') + pushHistory(name);
+    drawSummary();
+  }
+  // The summary box under "Settings for": how many settings are Central, Push once and New installs in this section
+  // (as the pills stand now, before publishing), and when opened, each one with its value; a click goes to its row
+  var SUM_GROUPS = [['central', 'Central'], ['push', 'Push once (at the next publish)'], ['install', 'New installs']];
+  function shortVal(k, v) {
+    var el = $(k);
+    if (k === 'station') return v === 'auto' ? 'Auto (base airport)' : v;
+    if (!el) return v;
+    if (el.type === 'checkbox') return v === '1' ? 'On' : 'Off';
+    if (el.tagName === 'SELECT') { var o = Array.prototype.filter.call(el.options, function (x) { return x.value === v; })[0]; return o ? o.textContent.trim() : v; }
+    return v === '' ? '(blank)' : v;
+  }
+  function drawSummary() {
+    if (!CENTRAL || !$('sumBox')) return;
+    var v = getForm(), groups = { central: [], push: [], install: [] };
+    centralRows().forEach(function (row) {
+      var st = ctlState(row); if (!groups[st] || row.hidden) return;
+      var ks = keysOf(row), val = ks.map(function (k) { return shortVal(k, v[k]); }).join(', ');
+      if (val.length > 48) val = val.slice(0, 46) + '…';
+      groups[st].push({ k: ks[0], name: nameOf(ks[0]), val: val });
+    });
+    var parts = SUM_GROUPS.filter(function (g) { return g[0] !== 'install' || section === 'all'; }).map(function (g) {
+      return '<span class="sum-n"><b>' + groups[g[0]].length + '</b> ' + g[1].replace(/ \(.*/, '') + '</span>';
+    });
+    $('sumLine').innerHTML = parts.join('<span aria-hidden="true">·</span>');
+    var html = SUM_GROUPS.filter(function (g) { return groups[g[0]].length; }).map(function (g) {
+      return '<div class="sumgrp ' + g[0] + '"><span>' + g[1] + '</span>' + groups[g[0]].map(function (x) {
+        return '<button type="button" class="sumchip" data-k="' + esc(x.k) + '">' + esc(x.name) + ' <i>' + esc(x.val) + '</i></button>';
+      }).join('') + '</div>';
+    }).join('');
+    $('sumList').innerHTML = html || '<div class="sumempty">Every setting is Local here: each dashboard keeps its own.</div>';
+  }
+  if (CENTRAL && $('sumBox')) {
+    try { $('sumBox').open = localStorage.getItem('wxc-central-summary') === 'open'; } catch (e) {}
+    $('sumBox').addEventListener('toggle', function () { try { localStorage.setItem('wxc-central-summary', this.open ? 'open' : 'closed'); } catch (e) {} });
+    $('sumList').addEventListener('click', function (e) {
+      var b = e.target.closest('.sumchip'); if (!b) return;
+      var row = rowOf(b.dataset.k);
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
+    });
+    $('form').addEventListener('input', drawSummary);
+    $('form').addEventListener('change', drawSummary);
   }
   function storeSection() {
     var v = getForm(), vals = {}, push = {}, inst = {};
@@ -681,6 +748,7 @@ button.quiet:hover { color: var(--crit); background: none; }
         e.preventDefault();
         var next = section === 'all' ? { local: 'central', central: 'push', push: 'install', install: 'local' } : { local: 'central', central: 'push', push: 'local' };
         setCtl(row, next[ctlState(row)]);
+        drawSummary();
       });
     });
     $('bases').addEventListener('change', function (e) {
