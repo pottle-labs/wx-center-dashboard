@@ -1763,10 +1763,11 @@ html[data-theme="light"] .range button.on { color: #fff; }
     }
     return new Date(Math.round((Date.UTC(day.y, day.m, day.d) + time * 6e4) / 6e4) * 6e4);
   }
-  // Sunrise and sunset match ForeFlight (user request, 2026-11-04): it times them with the sun's center 0.645° below the
-  // horizon (fitted to 10 of its times at 5 bases, all exact), a minute or so inside the official 0.833° (USNO). Night
-  // for logging stays the official end of civil twilight (6° below); night currency is that sunset + 1 hour.
-  var SUN_ZENITH = 90.645;
+  // The official times (user's choice, 2026-11-04): sunrise and sunset with the sun's center 0.833° below the horizon
+  // (refraction and the sun's radius), as the US Naval Observatory publishes them; night for logging is the end of
+  // civil twilight (6° below), night currency sunset + 1 hour. ForeFlight shows sunrise / sunset about a minute inside
+  // these (it fits a 0.645° angle); the user chose to keep the official ones.
+  var SUN_ZENITH = 90.833;
   function sunTimes() {
     var now = new Date(), p = zoneParts(now), day = { y: p.year, m: p.month - 1, d: p.day }, off = zoneOffsetMs(now), lat = CFG.lat, lon = CFG.lon;
     var rise = sunEvent(day, off, lat, lon, SUN_ZENITH, true), set = sunEvent(day, off, lat, lon, SUN_ZENITH, false), dusk = sunEvent(day, off, lat, lon, 96, false);
