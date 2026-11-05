@@ -11,13 +11,13 @@
                       "purpose":  "any",
                       "type":  "image/png",
                       "sizes":  "192x192",
-                      "src":  "../icon-192.png"
+                      "src":  "../central-192.png"
                   },
                   {
                       "purpose":  "any",
                       "type":  "image/png",
                       "sizes":  "512x512",
-                      "src":  "../icon-512.png"
+                      "src":  "../central-512.png"
                   }
               ]
 }
