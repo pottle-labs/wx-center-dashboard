@@ -149,6 +149,28 @@ html[data-theme="light"] .range button.on { color: #fff; }
 .map .radar { opacity: .72; }
 .map .radar img.tile { image-rendering: auto; }
 .map canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* Layers button (beside the radar chip) and its panel of switches */
+.layers-btn { position: absolute; top: 18px; left: 18px; z-index: 6; display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line-strong); background: rgba(11,15,20,.86); color: var(--fg); font: 600 20px var(--font-ui); cursor: pointer; }
+.layers-btn:hover, .layers-btn[aria-expanded="true"] { border-color: var(--accent); }
+.layers-btn.changed { border-color: rgba(245,184,65,.8); }
+.layers-btn .lt { font: 600 16px var(--font-data); color: #F7C55E; }
+.layers-btn .lt[hidden] { display: none; }
+.layers-panel { position: absolute; top: 74px; left: 18px; z-index: 7; width: 340px; padding: 12px 16px 14px; border-radius: 12px; border: 1px solid var(--line-strong); background: rgba(11,15,20,.96); box-shadow: 0 16px 48px rgba(0,0,0,.5); color: var(--fg); cursor: default; }
+.layers-panel[hidden] { display: none; }
+.layers-panel h4 { margin: 0 0 6px; font-size: 14px; font-weight: 600; letter-spacing: 1.5px; color: var(--muted); }
+.lrow { display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 0; border: 0; border-top: 1px solid var(--line); background: none; color: var(--fg); font: 500 19px var(--font-ui); text-align: left; cursor: pointer; }
+.lrow:first-of-type { border-top: 0; }
+.lrow .sw { flex: 0 0 auto; width: 22px; height: 12px; border-radius: 3px; }
+.lrow .n { flex: 1 1 auto; } .lrow .c { font: 14px var(--font-data); color: var(--muted); }
+.lrow .tg { flex: 0 0 auto; position: relative; width: 44px; height: 24px; border-radius: 12px; background: var(--line-strong); }
+.lrow .tg::after { content: ''; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--fg-2); transition: transform .12s; }
+.lrow[aria-pressed="true"] .tg { background: var(--accent); } .lrow[aria-pressed="true"] .tg::after { transform: translateX(20px); background: var(--bg); }
+.lfoot { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 6px 10px; border-radius: 8px; background: rgba(245,184,65,.14); border: 1px solid rgba(245,184,65,.55); color: #F7C55E; font-size: 16px; }
+.lfoot b { font-family: var(--font-data); color: #FFE7B0; }
+.lfoot button { margin-left: auto; height: 28px; padding: 0 10px; border-radius: 7px; border: 1px solid rgba(245,184,65,.7); background: none; color: #FFE7B0; font: 600 15px var(--font-ui); cursor: pointer; }
+.lfoot[hidden] { display: none; }
+html[data-theme="light"] .layers-btn, html[data-theme="light"] .layers-panel { background: rgba(255,255,255,.96); }
+html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { color: #8A5A00; } html[data-theme="light"] .lfoot b, html[data-theme="light"] .lfoot button { color: #6B4500; }
 .map-chip { position: absolute; top: 18px; left: 18px; display: flex; gap: 10px; align-items: center; padding: 8px 14px; border-radius: 10px; background: rgba(11,15,20,.86); color: var(--fg); font-size: 22px; }
 .map-chip .k { color: var(--muted); }
 .map-chip .v { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
@@ -265,6 +287,8 @@ html[data-theme="light"] .range button.on { color: #fff; }
   html.web .bar-adv { flex: 1 1 100%; }
   html.web .status { padding-left: 0; border-left: 0; }
   html.web .map-chip { top: 10px; left: 10px; padding: 6px 10px; font-size: 16px; gap: 6px; }
+  html.web .layers-btn { top: 10px; height: 38px; padding: 0 10px; font-size: 16px; }
+  html.web .layers-panel { top: 56px; left: 10px; width: min(320px, calc(100vw - 20px)); }
   html.web .frames span { width: 10px; }
   html.web .clock .z { font-size: 32px; } html.web .clock .l { font-size: 18px; }
   html.web .station .id { font-size: 36px; } html.web .cat { height: 38px; font-size: 26px; }
@@ -286,6 +310,9 @@ html[data-theme="light"] .range button.on { color: #fff; }
     <div class="layer radar" id="radar"></div>
     <canvas id="overlay" aria-hidden="true"></canvas>
     <div class="map-chip"><span class="k">Radar</span><span class="v" id="radarTime">--:--Z</span><span class="v local" id="radarLocal"></span><span class="frames" id="frames"></span></div>
+    <!-- Layers: show or hide overlays for a while; back to the settings after a minute without use (script: "Layers") -->
+    <button type="button" class="layers-btn" id="layersBtn" aria-expanded="false" aria-controls="layersPanel"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg><span>Layers</span><span class="lt" id="layersLeft" hidden></span></button>
+    <div class="layers-panel" id="layersPanel" role="dialog" aria-label="Map layers" hidden></div>
     <div class="map-credit">Chart: FAA Aeronautical Information Services · Weather: NOAA/NWS Aviation Weather Center</div>
     <div class="lim-banner" id="limBanner" role="status" hidden></div>
     <div class="stn-ring" id="tipRing" hidden></div>
@@ -524,6 +551,12 @@ html[data-theme="light"] .range button.on { color: #fff; }
     var s = 256 * Math.pow(2, z), lon = x / s * 360 - 180, n = Math.PI - 2 * Math.PI * y / s;
     return { lat: 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))), lon: lon };
   }
+  // Airport dots, their labels, wind barbs and PIREP symbols: full size on the TV's home view, smaller on a small map
+  // (a phone) and as the map is zoomed out (they'd crowd together), a little bigger zoomed in
+  function dotScale(v) {
+    var size = Math.max(0.65, Math.min(1, Math.min(v.w, v.h) / 700));
+    return Math.max(0.42, Math.min(1.3, size * Math.pow(2, (v.z - homeZoom(v.w, v.h)) * 0.5)));
+  }
   function toScreen(lat, lon) {
     var p = worldPx(lat, lon, state.view.z);
     return { x: p.x - state.view.left, y: p.y - state.view.top };
@@ -685,7 +718,7 @@ html[data-theme="light"] .range button.on { color: #fff; }
     var hl = state.hl, FADE = 0.18;
     g.globalAlpha = hl ? FADE : 1;
     // Advisory polygons: G-AIRMETs under SIGMETs, convective on top
-    var feats = state.gairmets.concat(state.sigmets).filter(function (f) { return CFG.draw[advKind(f)]; })
+    var feats = state.gairmets.concat(state.sigmets).filter(function (f) { return showLayer(advKind(f)); })
       .sort(function (a, b) { return styleFor(a).w - styleFor(b).w; });
     var tags = [];
     feats.forEach(function (f) {
@@ -711,7 +744,7 @@ html[data-theme="light"] .range button.on { color: #fff; }
     });
     g.setLineDash([]);
     // TFRs: red hatching while active; a dashed outline for one that starts within the next 12 hours
-    state.tfrs.forEach(function (t) {
+    (showLayer('tfr') ? state.tfrs : []).forEach(function (t) {
       var live = t.from <= Date.now();
       rings(t.geometry).forEach(function (ring) {
         var pts = ring.map(function (c) { return toScreen(c[1], c[0]); });
@@ -782,30 +815,33 @@ html[data-theme="light"] .range button.on { color: #fff; }
     // METAR stations (wind barbs first, so the dots sit on top of the staffs)
     // Matches of a hovered legend item are drawn last, so faded stations never sit on top of them
     var stns = hl ? state.metars.slice().sort(function (a, b) { return hlMatch(hl, a) - hlMatch(hl, b); }) : state.metars;
+    var K = state.dotK = dotScale(v);
     if (F.barbs) stns.forEach(function (m) {
       if (m.lat == null) return;
       var p = toScreen(m.lat, m.lon), on = hl && hlMatch(hl, m), r = m.icaoId === CFG.station ? 13 : 10;
       g.globalAlpha = hl && !on ? FADE : 1;
-      drawBarb(g, p.x, p.y, m, r * (on ? 1.35 : 1));
-      barbBoxes(p.x, p.y, m, r).forEach(function (b) { taken.push(b); });
+      g.save(); g.translate(p.x, p.y); g.scale(K, K);
+      drawBarb(g, 0, 0, m, r * (on ? 1.35 : 1));
+      g.restore();
+      barbBoxes(p.x, p.y, m, r, K).forEach(function (b) { taken.push(b); });
     });
     var spots = [];
     stns.forEach(function (m) {
       if (m.lat == null) return;
-      var p = toScreen(m.lat, m.lon), home = m.icaoId === CFG.station, on = hl && hlMatch(hl, m), r0 = home ? 13 : 10;
+      var p = toScreen(m.lat, m.lon), home = m.icaoId === CFG.station, on = hl && hlMatch(hl, m), r0 = (home ? 13 : 10) * K;
       var r = r0 * (on ? 1.35 : 1), ring = m.wspd >= 15 || !!m.wgst;
       // Feature oldObs (9B): a report over OLD_MIN old fades, and its label says how old
       var ageMin = m.obsTime ? (Date.now() / 1000 - m.obsTime) / 60 : 0, old = F.oldObs && ageMin > OLD_MIN;
       g.globalAlpha = (hl && !on ? FADE : 1);
       var dotAlpha = g.globalAlpha * (old ? 0.45 : 1);
       g.globalAlpha = dotAlpha;
-      g.beginPath(); g.arc(p.x, p.y, r + 3, 0, Math.PI * 2); g.fillStyle = '#0B0F14'; g.fill();
+      g.beginPath(); g.arc(p.x, p.y, r + 3 * K, 0, Math.PI * 2); g.fillStyle = '#0B0F14'; g.fill();
       g.beginPath(); g.arc(p.x, p.y, r, 0, Math.PI * 2); g.fillStyle = CAT[m.fltCat] || '#8892A0'; g.fill();
-      if (ring) { g.beginPath(); g.arc(p.x, p.y, r + 7, 0, Math.PI * 2); g.lineWidth = 3; g.strokeStyle = '#F5B841'; g.stroke(); }
+      if (ring) { g.beginPath(); g.arc(p.x, p.y, r + 7 * K, 0, Math.PI * 2); g.lineWidth = Math.max(2, 3 * K); g.strokeStyle = '#F5B841'; g.stroke(); }
       g.globalAlpha = hl && !on ? FADE : 1;
-      var e = r0 + (ring ? 9 : 4);
+      var e = r0 + (ring ? 9 : 4) * K;
       taken.push({ x0: p.x - e, y0: p.y - e, x1: p.x + e, y1: p.y + e, dot: true });
-      spots.push({ m: m, x: p.x, y: p.y, gap: e + 5, home: home, alpha: g.globalAlpha,
+      spots.push({ m: m, x: p.x, y: p.y, gap: e + 5 * K, home: home, alpha: g.globalAlpha, k: K,
         age: old ? (ageMin < 120 ? Math.round(ageMin) + 'm' : Math.floor(ageMin / 60) + 'h') : '' });
     });
     placeLabels(g, spots, taken, v);
@@ -828,7 +864,7 @@ html[data-theme="light"] .range button.on { color: #fff; }
     var el = $('limBanner'), v = state.view;
     if (el.hidden || !v || !state.mapBoxes) return;
     var mr = mapEl.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight, M = 18;
-    var fixed = ['.map-chip', '.map-credit', '#banner'].map(function (s) { return document.querySelector(s); })
+    var fixed = ['.map-chip', '#layersBtn', '.map-credit', '#banner'].map(function (s) { return document.querySelector(s); })
       .filter(function (e) { return e && !e.hidden && e.offsetWidth; })
       .map(function (e) { var r = e.getBoundingClientRect(); return { x0: r.left - mr.left - 8, y0: r.top - mr.top - 8, x1: r.right - mr.left + 8, y1: r.bottom - mr.top + 8 }; });
     function at(c) {
@@ -881,10 +917,11 @@ html[data-theme="light"] .range button.on { color: #fff; }
   // one that covers the fewest other labels, dots and wind barbs. Crowded areas (Las Vegas from KSGU) then try spots
   // farther out with a thin line to the dot; a label with no clear spot is left off (the hover panel still names the
   // airport). The home airport always gets one. Placement ignores the legend highlight, so labels don't jump on hover.
-  function barbBoxes(x, y, m, r) { // the staff and feathers drawBarb draws, as small boxes
+  function barbBoxes(x, y, m, r, k) { // the staff and feathers drawBarb draws (scaled by k), as small boxes
     if (m.wspd == null || !m.wspd || m.wdir === 'VRB' || m.wdir == null) return [];
-    var a = (+m.wdir) * Math.PI / 180, s = Math.sin(a), c = Math.cos(a), len = r + 34, out = [];
-    function at(px, py) { var X = x + px * c - py * s, Y = y + px * s + py * c; out.push({ x0: X - 6, y0: Y - 6, x1: X + 6, y1: Y + 6 }); }
+    k = k || 1;
+    var a = (+m.wdir) * Math.PI / 180, s = Math.sin(a), c = Math.cos(a), len = r + 34, out = [], b = 6 * k;
+    function at(px, py) { var X = x + (px * c - py * s) * k, Y = y + (px * s + py * c) * k; out.push({ x0: X - b, y0: Y - b, x1: X + b, y1: Y + b }); }
     for (var t = r + 6; t <= len; t += 7) at(0, -t);
     for (t = len - 4; t > len - 22; t -= 8) at(9, -t - 3); // feathers lean to one side near the tip
     return out;
@@ -896,7 +933,8 @@ html[data-theme="light"] .range button.on { color: #fff; }
     // [dx, dy] direction; the box is placed so its nearest edge sits that far from the dot
     var DIRS = [[1, 0], [-1, 0], [0, -1], [0, 1], [.75, -.75], [.75, .75], [-.75, -.75], [-.75, .75]];
     spots.forEach(function (s) {
-      var size = s.home ? 22 : 18, h = size + 6;
+      // labels shrink less than the dots (still readable), and not below 12 px (13 for the home airport)
+      var lk = Math.min(1.15, Math.sqrt(s.k || 1)), size = Math.round(Math.max(s.home ? 13 : 12, (s.home ? 22 : 18) * lk)), h = size + 6;
       g.font = '600 ' + size + 'px "Barlow Semi Condensed", "Segoe UI", sans-serif';
       var idW = g.measureText(s.m.icaoId).width, ageFont = '500 ' + Math.round(size * .8) + 'px "JetBrains Mono", Consolas, monospace';
       if (s.age) { g.font = ageFont; s.ageW = g.measureText(s.age).width; g.font = '600 ' + size + 'px "Barlow Semi Condensed", "Segoe UI", sans-serif'; }
@@ -1205,19 +1243,21 @@ html[data-theme="light"] .range button.on { color: #fff; }
       .sort(function (a, b) { return rank(a) - rank(b); });
     // One row per G-AIRMET hazard; SIGMETs listed individually
     var seen = {}, rows = [], chips = [];
+    state.advCounts = { convective: 0, sigmet: 0, airmet: 0 }; // for the Layers panel
     items.forEach(function (f) {
       var p = f.properties, s = styleFor(f), key = f._kind === 'gairmet' ? 'g' + p.hazard : 's' + (p.seriesId || Math.random());
       if (seen[key]) return; seen[key] = 1;
+      state.advCounts[advKind(f)]++;
       var gm = f._kind === 'gairmet';
       var title = gm ? title1(p.product) + ' · ' + s.label
         : (p.hazard === 'CONVECTIVE' ? 'Convective SIGMET ' + (p.seriesId || '') : 'SIGMET ' + (p.seriesId || '') + ' · ' + (HAZ[p.hazard] ? HAZ[p.hazard].label : title1(p.hazard)));
       var sub = gm ? '' : (p.altitudeHi1 ? 'Tops ' + fl(p.altitudeHi1) : '') + (p.movementDir ? ' · Moving ' + pad3(p.movementDir) + '° ' + p.movementSpd + ' kt' : '');
-      if (!CFG.draw[advKind(f)]) sub += (sub ? ' · ' : '') + 'not drawn on map';
+      if (!showLayer(advKind(f))) sub += (sub ? ' · ' : '') + 'not drawn on map';
       var until = gm ? 'G-AIRMET' : (p.validTimeTo ? 'until ' + hhmmZ(new Date(p.validTimeTo)) : '');
       rows.push('<div class="adv"><span class="sw" style="background:' + s.c + '"></span><div><div class="t">' + esc(title) + '</div>' +
         (sub ? '<div class="s">' + esc(sub) + '</div>' : '') + '</div><span class="u">' + until + '</span></div>');
       // Strip chip: same color as on the map; dashed when that type isn't drawn on the map
-      var off = !CFG.draw[advKind(f)];
+      var off = !showLayer(advKind(f));
       chips.push('<span class="achip' + (off ? ' off' : '') + '"' + (off ? ' title="Not drawn on the map"' : '') + '><b style="background:' + s.c + '"></b>' +
         esc(title) + (!gm && p.validTimeTo ? '<span class="u">til ' + hhmmZ(new Date(p.validTimeTo)) + '</span>' : '') + '</span>');
     });
@@ -1437,7 +1477,7 @@ html[data-theme="light"] .range button.on { color: #fff; }
       var p = toScreen(m.lat, m.lon), d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
       if (d < bd) { bd = d; best = m; }
     });
-    if (F.pireps && state.pireps) state.pireps.forEach(function (pr) {
+    if (F.pireps && state.pireps && showLayer('pireps')) state.pireps.forEach(function (pr) {
       var p = toScreen(pr.p.lat, pr.p.lon), d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
       if (d < bd) { bd = d; best = pr; }
     });
@@ -1592,6 +1632,85 @@ html[data-theme="light"] .range button.on { color: #fff; }
     gesture.wheelTimer = setTimeout(function () { var w = wheel; wheel = null; commit(w.x, w.y, w.px, w.py, w.s); }, 250);
   }, { passive: false });
 
+  /* ---------- Layers: show or hide overlays for a while ---------- */
+  // The Layers button beside the radar chip opens switches for each kind of overlay. A change lasts until the mouse
+  // (or a finger) has been still for LAYERS_SEC seconds; then everything goes back to the settings page's choices.
+  var LAYERS_SEC = 60, layerOverride = {}, layersMoved = Date.now();
+  var LAYERS = [ // kind, label, swatch, what the settings say
+    ['convective', 'Convective SIGMETs', HAZ.CONVECTIVE.c, function () { return CFG.draw.convective; }],
+    ['sigmet', 'SIGMETs', HAZ.SIGMET.c, function () { return CFG.draw.sigmet; }],
+    ['airmet', 'AIRMETs', 'linear-gradient(90deg,#8C7BFF 0 33%,#F0A020 33% 66%,#4FA3FF 66%)', function () { return CFG.draw.airmet; }],
+    ['tfr', 'TFRs', 'repeating-linear-gradient(135deg,#E5403A 0 3px,rgba(229,64,58,.25) 3px 6px)', function () { return F.tfrs; }],
+    ['radar', 'Radar', 'linear-gradient(90deg,#2FB55A 0 50%,#F5D040 50%)', function () { return true; }],
+    ['pireps', 'PIREPs', '#1E88FF', function () { return F.pireps; }]
+  ];
+  function layerBase(kind) { // a function, not the table above, so drawing before this part of the script has run works
+    if (kind in CFG.draw) return !!CFG.draw[kind];
+    return kind === 'tfr' ? !!F.tfrs : kind === 'pireps' ? !!F.pireps : true;
+  }
+  function showLayer(kind) {
+    var o = layerOverride && layerOverride[kind];
+    return o === undefined ? layerBase(kind) : o;
+  }
+  function layersChanged() { return Object.keys(layerOverride).some(function (k) { return layerOverride[k] !== layerBase(k); }); }
+  function applyLayers() {
+    radarEl.style.visibility = showLayer('radar') ? '' : 'hidden';
+    drawOverlay(); renderAdvisories();
+    drawLayers();
+  }
+  function drawLayers() {
+    var p = $('layersPanel'), counts = state.advCounts || {}, changed = layersChanged();
+    var left = Math.max(0, LAYERS_SEC - Math.floor((Date.now() - layersMoved) / 1000)), clock = Math.floor(left / 60) + ':' + pad(left % 60);
+    $('layersBtn').classList.toggle('changed', changed);
+    $('layersLeft').hidden = !changed || !p.hidden; $('layersLeft').textContent = clock;
+    if (p.hidden) return;
+    // TFRs and PIREPs are listed only when their feature is on (otherwise there's nothing loaded to show)
+    var rows = LAYERS.filter(function (l) { return (l[0] !== 'tfr' || F.tfrs) && (l[0] !== 'pireps' || F.pireps); }).map(function (l) {
+      var on = showLayer(l[0]), n = l[0] === 'tfr' ? (state.tfrChips || []).length : l[0] === 'pireps' ? (state.pireps || []).length : l[0] in counts ? counts[l[0]] : '';
+      return '<button type="button" class="lrow" data-k="' + l[0] + '" aria-pressed="' + on + '"><span class="sw" style="background:' + l[2] + '"></span>' +
+        '<span class="n">' + l[1] + '</span><span class="c">' + n + '</span><span class="tg"></span></button>';
+    }).join('');
+    p.innerHTML = '<h4>SHOW ON THE MAP</h4>' + rows +
+      '<div class="lfoot"' + (changed ? '' : ' hidden') + '>Back to normal in <b>' + clock + '</b><button type="button" id="layersReset">Reset now</button></div>';
+  }
+  function resetLayers() { layerOverride = {}; $('layersPanel').hidden = true; $('layersBtn').setAttribute('aria-expanded', 'false'); applyLayers(); }
+  // Just right of the radar chip (whose width changes with the number of frames); on a map too narrow for that (a phone)
+  // it goes under the chip instead. The panel opens under the button, kept inside the map.
+  function placeLayersBtn() {
+    var chip = document.querySelector('.map-chip'), b = $('layersBtn'), p = $('layersPanel'), x = chip.offsetLeft + chip.offsetWidth + 10, y = chip.offsetTop;
+    b.style.height = chip.offsetHeight + 'px';
+    if (x + b.offsetWidth > mapEl.clientWidth - chip.offsetLeft) { x = chip.offsetLeft; y = chip.offsetTop + chip.offsetHeight + 8; }
+    b.style.left = x + 'px'; b.style.top = y + 'px';
+    p.style.top = y + b.offsetHeight + 8 + 'px';
+    p.style.left = Math.max(chip.offsetLeft, Math.min(x, mapEl.clientWidth - p.offsetWidth - chip.offsetLeft)) + 'px';
+  }
+  $('layersBtn').addEventListener('click', function () {
+    var p = $('layersPanel'); p.hidden = !p.hidden;
+    this.setAttribute('aria-expanded', String(!p.hidden));
+    layersMoved = Date.now(); drawLayers(); placeLayersBtn();
+  });
+  $('layersPanel').addEventListener('click', function (e) {
+    if (e.target.id === 'layersReset') { resetLayers(); return; }
+    var r = e.target.closest('.lrow'); if (!r) return;
+    var k = r.dataset.k; layerOverride[k] = !showLayer(k);
+    if (layerOverride[k] === layerBase(k)) delete layerOverride[k];
+    layersMoved = Date.now(); applyLayers();
+  });
+  // The panel and button belong to the page, not the map: no dragging, airport hover or airport click through them
+  ['pointerdown', 'mousemove', 'click', 'wheel', 'dblclick'].forEach(function (t) {
+    [$('layersPanel'), $('layersBtn')].forEach(function (el) { el.addEventListener(t, function (e) { e.stopPropagation(); }); });
+  });
+  // (capture, so movement over the panel itself counts too)
+  ['mousemove', 'pointerdown', 'touchstart', 'wheel', 'keydown'].forEach(function (t) { addEventListener(t, function () { layersMoved = Date.now(); }, { passive: true, capture: true }); });
+  setInterval(function () {
+    var open = !$('layersPanel').hidden, changed = layersChanged();
+    if (!open && !changed) return;
+    if (Date.now() - layersMoved >= LAYERS_SEC * 1000) { resetLayers(); return; }
+    drawLayers();
+  }, 1000);
+  if (window.ResizeObserver) { var ro = new ResizeObserver(function () { requestAnimationFrame(placeLayersBtn); }); ro.observe(document.querySelector('.map-chip')); ro.observe($('layersBtn')); }
+  addEventListener('resize', placeLayersBtn); placeLayersBtn();
+
   // "Back to": another airport or range (a different page address), or a moved map; either returns by itself after
   // AWAY_MIN minutes without use, so a TV isn't left on someone's lookup
   var otherStn = CFG.station !== HOME, otherR = CFG.radiusNm !== HOME_R;
@@ -1603,7 +1722,7 @@ html[data-theme="light"] .range button.on { color: #fff; }
     $('awayBack').textContent = 'Back to ' + ([otherStn ? HOME : '', otherR ? HOME_R + ' NM' : ''].filter(Boolean).join(', ') || CFG.station);
   }
   $('awayBack').addEventListener('click', function () { if (otherStn || otherR) goView(HOME, HOME_R); else resetView(); });
-  ['mousemove', 'keydown', 'mousedown', 'pointerdown', 'wheel', 'touchstart'].forEach(function (t) { addEventListener(t, function () { lastUse = Date.now(); }, { passive: true }); });
+  ['mousemove', 'keydown', 'mousedown', 'pointerdown', 'wheel', 'touchstart'].forEach(function (t) { addEventListener(t, function () { lastUse = Date.now(); }, { passive: true, capture: true }); });
   setInterval(function () {
     if (Date.now() - lastUse <= AWAY_MIN * 60000) return;
     if (otherStn || otherR) goView(HOME, HOME_R); else resetView();
@@ -1976,10 +2095,10 @@ html[data-theme="light"] .range button.on { color: #fff; }
     g.restore();
   }
   function drawPireps(g) {
-    if (!F.pireps || !state.pireps) return;
+    if (!F.pireps || !state.pireps || !showLayer('pireps')) return;
     var hl = state.hl;
     state.pireps.forEach(function (x) {
-      var pt = toScreen(x.p.lat, x.p.lon), syms = [], on = hl && hlMatch(hl, x), k = on ? 1.35 : 1;
+      var pt = toScreen(x.p.lat, x.p.lon), syms = [], on = hl && hlMatch(hl, x), k = (on ? 1.35 : 1) * Math.max(0.6, state.dotK || 1);
       g.globalAlpha = hl && !on ? 0.18 : 1; // a hovered legend item fades the rest (see drawOverlay)
       if (x.turb) syms.push([PIREP_SYM.turb[x.turb], PIREP_COLOR[x.turb]]);
       if (x.ice) syms.push([PIREP_SYM.ice[x.ice], ICE_BLUE]); // icing is always blue; the number of bars gives the intensity
