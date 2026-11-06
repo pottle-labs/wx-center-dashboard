@@ -64,6 +64,9 @@ fieldset { margin: 14px 0 0; padding: 4px 18px; border: 1px solid var(--line); b
 legend { padding: 0 6px; font-size: 15px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); }
 .row { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 16px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
 .row:first-of-type { border-top: 0; }
+fieldset > .row[hidden]:first-of-type + .row { border-top: 0; } /* the Location box in Central Settings: Base is hidden there */
+.divider { margin: 26px 0 0; padding: 8px 2px 0; border-top: 2px dashed var(--line-strong); color: var(--muted); font-size: 14px; letter-spacing: 1.2px; text-transform: uppercase; }
+.divider[hidden] { display: none; }
 .row[hidden] { display: none; }
 /* 3-position switch */
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--bg); }
@@ -209,17 +212,174 @@ button.quiet:hover { color: var(--crit); background: none; }
     </fieldset>
   </section>
   <form id="form" autocomplete="off">
+    <fieldset id="locSet">
+      <legend>Location</legend>
+      <div class="row"><label for="tab">Base<small id="tabNote">Tab of the weight and balance sheet to show.</small></label>
+        <select id="tab"></select></div>
+      <div class="row" id="sectionRow" hidden><label for="section">Settings for<small id="sectionNote">Pick All locations or a base.</small></label>
+        <select id="section"></select></div>
+      <div class="row sub-row" id="sameRow" hidden><label for="sameForAll">All locations use the same settings<small>On: every base under central control uses the All locations settings. Off: each uses its own base’s settings.</small></label>
+        <span class="switch"><input type="checkbox" id="sameForAll"><span></span></span></div>
+      <div class="row sub-row" id="baseCtlRow" hidden><label for="baseCentral"><span id="baseCtlName">This base</span> under central control<small>On: its dashboards take the settings marked Central here. Off: they keep their own settings and can change everything.</small></label>
+        <span class="switch"><input type="checkbox" id="baseCentral"><span></span></span></div>
+      <div class="row"><label for="stationAuto">Use the base’s airport<small id="autoNote">The weather follows the weight &amp; balance base.</small></label>
+        <span class="switch"><input type="checkbox" id="stationAuto"><span></span></span></div>
+      <div class="row" id="stationRow"><label for="station">Airport<small>ICAO code the map is centered on, e.g. KSGU.</small></label>
+        <input type="text" id="station" maxlength="4" pattern="[A-Za-z0-9]{3,4}"></div>
+      <details class="sumbox" id="sumBox" hidden><summary><span class="sum-t">In this section</span><span id="sumLine"></span></summary><div id="sumList"></div></details>
+    </fieldset>
+    <fieldset>
+      <legend>Screens</legend>
+      <div class="row"><label for="theme">Appearance<small>Light suits a bright room; dark is easier on the eyes in a dim one. Auto uses the sun at the weight &amp; balance base’s airport, not the weather airport.</small></label>
+        <select id="theme"><option value="dark">Dark</option><option value="light">Light</option><option value="auto">Auto: light from sunrise to sunset</option></select></div>
+      <div class="row"><label for="clock">Local time format<small>Clock, radar and update times. Zulu is always 24-hour.</small></label>
+        <select id="clock"><option value="12">12-hour (2:05 PM)</option><option value="24">24-hour (14:05)</option></select></div>
+      <div class="row"><label for="wbScreen">Weight &amp; balance screen<small>The weather page goes on the other screen.</small></label>
+        <select id="wbScreen"><option value="left">Left monitor</option><option value="right">Right monitor</option></select></div>
+      <div class="row"><label for="singleScreen">With only one monitor<small>When testing, or if a TV is switched off.</small></label>
+        <select id="singleScreen"><option value="split">Both pages, side by side</option><option value="wb">Weight &amp; balance only</option><option value="weather">Weather only</option></select></div>
+      <div class="row"><label for="hideSeconds">Hide on-screen controls after<small>The keyboard notice, settings button and mouse pointer, once the mouse stops moving.</small></label>
+        <span class="unit"><input type="number" id="hideSeconds" min="2" max="60" step="1" required>seconds</span></div>
+    </fieldset>
+    <fieldset>
+      <legend>Weight &amp; balance</legend>
+      <div class="row"><label id="wbLayoutLabel">Aircraft layout<small>Auto shows cards for up to 6 aircraft and a board, one row per aircraft, for 7 or more. Cards or Board keeps that one.</small></label>
+        <div class="seg" role="radiogroup" aria-labelledby="wbLayoutLabel" data-for="wbLayout">
+          <button type="button" role="radio" data-v="auto">Auto</button><button type="button" role="radio" data-v="cards">Cards</button><button type="button" role="radio" data-v="board">Board</button>
+        </div><input type="hidden" id="wbLayout"></div>
+      <div class="row"><label for="cycle">Time per page<small>When the aircraft and instructors don't fit on one screen.</small></label>
+        <span class="unit"><input type="number" id="cycle" min="5" max="120" step="1" required>seconds</span></div>
+      <div class="row"><label for="phones">Show instructor phone numbers<small>Turn off if the screens are in a public area.</small></label>
+        <span class="switch"><input type="checkbox" id="phones"><span></span></span></div>
+      <div class="row"><label for="logo">Show the school logo<small>Epic Flight Academy, at the start of the header.</small></label>
+        <span class="switch"><input type="checkbox" id="logo"><span></span></span></div>
+      <div class="row wide"><label>Aircraft status badges<small>From the sheet’s Status column. Words separated by commas; capitals don’t matter. A word of 4 or more letters also matches longer words that start with it (“maint” matches “maintenance”); shorter ones like “up” match only the whole word. A space also matches a hyphen (“100 hr” matches “100-hr”). Red is checked first, then yellow, then blue. A status that matches none of them shows yellow.</small></label></div>
+      <div class="row sub-row w2"><label for="statusDown">Red: out of service<small>The aircraft fades and its tail number is struck through.</small></label>
+        <textarea id="statusDown" rows="2" spellcheck="false" required></textarea></div>
+      <div class="row sub-row w2"><label for="statusNote">Yellow: a note<small>Flyable, but read the note.</small></label>
+        <textarea id="statusNote" rows="2" spellcheck="false"></textarea></div>
+      <div class="row sub-row w2"><label for="statusOk">Blue: available<small>Shown on the board layout only; cards show no badge.</small></label>
+        <textarea id="statusOk" rows="2" spellcheck="false"></textarea></div>
+      <div class="row"><label for="maint">Maintenance countdown<small>From the sheet’s “100 hr due”, “50 hr due” and “Current tach” columns: hours left = due − current tach, for whichever inspection comes first (the 100-hr when both are due together). Badge: shown once it’s getting close, but not on aircraft with a red status. Bar: on every card. The board layout shows a column either way. An aircraft whose 100-hr is under 1 hour away (or overdue) is marked down automatically.</small></label>
+        <select id="maint"><option value="off">Off</option><option value="badge">Badge when close</option><option value="bar">Bar on every card</option></select></div>
+      <div class="row sub-row" data-dep="maint"><label>Colors<small>Yellow at this many hours left or fewer, red at the second (and when overdue).</small></label>
+        <span class="lims"><span class="unit">Yellow <input type="number" id="maintWarn" min="0" max="200" step="0.5" required>h</span><span class="unit">Red <input type="number" id="maintCrit" min="0" max="200" step="0.5" required>h</span></span></div>
+      <div class="row"><label for="acDetail">Click an aircraft for detail<small>On the weight &amp; balance screen. Closes on a click or after a minute; pages pause meanwhile.</small></label>
+        <select id="acDetail"><option value="off">Off</option><option value="popup">Big popup</option><option value="expand">Expand the card</option></select></div>
+      <div class="row"><label for="stations">Loading stations in the aircraft detail<small>The C172’s seat, fuel and baggage arms, shown when an aircraft is clicked (needs the setting above).</small></label>
+        <span class="switch"><input type="checkbox" id="stations"><span></span></span></div>
+      <div class="row"><label for="sheetRefresh">Check the sheet for changes every</label>
+        <span class="unit"><input type="number" id="sheetRefresh" min="1" max="60" step="1" required>minutes</span></div>
+    </fieldset>
+    <fieldset>
+      <legend>Weather map</legend>
+      <div class="row"><label for="radius">Default map range<small>Range buttons on the weather screen change it for a while; it returns to this.</small></label>
+        <span class="unit"><input type="number" id="radius" min="25" max="250" step="5" required>NM</span></div>
+      <div class="row"><label for="radarLoop">Animate radar<small>Plays the radar loop; off holds on the newest frame.</small></label>
+        <span class="switch"><input type="checkbox" id="radarLoop"><span></span></span></div>
+      <div class="row"><label for="radarHours">Radar loop length<small>Longer loops show fewer frames per hour, so each loop stays about 6 seconds.</small></label>
+        <select id="radarHours">
+          <option value="1">Last hour · every 10 min</option>
+          <option value="2">2 hours · every 10 min</option>
+          <option value="3">3 hours · every 20 min</option>
+          <option value="4">4 hours · every 20 min</option>
+          <option value="6">6 hours · every 30 min</option>
+          <option value="12">12 hours · every hour</option>
+        </select></div>
+      <div class="row"><label for="airmets">Draw AIRMETs on the map<small>G-AIRMETs: IFR, mountain obscuration, turbulence, wind, icing.</small></label>
+        <span class="switch"><input type="checkbox" id="airmets"><span></span></span></div>
+      <div class="row"><label for="sigmets">Draw SIGMETs on the map</label>
+        <span class="switch"><input type="checkbox" id="sigmets"><span></span></span></div>
+      <div class="row"><label for="convective">Draw convective SIGMETs on the map<small>Hidden types still appear in the advisory list, marked “not drawn on map”.</small></label>
+        <span class="switch"><input type="checkbox" id="convective"><span></span></span></div>
+      <div class="row"><label for="tfrs">TFRs on the map<small>Temporary flight restrictions from tfr.faa.gov, hatched in red, with details in the bottom strip. Ones starting within 12 hours show dashed.</small></label>
+        <span class="switch"><input type="checkbox" id="tfrs"><span></span></span></div>
+      <div class="row"><label for="pireps">PIREPs on the map<small>Turbulence, icing and wind shear reports from the last 90 minutes, with aviationweather.gov’s symbols.</small></label>
+        <span class="switch"><input type="checkbox" id="pireps"><span></span></span></div>
+      <div class="row"><label for="barbs">Wind barbs on the map<small>A barb at each airport, pointing into the wind.</small></label>
+        <span class="switch"><input type="checkbox" id="barbs"><span></span></span></div>
+      <div class="row"><label for="oldObs">Fade old weather reports<small>An airport whose latest report is over 70 minutes old fades on the map, and its label shows the age.</small></label>
+        <span class="switch"><input type="checkbox" id="oldObs"><span></span></span></div>
+    </fieldset>
+    <fieldset>
+      <legend>Airport conditions</legend>
+      <div class="row"><label id="decodedLabel">Decoded METAR<small>Wind, visibility, ceiling and more under the airport. Auto hides it when the TAF or advisories need the room; the raw METAR always shows.</small></label>
+        <div class="seg" role="radiogroup" aria-labelledby="decodedLabel" data-for="decoded">
+          <button type="button" role="radio" data-v="auto">Auto</button><button type="button" role="radio" data-v="on">On</button><button type="button" role="radio" data-v="off">Off</button>
+        </div><input type="hidden" id="decoded"></div>
+      <div class="row"><label for="metarAge">Show how old the report is<small>Under the category badge, e.g. “38 min old”. Amber with “Late” after 70 minutes, red after 2 hours. With category changes on, it also says when the category changed.</small></label>
+        <span class="switch"><input type="checkbox" id="metarAge"><span></span></span></div>
+      <div class="row"><label for="catChange">Show flight category changes<small>For an hour after the airport’s category changes, the old one shows faded before the new one, with when it changed.</small></label>
+        <span class="switch"><input type="checkbox" id="catChange"><span></span></span></div>
+      <div class="row"><label for="trend">12-hour trend<small>The airport’s flight category, wind and gusts over the last 12 hours.</small></label>
+        <span class="switch"><input type="checkbox" id="trend"><span></span></span></div>
+      <div class="row"><label for="runway">Runway winds and density altitude<small>Headwind and crosswind for each runway at the airport, plus density altitude.</small></label>
+        <select id="runway"><option value="off">Off</option><option value="diagram">Diagram</option><option value="table">Table</option></select></div>
+      <div class="row"><label for="daFlag">High density altitude flag<small>Runway card: a “HIGH DA” tag in place of the density altitude (needs runway winds on; without them the tile is used). Tile: density altitude as one of the decoded METAR values, colored when high.</small></label>
+        <select id="daFlag"><option value="off">Off</option><option value="runway">Tag on the runway card</option><option value="grid">Tile in the decoded METAR</option></select></div>
+      <div class="row sub-row" data-dep="daFlag"><label>Flag at<small>Density altitude in feet: amber from the first, red from the second.</small></label>
+        <span class="lims"><span class="unit">Amber <input type="number" id="daWarn" min="1000" max="15000" step="100" required>ft</span><span class="unit">Red <input type="number" id="daCrit" min="1000" max="15000" step="100" required>ft</span></span></div>
+      <div class="row"><label for="aloft">Winds aloft<small>Wind and temperature at 3,000 to 12,000 ft from the nearest forecast point, in the side column.</small></label>
+        <span class="switch"><input type="checkbox" id="aloft"><span></span></span></div>
+      <div class="row"><label for="sun">Sunrise, sunset and night times<small>Night for logging (end of civil twilight) and for currency (sunset + 1 hour).</small></label>
+        <select id="sun"><option value="off">Off</option><option value="strip">Strip of times</option><option value="arc">Daylight arc</option></select></div>
+      <div class="row"><label for="sunCount">Sunset countdown<small>The last 2 hours before sunset at the airport; amber under an hour, red under 30 minutes. On the sun strip needs the strip of times above; otherwise it shows in the clock row.</small></label>
+        <select id="sunCount"><option value="off">Off</option><option value="clock">In the clock row</option><option value="strip">On the sun strip</option></select></div>
+    </fieldset>
+    <fieldset>
+      <legend>Alerts &amp; advisories</legend>
+      <div class="row"><label for="tstorm">Thunderstorm alert<small>A red strip on the airport’s conditions card and a red chip in the bottom strip when an airport within 20 NM reports a thunderstorm (TS or VCTS), or a convective SIGMET comes within 20 NM. Radar returns alone don’t trigger it.</small></label>
+        <span class="switch"><input type="checkbox" id="tstorm"><span></span></span></div>
+      <div class="row"><label for="limits">Training limits banner<small>A banner on the map for each set of limits below that the airport is outside of, e.g. “LOCAL SOLO NO-GO”. Up to 4 sets (local, non-local, initial solo…).</small></label>
+        <span class="switch"><input type="checkbox" id="limits"><span></span></span><input type="hidden" id="limSets"></div>
+      <div id="limSetRows"></div>
+      <div class="row sub-row wide" data-dep="limits" id="limSetBtns">
+        <span class="inline" style="justify-content:flex-end"><button type="button" id="limRemove">Remove last set</button><button type="button" id="limAdd">Add another set</button></span></div>
+      <div class="row"><label id="advListLabel">Advisory list in the side column<small>The strip along the bottom always shows the active advisories. Auto shows the full list (with valid times, tops and movement) when there's room.</small></label>
+        <div class="seg" role="radiogroup" aria-labelledby="advListLabel" data-for="advList">
+          <button type="button" role="radio" data-v="auto">Auto</button><button type="button" role="radio" data-v="on">On</button><button type="button" role="radio" data-v="off">Off</button>
+        </div><input type="hidden" id="advList"></div>
+      <div class="row"><label for="advSpeed">Advisory scroll speed<small>When the advisories don't all fit, they scroll slowly through the list.</small></label>
+        <span class="slider"><span class="ends"><span>Slow</span><output id="advSpeedOut"></output><span>Fast</span></span><input type="range" id="advSpeed" min="5" max="60" step="1"></span></div>
+    </fieldset>
+    <fieldset>
+      <legend>Quiet hours</legend>
+      <div class="row"><label for="quiet">Quiet hours overnight<small>Saves the TVs from burn-in and wear. Moving the mouse wakes both screens for an hour. Data keeps updating underneath.</small></label>
+        <span class="switch"><input type="checkbox" id="quiet"><span></span></span></div>
+      <div class="row sub-row" data-dep="quiet"><label>From and to<small>Local time; it can run past midnight.</small></label>
+        <span class="lims"><span class="unit">From <input type="time" id="quietFrom" required></span><span class="unit">To <input type="time" id="quietTo" required></span></span></div>
+      <div class="row sub-row" data-dep="quiet"><label id="quietModeLabel">Screens show<small>Dim: the dashboard behind a dark veil. Clock only: a dim clock. Black: a small clock that moves every minute.</small></label>
+        <div class="seg" role="radiogroup" aria-labelledby="quietModeLabel" data-for="quietMode">
+          <button type="button" role="radio" data-v="dim">Dim</button><button type="button" role="radio" data-v="clock">Clock only</button><button type="button" role="radio" data-v="black">Black</button>
+        </div><input type="hidden" id="quietMode"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Maintenance</legend>
+      <div class="row"><label for="dailyReloadHour">Reload both pages each day at<small>Keeps a dashboard that runs for weeks fresh.</small></label>
+        <select id="dailyReloadHour"></select></div>
+      <div class="row"><label for="diagCorner">Display check in the corner<small>Pointing at the bottom-right corner of the right screen shows the version, data status and running time.</small></label>
+        <span class="switch"><input type="checkbox" id="diagCorner"><span></span></span></div>
+    </fieldset>
+    <fieldset>
+      <legend>Updates</legend>
+      <div class="row"><label>Version <span class="mono" id="upVersion">—</span><small id="upStatus">Checking…</small></label>
+        <span class="upd-btns"><button type="button" id="upCheck">Check for updates now</button><button type="button" class="primary" id="upInstall" hidden></button></span></div>
+      <div class="row"><label for="autoUpdate">Install updates automatically<small>Checks 2 minutes after the dashboard starts and every night at 3:30. Only updates signed by the publisher are installed.</small></label>
+        <span class="switch"><input type="checkbox" id="autoUpdate"><span></span></span></div>
+      <div class="row"><label for="repo">GitHub repository<small>Where updates and central settings come from, as owner/name. Leave blank for the built-in one. Both must still be signed with the publisher’s key.</small></label>
+        <input type="text" id="repo" placeholder="pottle-labs/wx-center-dashboard" pattern="[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+" spellcheck="false"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Display info</legend>
+      <div class="row info-row"><div class="info" id="info">Loading…</div></div>
+    </fieldset>
+    <p class="divider" id="adminDiv" hidden>Central Settings itself (not per location)</p>
     <fieldset id="ctlSet" hidden>
       <legend>Central control</legend>
-      <div class="row wide"><label>Bases under central control<small>Checked bases take the settings marked Central below. Unchecked bases keep their own settings, and their dashboards can change everything.</small></label>
+      <div class="row wide"><label>Bases under central control<small>Checked bases take the settings marked Central above (each base also has this switch under Settings for). Unchecked bases keep their own settings, and their dashboards can change everything.</small></label>
         <div class="bases" id="bases"></div></div>
-      <div class="row"><label for="sameForAll">All locations use the same settings<small>On: every base under central control uses the All locations settings. Off: each uses its own base’s settings.</small></label>
-        <span class="switch"><input type="checkbox" id="sameForAll"><span></span></span></div>
       <div class="row"><label for="askUpdate">Check for app updates with this publish<small id="askUpdateNote">One time: when each dashboard picks up this publish, it checks for a new version of the app right away and installs it if there is one (instead of waiting for the nightly check). Turns itself off after you publish.</small></label>
         <span class="switch"><input type="checkbox" id="askUpdate"><span></span></span></div>
-      <div class="row"><label for="section">Settings for<small id="sectionNote">Pick All locations or a base.</small></label>
-        <select id="section"></select></div>
-      <details class="sumbox" id="sumBox"><summary><span class="sum-t">In this section</span><span id="sumLine"></span></summary><div id="sumList"></div></details>
     </fieldset>
     <fieldset id="peopleSet" hidden>
       <legend>People who can change these settings</legend>
@@ -306,154 +466,6 @@ button.quiet:hover { color: var(--crit); background: none; }
         <div class="row w2"><label>3. Move<small>Keep the old repository for a few weeks (archived is fine), so dashboards that are switched off now still find the notice. Helpers need New access afterwards.</small></label>
           <span class="inline"><button type="button" id="mvCancel">Cancel</button><button type="button" class="primary" id="mvGo">Move now</button></span></div>
       </div>
-    </fieldset>
-    <fieldset>
-      <legend>Screens</legend>
-      <div class="row"><label for="theme">Appearance<small>Light suits a bright room; dark is easier on the eyes in a dim one. Auto uses the sun at the weight &amp; balance base’s airport, not the weather airport.</small></label>
-        <select id="theme"><option value="dark">Dark</option><option value="light">Light</option><option value="auto">Auto: light from sunrise to sunset</option></select></div>
-      <div class="row"><label for="clock">Local time format<small>Clock, radar and update times. Zulu is always 24-hour.</small></label>
-        <select id="clock"><option value="12">12-hour (2:05 PM)</option><option value="24">24-hour (14:05)</option></select></div>
-      <div class="row"><label for="wbScreen">Weight &amp; balance screen<small>The weather page goes on the other screen.</small></label>
-        <select id="wbScreen"><option value="left">Left monitor</option><option value="right">Right monitor</option></select></div>
-      <div class="row"><label for="singleScreen">With only one monitor<small>When testing, or if a TV is switched off.</small></label>
-        <select id="singleScreen"><option value="split">Both pages, side by side</option><option value="wb">Weight &amp; balance only</option><option value="weather">Weather only</option></select></div>
-      <div class="row"><label for="hideSeconds">Hide on-screen controls after<small>The keyboard notice, settings button and mouse pointer, once the mouse stops moving.</small></label>
-        <span class="unit"><input type="number" id="hideSeconds" min="2" max="60" step="1" required>seconds</span></div>
-    </fieldset>
-    <fieldset>
-      <legend>Weight &amp; balance</legend>
-      <div class="row"><label for="tab">Base<small id="tabNote">Tab of the weight and balance sheet to show.</small></label>
-        <select id="tab"></select></div>
-      <div class="row"><label for="cycle">Time per page<small>When the aircraft and instructors don't fit on one screen.</small></label>
-        <span class="unit"><input type="number" id="cycle" min="5" max="120" step="1" required>seconds</span></div>
-      <div class="row"><label for="phones">Show instructor phone numbers<small>Turn off if the screens are in a public area.</small></label>
-        <span class="switch"><input type="checkbox" id="phones"><span></span></span></div>
-      <div class="row"><label for="logo">Show the school logo<small>Epic Flight Academy, at the start of the header.</small></label>
-        <span class="switch"><input type="checkbox" id="logo"><span></span></span></div>
-      <div class="row"><label id="wbLayoutLabel">Aircraft layout<small>Auto shows cards for up to 6 aircraft and a board, one row per aircraft, for 7 or more. Cards or Board keeps that one.</small></label>
-        <div class="seg" role="radiogroup" aria-labelledby="wbLayoutLabel" data-for="wbLayout">
-          <button type="button" role="radio" data-v="auto">Auto</button><button type="button" role="radio" data-v="cards">Cards</button><button type="button" role="radio" data-v="board">Board</button>
-        </div><input type="hidden" id="wbLayout"></div>
-      <div class="row"><label for="sheetRefresh">Check the sheet for changes every</label>
-        <span class="unit"><input type="number" id="sheetRefresh" min="1" max="60" step="1" required>minutes</span></div>
-      <div class="row wide"><label>Aircraft status badges<small>From the sheet’s Status column. Words separated by commas; capitals don’t matter. A word of 4 or more letters also matches longer words that start with it (“maint” matches “maintenance”); shorter ones like “up” match only the whole word. A space also matches a hyphen (“100 hr” matches “100-hr”). Red is checked first, then yellow, then blue. A status that matches none of them shows yellow.</small></label></div>
-      <div class="row sub-row w2"><label for="statusDown">Red: out of service<small>The aircraft fades and its tail number is struck through.</small></label>
-        <textarea id="statusDown" rows="2" spellcheck="false" required></textarea></div>
-      <div class="row sub-row w2"><label for="statusNote">Yellow: a note<small>Flyable, but read the note.</small></label>
-        <textarea id="statusNote" rows="2" spellcheck="false"></textarea></div>
-      <div class="row sub-row w2"><label for="statusOk">Blue: available<small>Shown on the board layout only; cards show no badge.</small></label>
-        <textarea id="statusOk" rows="2" spellcheck="false"></textarea></div>
-      <div class="row"><label for="maint">Maintenance countdown<small>From the sheet’s “100 hr due”, “50 hr due” and “Current tach” columns: hours left = due − current tach, for whichever inspection comes first (the 100-hr when both are due together). Badge: shown once it’s getting close, but not on aircraft with a red status. Bar: on every card. The board layout shows a column either way. An aircraft whose 100-hr is under 1 hour away (or overdue) is marked down automatically.</small></label>
-        <select id="maint"><option value="off">Off</option><option value="badge">Badge when close</option><option value="bar">Bar on every card</option></select></div>
-      <div class="row sub-row" data-dep="maint"><label>Colors<small>Yellow at this many hours left or fewer, red at the second (and when overdue).</small></label>
-        <span class="lims"><span class="unit">Yellow <input type="number" id="maintWarn" min="0" max="200" step="0.5" required>h</span><span class="unit">Red <input type="number" id="maintCrit" min="0" max="200" step="0.5" required>h</span></span></div>
-    </fieldset>
-    <fieldset>
-      <legend>Weather</legend>
-      <div class="row"><label for="stationAuto">Use the base’s airport<small id="autoNote">The weather follows the weight &amp; balance base.</small></label>
-        <span class="switch"><input type="checkbox" id="stationAuto"><span></span></span></div>
-      <div class="row" id="stationRow"><label for="station">Airport<small>ICAO code the map is centered on, e.g. KSGU.</small></label>
-        <input type="text" id="station" maxlength="4" pattern="[A-Za-z0-9]{3,4}"></div>
-      <div class="row"><label for="radius">Default map range<small>Range buttons on the weather screen change it for a while; it returns to this.</small></label>
-        <span class="unit"><input type="number" id="radius" min="25" max="250" step="5" required>NM</span></div>
-      <div class="row"><label for="radarLoop">Animate radar<small>Plays the radar loop; off holds on the newest frame.</small></label>
-        <span class="switch"><input type="checkbox" id="radarLoop"><span></span></span></div>
-      <div class="row"><label id="decodedLabel">Decoded METAR<small>Wind, visibility, ceiling and more under the airport. Auto hides it when the TAF or advisories need the room; the raw METAR always shows.</small></label>
-        <div class="seg" role="radiogroup" aria-labelledby="decodedLabel" data-for="decoded">
-          <button type="button" role="radio" data-v="auto">Auto</button><button type="button" role="radio" data-v="on">On</button><button type="button" role="radio" data-v="off">Off</button>
-        </div><input type="hidden" id="decoded"></div>
-      <div class="row"><label id="advListLabel">Advisory list in the side column<small>The strip along the bottom always shows the active advisories. Auto shows the full list (with valid times, tops and movement) when there's room.</small></label>
-        <div class="seg" role="radiogroup" aria-labelledby="advListLabel" data-for="advList">
-          <button type="button" role="radio" data-v="auto">Auto</button><button type="button" role="radio" data-v="on">On</button><button type="button" role="radio" data-v="off">Off</button>
-        </div><input type="hidden" id="advList"></div>
-      <div class="row"><label for="advSpeed">Advisory scroll speed<small>When the advisories don't all fit, they scroll slowly through the list.</small></label>
-        <span class="slider"><span class="ends"><span>Slow</span><output id="advSpeedOut"></output><span>Fast</span></span><input type="range" id="advSpeed" min="5" max="60" step="1"></span></div>
-      <div class="row"><label for="radarHours">Radar loop length<small>Longer loops show fewer frames per hour, so each loop stays about 6 seconds.</small></label>
-        <select id="radarHours">
-          <option value="1">Last hour · every 10 min</option>
-          <option value="2">2 hours · every 10 min</option>
-          <option value="3">3 hours · every 20 min</option>
-          <option value="4">4 hours · every 20 min</option>
-          <option value="6">6 hours · every 30 min</option>
-          <option value="12">12 hours · every hour</option>
-        </select></div>
-      <div class="row"><label for="airmets">Draw AIRMETs on the map<small>G-AIRMETs: IFR, mountain obscuration, turbulence, wind, icing.</small></label>
-        <span class="switch"><input type="checkbox" id="airmets"><span></span></span></div>
-      <div class="row"><label for="sigmets">Draw SIGMETs on the map</label>
-        <span class="switch"><input type="checkbox" id="sigmets"><span></span></span></div>
-      <div class="row"><label for="convective">Draw convective SIGMETs on the map<small>Hidden types still appear in the advisory list, marked “not drawn on map”.</small></label>
-        <span class="switch"><input type="checkbox" id="convective"><span></span></span></div>
-    </fieldset>
-    <fieldset>
-      <legend>Features</legend>
-      <div class="row"><label for="limits">Training limits banner<small>A banner on the map for each set of limits below that the airport is outside of, e.g. “LOCAL SOLO NO-GO”. Up to 4 sets (local, non-local, initial solo…).</small></label>
-        <span class="switch"><input type="checkbox" id="limits"><span></span></span><input type="hidden" id="limSets"></div>
-      <div id="limSetRows"></div>
-      <div class="row sub-row wide" data-dep="limits" id="limSetBtns">
-        <span class="inline" style="justify-content:flex-end"><button type="button" id="limRemove">Remove last set</button><button type="button" id="limAdd">Add another set</button></span></div>
-      <div class="row"><label for="runway">Runway winds and density altitude<small>Headwind and crosswind for each runway at the airport, plus density altitude.</small></label>
-        <select id="runway"><option value="off">Off</option><option value="diagram">Diagram</option><option value="table">Table</option></select></div>
-      <div class="row"><label for="daFlag">High density altitude flag<small>Runway card: a “HIGH DA” tag in place of the density altitude (needs runway winds on; without them the tile is used). Tile: density altitude as one of the decoded METAR values, colored when high.</small></label>
-        <select id="daFlag"><option value="off">Off</option><option value="runway">Tag on the runway card</option><option value="grid">Tile in the decoded METAR</option></select></div>
-      <div class="row sub-row" data-dep="daFlag"><label>Flag at<small>Density altitude in feet: amber from the first, red from the second.</small></label>
-        <span class="lims"><span class="unit">Amber <input type="number" id="daWarn" min="1000" max="15000" step="100" required>ft</span><span class="unit">Red <input type="number" id="daCrit" min="1000" max="15000" step="100" required>ft</span></span></div>
-      <div class="row"><label for="sun">Sunrise, sunset and night times<small>Night for logging (end of civil twilight) and for currency (sunset + 1 hour).</small></label>
-        <select id="sun"><option value="off">Off</option><option value="strip">Strip of times</option><option value="arc">Daylight arc</option></select></div>
-      <div class="row"><label for="sunCount">Sunset countdown<small>The last 2 hours before sunset at the airport; amber under an hour, red under 30 minutes. On the sun strip needs the strip of times above; otherwise it shows in the clock row.</small></label>
-        <select id="sunCount"><option value="off">Off</option><option value="clock">In the clock row</option><option value="strip">On the sun strip</option></select></div>
-      <div class="row"><label for="tstorm">Thunderstorm alert<small>A red strip on the airport’s conditions card and a red chip in the bottom strip when an airport within 20 NM reports a thunderstorm (TS or VCTS), or a convective SIGMET comes within 20 NM. Radar returns alone don’t trigger it.</small></label>
-        <span class="switch"><input type="checkbox" id="tstorm"><span></span></span></div>
-      <div class="row"><label for="pireps">PIREPs on the map<small>Turbulence, icing and wind shear reports from the last 90 minutes, with aviationweather.gov’s symbols.</small></label>
-        <span class="switch"><input type="checkbox" id="pireps"><span></span></span></div>
-      <div class="row"><label for="barbs">Wind barbs on the map<small>A barb at each airport, pointing into the wind.</small></label>
-        <span class="switch"><input type="checkbox" id="barbs"><span></span></span></div>
-      <div class="row"><label for="trend">12-hour trend<small>The airport’s flight category, wind and gusts over the last 12 hours.</small></label>
-        <span class="switch"><input type="checkbox" id="trend"><span></span></span></div>
-      <div class="row"><label for="tfrs">TFRs on the map<small>Temporary flight restrictions from tfr.faa.gov, hatched in red, with details in the bottom strip. Ones starting within 12 hours show dashed.</small></label>
-        <span class="switch"><input type="checkbox" id="tfrs"><span></span></span></div>
-      <div class="row"><label for="catChange">Show flight category changes<small>For an hour after the airport’s category changes, the old one shows faded before the new one, with when it changed.</small></label>
-        <span class="switch"><input type="checkbox" id="catChange"><span></span></span></div>
-      <div class="row"><label for="metarAge">Show how old the report is<small>Under the category badge, e.g. “38 min old”. Amber with “Late” after 70 minutes, red after 2 hours. With category changes on, it also says when the category changed.</small></label>
-        <span class="switch"><input type="checkbox" id="metarAge"><span></span></span></div>
-      <div class="row"><label for="aloft">Winds aloft<small>Wind and temperature at 3,000 to 12,000 ft from the nearest forecast point, in the side column.</small></label>
-        <span class="switch"><input type="checkbox" id="aloft"><span></span></span></div>
-      <div class="row"><label for="oldObs">Fade old weather reports<small>An airport whose latest report is over 70 minutes old fades on the map, and its label shows the age.</small></label>
-        <span class="switch"><input type="checkbox" id="oldObs"><span></span></span></div>
-      <div class="row"><label for="acDetail">Click an aircraft for detail<small>On the weight &amp; balance screen. Closes on a click or after a minute; pages pause meanwhile.</small></label>
-        <select id="acDetail"><option value="off">Off</option><option value="popup">Big popup</option><option value="expand">Expand the card</option></select></div>
-      <div class="row"><label for="stations">Loading stations in the aircraft detail<small>The C172’s seat, fuel and baggage arms, shown when an aircraft is clicked (needs the setting above).</small></label>
-        <span class="switch"><input type="checkbox" id="stations"><span></span></span></div>
-      <div class="row"><label for="diagCorner">Display check in the corner<small>Pointing at the bottom-right corner of the right screen shows the version, data status and running time.</small></label>
-        <span class="switch"><input type="checkbox" id="diagCorner"><span></span></span></div>
-    </fieldset>
-    <fieldset>
-      <legend>Display info</legend>
-      <div class="row info-row"><div class="info" id="info">Loading…</div></div>
-    </fieldset>
-    <fieldset>
-      <legend>Quiet hours</legend>
-      <div class="row"><label for="quiet">Quiet hours overnight<small>Saves the TVs from burn-in and wear. Moving the mouse wakes both screens for an hour. Data keeps updating underneath.</small></label>
-        <span class="switch"><input type="checkbox" id="quiet"><span></span></span></div>
-      <div class="row sub-row" data-dep="quiet"><label>From and to<small>Local time; it can run past midnight.</small></label>
-        <span class="lims"><span class="unit">From <input type="time" id="quietFrom" required></span><span class="unit">To <input type="time" id="quietTo" required></span></span></div>
-      <div class="row sub-row" data-dep="quiet"><label id="quietModeLabel">Screens show<small>Dim: the dashboard behind a dark veil. Clock only: a dim clock. Black: a small clock that moves every minute.</small></label>
-        <div class="seg" role="radiogroup" aria-labelledby="quietModeLabel" data-for="quietMode">
-          <button type="button" role="radio" data-v="dim">Dim</button><button type="button" role="radio" data-v="clock">Clock only</button><button type="button" role="radio" data-v="black">Black</button>
-        </div><input type="hidden" id="quietMode"></div>
-    </fieldset>
-    <fieldset>
-      <legend>Maintenance</legend>
-      <div class="row"><label for="dailyReloadHour">Reload both pages each day at<small>Keeps a dashboard that runs for weeks fresh.</small></label>
-        <select id="dailyReloadHour"></select></div>
-    </fieldset>
-    <fieldset>
-      <legend>Updates</legend>
-      <div class="row"><label>Version <span class="mono" id="upVersion">—</span><small id="upStatus">Checking…</small></label>
-        <span class="upd-btns"><button type="button" id="upCheck">Check for updates now</button><button type="button" class="primary" id="upInstall" hidden></button></span></div>
-      <div class="row"><label for="repo">GitHub repository<small>Where updates and central settings come from, as owner/name. Leave blank for the built-in one. Both must still be signed with the publisher’s key.</small></label>
-        <input type="text" id="repo" placeholder="pottle-labs/wx-center-dashboard" pattern="[A-Za-z0-9_.\-]+/[A-Za-z0-9_.\-]+" spellcheck="false"></div>
-      <div class="row"><label for="autoUpdate">Install updates automatically<small>Checks 2 minutes after the dashboard starts and every night at 3:30. Only updates signed by the publisher are installed.</small></label>
-        <span class="switch"><input type="checkbox" id="autoUpdate"><span></span></span></div>
     </fieldset>
   </form>
   <p class="vnote" id="vBottom" hidden></p>
@@ -689,9 +701,13 @@ button.quiet:hover { color: var(--crit); background: none; }
     $('sectionNote').textContent = (name === 'all'
       ? (model.sameForAll ? 'Central locks it on every base under central control.' : 'Central only applies while “same settings” is on.') +
         ' Push once sets it on every dashboard one time. New installs is what new dashboards start with.'
-      : (!model.bases[name].central ? name + ' is under local control, so Central waits until it’s checked above.'
+      : (!model.bases[name].central ? name + ' is under local control, so Central waits until the switch below is on.'
         : model.sameForAll ? 'Central isn’t used here while all locations share settings.' : 'Central locks it on the ' + name + ' dashboards.') +
         ' Push once sets it on them one time.') + pushHistory(name);
+    // The switch that goes with the pick: "same settings" for All locations, "<base> under central control" for a base
+    $('sameRow').hidden = name !== 'all';
+    $('baseCtlRow').hidden = name === 'all';
+    if (name !== 'all') { $('baseCtlName').textContent = name; $('baseCentral').checked = !!model.bases[name].central; }
     drawSummary();
   }
   // The summary box under "Settings for": how many settings are Central, Push once and New installs in this section
@@ -761,6 +777,7 @@ button.quiet:hover { color: var(--crit); background: none; }
     $('title').textContent = 'Central settings';
     $('sub').textContent = 'Settings for every dashboard, published to GitHub. Dashboards pick up changes within about 10 minutes.';
     $('ctlSet').hidden = false;
+    ['sectionRow', 'sumBox', 'adminDiv'].forEach(function (id) { $(id).hidden = false; });
     ['info', 'upVersion'].forEach(function (id) { var f = $(id).closest('fieldset'); f.hidden = true; f.dataset.never = '1'; });
     LOCAL_ONLY.forEach(function (k) { if ($(k)) $(k).closest('.row').hidden = true; });
     $('quit').hidden = true;
@@ -780,6 +797,12 @@ button.quiet:hover { color: var(--crit); background: none; }
       var n = e.target.dataset.base; if (!n) return;
       storeSection();
       sectionValues(n); model.bases[n].central = e.target.checked;
+      drawBases(); loadSection(section);
+    });
+    $('baseCentral').addEventListener('change', function () { // the same as the base's box in Central control
+      if (section === 'all') return;
+      storeSection();
+      sectionValues(section); model.bases[section].central = this.checked;
       drawBases(); loadSection(section);
     });
     $('sameForAll').addEventListener('change', function () { storeSection(); model.sameForAll = this.checked; loadSection(section); });
@@ -819,6 +842,7 @@ button.quiet:hover { color: var(--crit); background: none; }
       if (f.dataset.never) return;
       f.hidden = f.id === 'publishSet' ? !pub : f.id === 'peopleSet' ? (!pub || onlyToken) : onlyToken;
     });
+    $('adminDiv').hidden = onlyToken;
     if (pub) drawPublishing(c);
     if (onlyToken) {
       $('cnote').hidden = false; $('cnote').className = 'cnote warn'; $('cnote').textContent = c.why;
