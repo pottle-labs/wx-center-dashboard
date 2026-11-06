@@ -199,7 +199,7 @@
   // ---------- setup: make the keys, show the request, wait for the PC ----------
   function deviceGuess() {
     var u = navigator.userAgent;
-    return /iPhone/.test(u) ? 'iPhone' : /iPad|Macintosh/.test(u) && 'ontouchend' in document ? 'iPad' : /Android/.test(u) ? 'Android' : 'Phone';
+    return /iPhone/.test(u) ? 'iPhone' : /iPad|Macintosh/.test(u) && 'ontouchend' in document ? 'iPad' : /Android/.test(u) ? 'Android' : /Macintosh/.test(u) ? 'Mac' : 'Phone';
   }
   function makeKeys(name, device) {
     var sign, enc;
@@ -244,21 +244,43 @@
     if (!PAGE_REPO) { box.innerHTML = keep + '<fieldset><legend>Phone setup</legend><div class="row wide"><label>Open this page from its GitHub Pages address<small>It couldn’t tell which repository this is.</small></label></div></fieldset>'; box.hidden = false; return; }
     // A phone makes its key only in the Home Screen copy: on iPhone/iPad, Safari and the Home Screen app keep separate
     // storage (a key made in Safari never reaches the app) and Safari can clear it after about a week
+    // A Mac likewise sets up only in its Dock app (Safari: File → Add to Dock, which also keeps its own storage) or an
+    // installed Chrome/Edge app
     if (!me && mustInstall()) {
-      var ios = isIos(), li = function (t) { return '<li>' + t + '</li>'; };
-      var steps = ios ? iosSteps().map(li).join('') : li('Tap <b>Install</b> below, then <b>Install</b> again to confirm.') +
-          li('Open <b>WX Central</b> from your Home Screen or app list. Setup continues there.');
-      box.innerHTML = keep + '<fieldset id="phNeedHome"><legend>Set up this phone</legend>' +
-        '<div class="row wide"><label>' + (ios ? 'Add to Home Screen first (required)' : 'Install the app first (required)') +
-        '<small>This phone can only be set up from the ' + (ios ? 'Home Screen' : 'installed') + ' app, not from ' + (ios ? iosBrowser().name : 'the browser') + '. ' +
-        (ios ? (iosBrowser().safari ? 'Safari keeps its own separate storage and can erase this phone’s key after about a week, so a key made here wouldn’t last.'
-          : iosBrowser().name + ' keeps its own separate storage, so a key made here wouldn’t reach the Home Screen app.')
-          : 'The installed app keeps this phone’s key safe from the browser clearing its data.') + '</small>' +
-        '<ol class="steps">' + steps + '</ol></label></div>' +
-        // Android: always an Install button. Chrome's one-tap install (beforeinstallprompt) when it offers it; otherwise
-        // (another browser, or already installed) the button explains the menu way
-        (ios ? '' : '<div class="row wide"><span class="inline" style="justify-content:flex-end"><button type="button" class="primary" id="phHomeBtn">Install</button></span>' +
-          '<small id="phHomeAlt" hidden style="color:var(--muted);font-size:15px">This browser doesn’t offer one-tap install. Tap its menu <span aria-hidden="true">(⋮)</span> and choose <b>Install app</b> or <b>Add to Home screen</b>. Already installed? Open <b>WX Central</b> from your app list.</small></div>') +
+      var ios = isIos(), mac = isMac(), mb = mac ? macBrowser() : null, li = function (t) { return '<li>' + t + '</li>'; };
+      var steps, title, why, button = !ios, alt;
+      if (ios) {
+        steps = iosSteps();
+        title = 'Add to Home Screen first (required)';
+        why = 'This phone can only be set up from the Home Screen app, not from ' + iosBrowser().name + '. ' +
+          (iosBrowser().safari ? 'Safari keeps its own separate storage and can erase this phone’s key after about a week, so a key made here wouldn’t last.'
+            : iosBrowser().name + ' keeps its own separate storage, so a key made here wouldn’t reach the Home Screen app.');
+      } else if (mac) {
+        title = mb.safari ? 'Add to Dock first (required)' : 'Install the app first (required)';
+        why = 'This Mac can only be set up from the WX Central app, not from a browser tab. ' +
+          (mb.safari ? 'Safari keeps the Dock app’s storage separate and safe from its cleanup, so the key lasts.' : 'The installed app keeps this Mac’s key safe from the browser clearing its data.');
+        button = mb.install;
+        if (mb.safari && mb.ver >= 17) steps = ['In the menu bar, choose <b>File → Add to Dock…</b> (or click the <b>Share</b> button ' + icon('share') + ' in Safari’s toolbar, then <b>Add to Dock</b>).',
+          'Click <b>Add</b>.', 'Open <b>WX Central</b> from the Dock (it’s also in Launchpad and your Applications folder). Setup continues there.'];
+        else if (mb.safari) steps = ['This Safari is too old to add apps to the Dock (it needs macOS Sonoma or later). Update the Mac, or open this page in <b>Chrome</b> or <b>Edge</b>.'];
+        else if (mb.install) steps = ['Click <b>Install</b> below, then <b>Install</b> again to confirm.', '<b>WX Central</b> opens in its own window and setup continues there. Later, open it from the Dock, Launchpad or your Applications folder.'];
+        else steps = [mb.name + ' can’t install web apps on a Mac. Open this page in <b>Safari</b> (File → Add to Dock), <b>Chrome</b> or <b>Edge</b>.'];
+        alt = mb.name === 'Edge' ? 'Click the <b>•••</b> menu, then <b>Apps → Install this site as an app</b>.'
+          : 'Click the <b>⋮</b> menu, then <b>Cast, save, and share → Install page as app…</b>';
+        alt = 'This browser didn’t offer one-tap install. ' + alt + ' Already installed? Open <b>WX Central</b> from the Dock or Launchpad.';
+      } else {
+        title = 'Install the app first (required)';
+        why = 'This phone can only be set up from the installed app, not from the browser. The installed app keeps this phone’s key safe from the browser clearing its data.';
+        steps = ['Tap <b>Install</b> below, then <b>Install</b> again to confirm.', 'Open <b>WX Central</b> from your Home Screen or app list. Setup continues there.'];
+        alt = 'This browser doesn’t offer one-tap install. Tap its menu <span aria-hidden="true">(⋮)</span> and choose <b>Install app</b> or <b>Add to Home screen</b>. Already installed? Open <b>WX Central</b> from your app list.';
+      }
+      box.innerHTML = keep + '<fieldset id="phNeedHome"><legend>Set up this ' + (mac ? 'Mac' : 'phone') + '</legend>' +
+        '<div class="row wide"><label>' + title + '<small>' + why + '</small>' +
+        '<ol class="steps">' + steps.map(li).join('') + '</ol></label></div>' +
+        // Android and Chrome/Edge on a Mac: always an Install button. The browser's one-tap install
+        // (beforeinstallprompt) when it offers it; otherwise (no support, or already installed) it explains the menu way
+        (button ? '<div class="row wide"><span class="inline" style="justify-content:flex-end"><button type="button" class="primary" id="phHomeBtn">Install</button></span>' +
+          '<small id="phHomeAlt" hidden style="color:var(--muted);font-size:15px">' + alt + '</small></div>' : '') +
         '</fieldset>';
       box.hidden = false;
       if ($('phHomeBtn')) $('phHomeBtn').addEventListener('click', function () {
@@ -266,18 +288,19 @@
         installEvt.prompt();
         installEvt.userChoice.then(function (c) {
           installEvt = null;
-          if (c && c.outcome === 'accepted') { $('phHomeBtn').disabled = true; $('phHomeBtn').textContent = 'Installed'; msg('Installed. Open WX Central from your Home Screen to finish setup.'); }
+          if (c && c.outcome === 'accepted') { $('phHomeBtn').disabled = true; $('phHomeBtn').textContent = 'Installed'; msg(mac ? 'Installed. Setup continues in the WX Central window.' : 'Installed. Open WX Central from your Home Screen to finish setup.'); }
         });
       });
       drawInstall();
       return;
     }
     if (!me) {
-      box.innerHTML = keep + '<fieldset><legend>Set up this phone</legend>' +
-        (!mobile() && !standalone() ? '<div class="row wide"><label>On a computer?<small>Setting up in a browser works, but clearing the browser’s data removes the key. On a Windows PC, the Central Settings app is the better fit.</small></label></div>' : '') +
+      var dev = isMac() ? 'Mac' : 'phone';
+      box.innerHTML = keep + '<fieldset><legend>Set up this ' + dev + '</legend>' +
+        (!mobile() && !isMac() && !standalone() ? '<div class="row wide"><label>On a computer?<small>Setting up in a browser works, but clearing the browser’s data removes the key. On a Windows PC, the Central Settings app is the better fit.</small></label></div>' : '') +
         '<div class="row"><label for="phName">Your name<small>Shown as who published a change, e.g. “by Blake”.</small></label><input type="text" id="phName" maxlength="40" spellcheck="false"></div>' +
-        '<div class="row"><label for="phDevice">This phone’s label<small>Shown in the publisher’s access list, e.g. “Blake · iPhone”.</small></label><input type="text" id="phDevice" maxlength="30" spellcheck="false" value="' + esc(deviceGuess()) + '"></div>' +
-        '<div class="row wide"><span class="inline" style="justify-content:flex-end"><button type="button" class="primary" id="phMake">Make this phone’s key</button></span></div></fieldset>';
+        '<div class="row"><label for="phDevice">This ' + dev + '’s label<small>Shown in the publisher’s access list, e.g. “Blake · ' + (dev === 'Mac' ? 'MacBook' : 'iPhone') + '”.</small></label><input type="text" id="phDevice" maxlength="30" spellcheck="false" value="' + esc(deviceGuess()) + '"></div>' +
+        '<div class="row wide"><span class="inline" style="justify-content:flex-end"><button type="button" class="primary" id="phMake">Make this ' + dev + '’s key</button></span></div></fieldset>';
       box.hidden = false;
       $('phMake').addEventListener('click', function () {
         var n = $('phName').value.trim(), dv = $('phDevice').value.trim();
@@ -328,7 +351,16 @@
   function isIos() { return /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && 'ontouchend' in document); }
   // Phones and tablets set up only from the Home Screen copy (see drawSetup); a computer's browser may still set up
   function mobile() { return isIos() || /Android/i.test(navigator.userAgent); }
-  function mustInstall() { return mobile() && !standalone(); }
+  // A Mac (not an iPad, which also says Macintosh but has touch)
+  function isMac() { return /Macintosh/.test(navigator.userAgent) && !isIos(); }
+  function macBrowser() {
+    var ua = navigator.userAgent, v = /Version\/(\d+)/.exec(ua);
+    if (/Edg\//.test(ua)) return { name: 'Edge', install: true };
+    if (/Firefox\//.test(ua)) return { name: 'Firefox' };
+    if (/Chrome\//.test(ua)) return { name: 'Chrome', install: true };
+    return { name: 'Safari', safari: true, ver: v ? +v[1] : 0 };
+  }
+  function mustInstall() { return (mobile() || isMac()) && !standalone(); }
   // Which browser and version on iPhone/iPad, for the right Add to Home Screen steps. Safari froze the iOS version in its
   // user agent at 18.x from iOS 26 on, but its Version/NN still matches the iOS major version. Chrome (CriOS), Edge
   // (EdgiOS) and Firefox (FxiOS) report the real iOS version.
