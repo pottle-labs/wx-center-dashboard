@@ -242,8 +242,39 @@
     // keep the ids settings.html touches for the PC's setup screen (hidden here)
     var keep = '<div hidden><span id="setupNote"></span><div id="fileRow"></div><input id="accessFile" type="file"><input id="pass"><button id="importBtn" type="button"></button></div>';
     if (!PAGE_REPO) { box.innerHTML = keep + '<fieldset><legend>Phone setup</legend><div class="row wide"><label>Open this page from its GitHub Pages address<small>It couldn’t tell which repository this is.</small></label></div></fieldset>'; box.hidden = false; return; }
+    // A phone makes its key only in the Home Screen copy: on iPhone/iPad, Safari and the Home Screen app keep separate
+    // storage (a key made in Safari never reaches the app) and Safari can clear it after about a week
+    if (!me && mustInstall()) {
+      var ios = isIos(), li = function (t) { return '<li>' + t + '</li>'; };
+      var steps = ios ? iosSteps().map(li).join('') : li('Tap <b>Install</b> below, then <b>Install</b> again to confirm.') +
+          li('Open <b>WX Central</b> from your Home Screen or app list. Setup continues there.');
+      box.innerHTML = keep + '<fieldset id="phNeedHome"><legend>Set up this phone</legend>' +
+        '<div class="row wide"><label>' + (ios ? 'Add to Home Screen first (required)' : 'Install the app first (required)') +
+        '<small>This phone can only be set up from the ' + (ios ? 'Home Screen' : 'installed') + ' app, not from ' + (ios ? iosBrowser().name : 'the browser') + '. ' +
+        (ios ? (iosBrowser().safari ? 'Safari keeps its own separate storage and can erase this phone’s key after about a week, so a key made here wouldn’t last.'
+          : iosBrowser().name + ' keeps its own separate storage, so a key made here wouldn’t reach the Home Screen app.')
+          : 'The installed app keeps this phone’s key safe from the browser clearing its data.') + '</small>' +
+        '<ol class="steps">' + steps + '</ol></label></div>' +
+        // Android: always an Install button. Chrome's one-tap install (beforeinstallprompt) when it offers it; otherwise
+        // (another browser, or already installed) the button explains the menu way
+        (ios ? '' : '<div class="row wide"><span class="inline" style="justify-content:flex-end"><button type="button" class="primary" id="phHomeBtn">Install</button></span>' +
+          '<small id="phHomeAlt" hidden style="color:var(--muted);font-size:15px">This browser doesn’t offer one-tap install. Tap its menu <span aria-hidden="true">(⋮)</span> and choose <b>Install app</b> or <b>Add to Home screen</b>. Already installed? Open <b>WX Central</b> from your app list.</small></div>') +
+        '</fieldset>';
+      box.hidden = false;
+      if ($('phHomeBtn')) $('phHomeBtn').addEventListener('click', function () {
+        if (!installEvt) { $('phHomeAlt').hidden = false; return; }
+        installEvt.prompt();
+        installEvt.userChoice.then(function (c) {
+          installEvt = null;
+          if (c && c.outcome === 'accepted') { $('phHomeBtn').disabled = true; $('phHomeBtn').textContent = 'Installed'; msg('Installed. Open WX Central from your Home Screen to finish setup.'); }
+        });
+      });
+      drawInstall();
+      return;
+    }
     if (!me) {
       box.innerHTML = keep + '<fieldset><legend>Set up this phone</legend>' +
+        (!mobile() && !standalone() ? '<div class="row wide"><label>On a computer?<small>Setting up in a browser works, but clearing the browser’s data removes the key. On a Windows PC, the Central Settings app is the better fit.</small></label></div>' : '') +
         '<div class="row"><label for="phName">Your name<small>Shown as who published a change, e.g. “by Blake”.</small></label><input type="text" id="phName" maxlength="40" spellcheck="false"></div>' +
         '<div class="row"><label for="phDevice">This phone’s label<small>Shown in the publisher’s access list, e.g. “Blake · iPhone”.</small></label><input type="text" id="phDevice" maxlength="30" spellcheck="false" value="' + esc(deviceGuess()) + '"></div>' +
         '<div class="row wide"><span class="inline" style="justify-content:flex-end"><button type="button" class="primary" id="phMake">Make this phone’s key</button></span></div></fieldset>';
@@ -292,15 +323,53 @@
   // On iPhone the Home Screen copy also keeps this phone's key: Safari can clear a website's saved data after about a
   // week without a visit, but not a Home Screen app's.
   var installEvt = null;
-  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); installEvt = e; drawInstall(); });
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); installEvt = e; if ($('phNeedHome')) drawSetup(null); else drawInstall(); });
   function standalone() { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+  function isIos() { return /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && 'ontouchend' in document); }
+  // Phones and tablets set up only from the Home Screen copy (see drawSetup); a computer's browser may still set up
+  function mobile() { return isIos() || /Android/i.test(navigator.userAgent); }
+  function mustInstall() { return mobile() && !standalone(); }
+  // Which browser and version on iPhone/iPad, for the right Add to Home Screen steps. Safari froze the iOS version in its
+  // user agent at 18.x from iOS 26 on, but its Version/NN still matches the iOS major version. Chrome (CriOS), Edge
+  // (EdgiOS) and Firefox (FxiOS) report the real iOS version.
+  function iosBrowser() {
+    var ua = navigator.userAgent, os = /OS (\d+)_(\d+)/.exec(ua), osv = os ? +os[1] + +os[2] / 100 : 0;
+    var other = /CriOS/.test(ua) ? 'Chrome' : /EdgiOS/.test(ua) ? 'Edge' : /FxiOS/.test(ua) ? 'Firefox' : '';
+    if (other) return { name: other, safari: false, ver: Math.floor(osv), old: osv && osv < 16.04 };
+    var v = /Version\/(\d+)/.exec(ua);
+    return { name: 'Safari', safari: true, ver: v ? +v[1] : 0 };
+  }
+  // Small pictures of the buttons to tap, drawn like Safari's own (they follow the text colour)
+  function icon(kind) {
+    var p = kind === 'menu' ? '<path d="M3 5h14M3 10h14M3 15h9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
+      : kind === 'dots' ? '<circle cx="4" cy="10" r="1.8" fill="currentColor"/><circle cx="10" cy="10" r="1.8" fill="currentColor"/><circle cx="16" cy="10" r="1.8" fill="currentColor"/>'
+      : '<path d="M10 2.5v10M6.5 6 10 2.5 13.5 6M7 8.5H5.5A1.5 1.5 0 0 0 4 10v6.5A1.5 1.5 0 0 0 5.5 18h9a1.5 1.5 0 0 0 1.5-1.5V10a1.5 1.5 0 0 0-1.5-1.5H13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>';
+    return '<span aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;width:1.7em;height:1.7em;margin:0 .15em;vertical-align:-.45em;border:1px solid currentColor;border-radius:50%;opacity:.85"><svg viewBox="0 0 20 20" width="1.05em" height="1.05em">' + p + '</svg></span>';
+  }
+  function iosSteps() {
+    var b = iosBrowser(), add = 'Scroll down and tap <b>Add to Home Screen</b>. If you don’t see it, tap <b>View More</b> or <b>Edit Actions</b> first.';
+    var finish = ['If there’s an <b>Open as Web App</b> switch, leave it on. Tap <b>Add</b>.', 'Go to your Home Screen and open <b>WX Central</b>. Setup continues there.'];
+    var first;
+    if (!b.safari) {
+      if (b.old) return ['This iOS version can only add pages to the Home Screen from <b>Safari</b>. Open this page in Safari, or update the iPhone.'];
+      first = 'Tap the <b>Share</b> button ' + icon('share') + ' in ' + b.name + '’s address bar (or in its menu).';
+    }
+    else if (b.ver >= 27) first = 'Tap the menu button ' + icon('menu') + ' at the left of the address bar at the bottom, then tap <b>Share</b>.';
+    else if (b.ver === 26) first = 'Tap the ' + icon('dots') + ' button next to the address bar, then tap <b>Share</b>.';
+    else if (b.ver) first = 'Tap the <b>Share</b> button ' + icon('share') + ' in Safari’s toolbar (at the bottom on iPhone, top right on iPad).';
+    else first = 'Tap the <b>Share</b> button ' + icon('share') + '. If you don’t see it, tap the menu ' + icon('menu') + ' or <b>•••</b> button next to the address bar first.';
+    return [first, add].concat(finish);
+  }
+  function installHow() {
+    return isIos() ? iosSteps()[0].replace(/\.$/, '') + ', then <b>Add to Home Screen</b>, and open it from there.'
+      : installEvt ? 'Tap <b>Install</b>, then open it from your Home Screen.'
+      : 'In the browser menu <span aria-hidden="true">(⋮)</span>, choose <b>Add to Home screen</b> or <b>Install app</b>, then open it from there.';
+  }
   function drawInstall() {
     var el = $('phInstall');
-    if (!el || standalone()) { if (el) el.hidden = true; return; }
-    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && 'ontouchend' in document);
-    var how = ios ? 'Tap the <b>Share</b> button <span aria-hidden="true">(□↑)</span>, then <b>Add to Home Screen</b>. Open it from there from now on: Safari can clear this page’s saved key after about a week, but not the Home Screen app’s.'
-      : installEvt ? 'Install it so it opens like an app and keeps this phone’s key.'
-      : 'In the browser menu <span aria-hidden="true">(⋮)</span>, choose <b>Add to Home screen</b> or <b>Install app</b>, then open it from there.';
+    // Hidden from the Home Screen copy, and while the setup screen itself asks for it (it has the same steps)
+    if (!el || standalone() || $('phNeedHome')) { if (el) el.hidden = true; return; }
+    var how = installHow() + (isIos() ? ' Safari can clear this page’s saved key after about a week, but not the Home Screen app’s.' : '');
     el.innerHTML = '<div><b>Add this to your Home Screen</b><span>' + how + '</span></div>' +
       (installEvt ? '<button type="button" class="primary" id="phInstallBtn">Install</button>' : '') + '<button type="button" class="quiet" id="phInstallX" aria-label="Hide for now">✕</button>';
     el.hidden = false;

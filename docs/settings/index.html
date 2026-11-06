@@ -217,7 +217,7 @@ button.quiet:hover { color: var(--crit); background: none; }
         <span class="switch"><input type="checkbox" id="sameForAll"><span></span></span></div>
       <div class="row"><label for="askUpdate">Check for app updates with this publish<small id="askUpdateNote">One time: when each dashboard picks up this publish, it checks for a new version of the app right away and installs it if there is one (instead of waiting for the nightly check). Turns itself off after you publish.</small></label>
         <span class="switch"><input type="checkbox" id="askUpdate"><span></span></span></div>
-      <div class="row"><label for="section">Settings for<small id="sectionNote">Pick All locations or a base. Click a setting’s pill: Local leaves it to each dashboard, Central sets and locks it from here, Push once writes it into each dashboard’s own settings one time.</small></label>
+      <div class="row"><label for="section">Settings for<small id="sectionNote">Pick All locations or a base.</small></label>
         <select id="section"></select></div>
       <details class="sumbox" id="sumBox"><summary><span class="sum-t">In this section</span><span id="sumLine"></span></summary><div id="sumList"></div></details>
     </fieldset>
@@ -670,7 +670,8 @@ button.quiet:hover { color: var(--crit); background: none; }
     var p = list[list.length - 1], names = [];
     list.forEach(function (x) { Object.keys(x.settings || {}).forEach(function (k) { if ($(k) || k === 'station') { var n = nameOf(k); if (names.indexOf(n) < 0) names.push(n); } }); });
     var when = p.at ? new Date(p.at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
-    return ' Pushed here so far (new dashboards get these too): ' + names.join(', ') + '. Last push #' + p.serial + (when ? ' on ' + when : '') + (p.by ? ' by ' + p.by : '') + '.';
+    // A count, not the names: the summary box below lists them
+    return ' ' + names.length + (names.length === 1 ? ' setting' : ' settings') + ' pushed so far (last' + (when ? ' ' + when : '') + (p.by ? ' by ' + p.by : '') + ').';
   }
   function loadSection(name) {
     section = name;
@@ -684,13 +685,13 @@ button.quiet:hover { color: var(--crit); background: none; }
       setCtl(row, ks.some(function (k) { return push[k] != null; }) ? 'push' : ks.some(function (k) { return inst[k] != null; }) ? 'install'
         : ks.some(function (k) { return vals[k] != null; }) ? 'central' : 'local');
     });
+    // Kept short: what Central and Push once reach from this section (New installs only exists under All locations)
     $('sectionNote').textContent = (name === 'all'
-      ? (model.sameForAll ? 'Central: used by every base under central control.' : 'Central: only used while “All locations use the same settings” is on.') +
-        ' Push once: goes to every dashboard, under central control or not.' +
-        ' New installs: a newly installed dashboard (or a phone opening the web dashboard for the first time) starts with these, then follows the central settings as usual; existing dashboards aren’t changed.'
-      : (!model.bases[name].central ? name + ' is under local control, so Central settings don’t apply until it’s checked above.'
-        : model.sameForAll ? 'Central settings here aren’t used while all locations use the same settings.' : 'Central: used by the ' + name + ' dashboards.') +
-        ' Push once: goes to the ' + name + ' dashboards.') + pushHistory(name);
+      ? (model.sameForAll ? 'Central locks it on every base under central control.' : 'Central only applies while “same settings” is on.') +
+        ' Push once sets it on every dashboard one time. New installs is what new dashboards start with.'
+      : (!model.bases[name].central ? name + ' is under local control, so Central waits until it’s checked above.'
+        : model.sameForAll ? 'Central isn’t used here while all locations share settings.' : 'Central locks it on the ' + name + ' dashboards.') +
+        ' Push once sets it on them one time.') + pushHistory(name);
     drawSummary();
   }
   // The summary box under "Settings for": how many settings are Central, Push once and New installs in this section
