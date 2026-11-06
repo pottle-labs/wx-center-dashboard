@@ -413,6 +413,8 @@ button.quiet:hover { color: var(--crit); background: none; }
         <span class="switch"><input type="checkbox" id="tfrs"><span></span></span></div>
       <div class="row"><label for="catChange">Show flight category changes<small>For an hour after the airport’s category changes, the old one shows faded before the new one, with when it changed.</small></label>
         <span class="switch"><input type="checkbox" id="catChange"><span></span></span></div>
+      <div class="row"><label for="metarAge">Show how old the report is<small>Under the category badge, e.g. “38 min old”. Amber with “Late” after 70 minutes, red after 2 hours. With category changes on, it also says when the category changed.</small></label>
+        <span class="switch"><input type="checkbox" id="metarAge"><span></span></span></div>
       <div class="row"><label for="aloft">Winds aloft<small>Wind and temperature at 3,000 to 12,000 ft from the nearest forecast point, in the side column.</small></label>
         <span class="switch"><input type="checkbox" id="aloft"><span></span></span></div>
       <div class="row"><label for="oldObs">Fade old weather reports<small>An airport whose latest report is over 70 minutes old fades on the map, and its label shows the age.</small></label>
@@ -501,13 +503,13 @@ button.quiet:hover { color: var(--crit); background: none; }
   var FIELDS = ['theme', 'clock', 'wbScreen', 'singleScreen', 'hideSeconds', 'tab', 'cycle', 'phones', 'logo', 'wbLayout', 'sheetRefresh', 'statusDown', 'statusNote', 'statusOk',
     'maint', 'maintWarn', 'maintCrit', 'station', 'radius', 'radarLoop',
     'radarHours', 'airmets', 'sigmets', 'convective', 'dailyReloadHour', 'autoUpdate', 'decoded', 'advList', 'advSpeed',
-    'limits', 'limSets'].concat(LIM_KEYS).concat(['runway', 'daFlag', 'daWarn', 'daCrit', 'sun', 'sunCount', 'tstorm', 'pireps', 'barbs', 'trend', 'tfrs', 'catChange', 'aloft', 'oldObs', 'acDetail', 'stations', 'diagCorner', 'quiet', 'quietFrom', 'quietTo', 'quietMode', 'repo']);
+    'limits', 'limSets'].concat(LIM_KEYS).concat(['runway', 'daFlag', 'daWarn', 'daCrit', 'sun', 'sunCount', 'tstorm', 'pireps', 'barbs', 'trend', 'tfrs', 'catChange', 'metarAge', 'aloft', 'oldObs', 'acDetail', 'stations', 'diagCorner', 'quiet', 'quietFrom', 'quietTo', 'quietMode', 'repo']);
   // Never set centrally: the PC's base and screens, and updates (matches CentralSettings.LocalOnly in the shell)
   var LOCAL_ONLY = ['tab', 'wbScreen', 'singleScreen', 'autoUpdate', 'repo'];
   var CENTRAL = new URLSearchParams(location.search).get('central') === '1' || !!window.WXC_PHONE; // the central settings editor (on a PC, or the phone version)
   // Shown when settings.ini doesn't have the key yet (it was installed by an older version). Features start off.
   var DEFAULTS = { theme: 'dark', clock: '12', hideSeconds: '4', logo: '1', wbLayout: 'auto', cycle: '15', phones: '1', sheetRefresh: '5', radius: '100', radarLoop: '1', dailyReloadHour: '3', radarHours: '1', airmets: '1', sigmets: '1', convective: '1', station: 'auto', autoUpdate: '1', decoded: 'auto', advList: 'auto', advSpeed: '20',
-    limits: '0', limSets: '1', runway: 'off', sun: 'off', pireps: '0', barbs: '0', trend: '0', tfrs: '1', catChange: '0', aloft: '0', oldObs: '1', stations: '0', quiet: '1', quietFrom: '00:00', quietTo: '05:00', quietMode: 'dim', acDetail: 'off', diagCorner: '0' };
+    limits: '0', limSets: '1', runway: 'off', sun: 'off', pireps: '0', barbs: '0', trend: '0', tfrs: '1', catChange: '0', metarAge: '1', aloft: '0', oldObs: '1', stations: '0', quiet: '1', quietFrom: '00:00', quietTo: '05:00', quietMode: 'dim', acDetail: 'off', diagCorner: '0' };
   Object.keys(LIM_DEFAULTS).forEach(function (k) { DEFAULTS[k] = LIM_DEFAULTS[k]; });
   // Thunderstorm alert, sunset countdown, high density altitude, maintenance countdown (all off to start)
   [['tstorm', '0'], ['sunCount', 'off'], ['daFlag', 'off'], ['daWarn', '5000'], ['daCrit', '7000'], ['maint', 'off'],['maintWarn', '10'], ['maintCrit', '3']]

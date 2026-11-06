@@ -133,9 +133,9 @@
     add('station', st); add('radius', v.radius || '100'); add('loop', v.radarLoop || '1'); add('radarHours', v.radarHours || '1');
     add('airmets', v.airmets || '1'); add('sigmets', v.sigmets || '1'); add('convective', v.convective || '1');
     add('decoded', v.decoded || 'auto'); add('advList', v.advList || 'auto'); add('advSpeed', v.advSpeed || '20');
-    var keys = ['limits', 'limSets', 'limName', 'limWind', 'limGust', 'limXwind', 'limCeil', 'limVis', 'runway', 'sun', 'pireps', 'barbs', 'trend', 'tfrs', 'catChange', 'aloft', 'oldObs', 'tstorm', 'sunCount', 'daFlag', 'daWarn', 'daCrit'];
+    var keys = ['limits', 'limSets', 'limName', 'limWind', 'limGust', 'limXwind', 'limCeil', 'limVis', 'runway', 'sun', 'pireps', 'barbs', 'trend', 'tfrs', 'catChange', 'metarAge', 'aloft', 'oldObs', 'tstorm', 'sunCount', 'daFlag', 'daWarn', 'daCrit'];
     ['2', '3', '4'].forEach(function (n) { ['Name', 'Wind', 'Gust', 'Xwind', 'Ceil', 'Vis'].forEach(function (f) { keys.push('lim' + n + f); }); });
-    keys.forEach(function (k) { add(k, v[k] != null ? v[k] : (k === 'tfrs' || k === 'oldObs' ? '1' : '')); });
+    keys.forEach(function (k) { add(k, v[k] != null ? v[k] : (k === 'tfrs' || k === 'oldObs' || k === 'metarAge' ? '1' : '')); });
     theme();
     return 'weather.html?' + q.join('&');
   }

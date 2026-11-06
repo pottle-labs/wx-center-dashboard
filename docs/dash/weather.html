@@ -233,6 +233,11 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
 .cat.changed { box-shadow: 0 0 0 4px rgba(255,255,255,.22); }
 .carrow { font-size: 26px; color: var(--muted); }
 .catchg { font: 500 16px var(--font-data); color: var(--muted); white-space: nowrap; }
+/* Report age (feature metarAge): one line under the badge; it takes the catChange line's place when both are on */
+.catage { margin-top: 2px; font: 500 19px var(--font-ui); color: var(--muted); white-space: nowrap; text-align: right; }
+.catage[hidden] { display: none; }
+.catage .chg { color: var(--fg-2); }
+.catage.late { color: var(--warn); } .catage.vlate { color: var(--crit); }
 .cat[hidden], .carrow[hidden], .catchg[hidden] { display: none; }
 /* Winds aloft (feature aloft) */
 .aloft { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 18px; font: 500 22px var(--font-data); font-variant-numeric: tabular-nums; }
@@ -331,7 +336,7 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
         <div><div class="id" id="stnId" title="Click to show another airport">KSGU</div><div class="name" id="stnName">St. George</div>
           <div class="away" id="away" hidden><span id="awayText"></span><button type="button" id="awayBack"></button></div></div>
         <div class="catbox"><div class="catrow"><span class="cat prev" id="stnPrev" hidden></span><span class="carrow" id="stnArrow" hidden>→</span><div class="cat UNK" id="stnCat">----</div></div>
-          <div class="catchg" id="stnChg" hidden></div></div>
+          <div class="catchg" id="stnChg" hidden></div><div class="catage" id="stnAge" hidden></div></div>
       </div>
       <div class="obs" id="obs">
         <div><div class="k">Wind</div><div class="v" id="oWind">--</div></div>
@@ -406,6 +411,7 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
       trend: q.get('trend') === '1',                                             // 6A home airport, last 12 hours
       tfrs: q.get('tfrs') === '1',                                               // TFRs on the map and in the bottom strip
       catChange: q.get('catChange') === '1',                                     // old → new category badge for an hour after a change
+      metarAge: q.get('metarAge') === '1',                                       // "38 min old" under the category badge
       aloft: q.get('aloft') === '1',                                             // winds aloft card (nearest forecast point)
       oldObs: q.get('oldObs') === '1',                                           // fade airports whose report is over 70 min old
       tstorm: q.get('tstorm') === '1',                                           // thunderstorm within TS_NM: strip on the conditions card + bottom-strip chip
@@ -1215,7 +1221,8 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
   }
   function renderStation(m) {
     if (!$('stnInput')) $('stnId').textContent = CFG.station; // not while someone is typing a code
-    if (!m) { $('stnCat').className = 'cat UNK'; $('stnCat').textContent = 'NO OBS'; return; }
+    state.obsAt = m && m.obsTime || 0; // the report age line (feature metarAge)
+    if (!m) { $('stnCat').className = 'cat UNK'; $('stnCat').textContent = 'NO OBS'; renderCatChange(); return; }
     $('stnName').textContent = (m.name || '').replace(/, US$/, '');
     var cat = m.fltCat || 'UNK';
     $('stnCat').className = 'cat ' + cat; $('stnCat').textContent = cat === 'UNK' ? '----' : cat;
@@ -1241,13 +1248,28 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
   // the new one, with when it changed. Uses the last 3 hours of reports (12 with the trend card).
   var CHG_MIN = +q.get('chgMin') || 60; // ?chgMin= for testing
   function renderCatChange() {
-    var c = F.catChange && catChange();
-    $('stnPrev').hidden = $('stnArrow').hidden = $('stnChg').hidden = !c;
+    var c = F.catChange && state.obsAt && catChange();
+    $('stnPrev').hidden = $('stnArrow').hidden = !c;
+    $('stnChg').hidden = !c || F.metarAge; // with metarAge on, the age line says when it changed
     $('stnCat').classList.toggle('changed', !!c);
+    renderAge(c);
     if (!c) return;
     $('stnPrev').className = 'cat prev ' + c.prev; $('stnPrev').textContent = c.prev === 'UNK' ? '----' : c.prev;
     var ago = Math.round((Date.now() / 1000 - c.at) / 60);
     $('stnChg').textContent = 'changed ' + hhmmZ(new Date(c.at * 1000)) + ' · ' + ago + ' min ago';
+  }
+  // Feature metarAge: one line under the badge. "38 min old"; with a category change also "· new category" (it changed
+  // in this report) or "· changed 0420Z" (an earlier one, e.g. a SPECI); amber "Late · 1 h 24 min old" past OLD_MIN,
+  // red past 2 hours.
+  function renderAge(c) {
+    var el = $('stnAge'), at = state.obsAt;
+    el.hidden = !F.metarAge || !at;
+    if (el.hidden) return;
+    var age = Math.max(0, Math.round((Date.now() / 1000 - at) / 60)), late = age > OLD_MIN;
+    var txt = (age >= 60 ? Math.floor(age / 60) + ' h ' + (age % 60) + ' min' : age + ' min') + ' old';
+    var chg = !c ? '' : c.at === at ? 'new category' : 'changed ' + hhmmZ(new Date(c.at * 1000));
+    el.className = 'catage' + (age > 120 ? ' vlate' : late ? ' late' : '');
+    el.innerHTML = (late ? 'Late · ' : '') + txt + (chg ? ' · <span class="chg">' + chg + '</span>' : '');
   }
   function catChange() {
     var seen = {}, list = (state.history || []).concat(state.home ? [state.home] : []).filter(function (m) {
@@ -2238,7 +2260,7 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
     $('zulu').textContent = pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) + 'Z';
     $('local').textContent = localTime(d) + ' local';
     if (F.sun && CFG.lat != null) renderSun(); else renderSunCount(); // (renderSunCount drops "local" while the countdown shows)
-    if (F.catChange) renderCatChange(); // the "min ago" count, and dropping the old badge after an hour
+    if (F.catChange || F.metarAge) renderCatChange(); // the "min ago"/"min old" counts, and dropping the old badge after an hour
   }
 
   /* ---------- Boot ---------- */
