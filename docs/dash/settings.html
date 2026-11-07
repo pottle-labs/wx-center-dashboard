@@ -230,6 +230,8 @@ button.quiet:hover { color: var(--crit); background: none; }
         <span class="switch"><input type="checkbox" id="phones"><span></span></span></div>
       <div class="row"><label for="logo">Show the school logo<small>Epic Flight Academy, at the start of the header.</small></label>
         <span class="switch"><input type="checkbox" id="logo"><span></span></span></div>
+      <div class="row"><label for="qr">QR code for phones<small>In the top right corner. Scanning it opens this base’s dashboard on a phone.</small></label>
+        <span class="switch"><input type="checkbox" id="qr"><span></span></span></div>
       <div class="row wide"><label>Aircraft status badges<small>From the sheet’s Status column. Words separated by commas; capitals don’t matter. A word of 4 or more letters also matches longer words that start with it (“maint” matches “maintenance”); shorter ones like “up” match only the whole word. A space also matches a hyphen (“100 hr” matches “100-hr”). Red is checked first, then yellow, then blue. A status that matches none of them shows yellow.</small></label></div>
       <div class="row sub-row w2"><label for="statusDown">Red: out of service<small>The aircraft fades and its tail number is struck through.</small></label>
         <textarea id="statusDown" rows="2" spellcheck="false" required></textarea></div>
@@ -490,7 +492,7 @@ button.quiet:hover { color: var(--crit); background: none; }
   }
   $('limAdd').addEventListener('click', function () { $('limSets').value = String(Math.min(LIM_MAX, limCount() + 1)); syncLimSets(); });
   $('limRemove').addEventListener('click', function () { $('limSets').value = String(Math.max(1, limCount() - 1)); syncLimSets(); });
-  var FIELDS = ['theme', 'clock', 'wbScreen', 'singleScreen', 'hideSeconds', 'tab', 'cycle', 'phones', 'logo', 'wbLayout', 'sheetRefresh', 'statusDown', 'statusNote', 'statusOk',
+  var FIELDS = ['theme', 'clock', 'wbScreen', 'singleScreen', 'hideSeconds', 'tab', 'cycle', 'phones', 'logo', 'qr', 'wbLayout', 'sheetRefresh', 'statusDown', 'statusNote', 'statusOk',
     'maint', 'maintWarn', 'maintCrit', 'station', 'radius', 'radarLoop',
     'radarHours', 'airmets', 'sigmets', 'convective', 'dailyReloadHour', 'autoUpdate', 'decoded', 'advList', 'advSpeed',
     'limits', 'limSets'].concat(LIM_KEYS).concat(['runway', 'daFlag', 'daWarn', 'daCrit', 'sun', 'sunCount', 'tstorm', 'pireps', 'barbs', 'trend', 'tfrs', 'catChange', 'metarAge', 'aloft', 'oldObs', 'acDetail', 'stations', 'diagCorner', 'quiet', 'quietFrom', 'quietTo', 'quietMode', 'repo']);
@@ -498,7 +500,7 @@ button.quiet:hover { color: var(--crit); background: none; }
   var LOCAL_ONLY = ['tab', 'wbScreen', 'singleScreen', 'autoUpdate', 'repo'];
   var CENTRAL = new URLSearchParams(location.search).get('central') === '1' || !!window.WXC_PHONE; // the central settings editor (on a PC, or the phone version)
   // Shown when settings.ini doesn't have the key yet (it was installed by an older version). Features start off.
-  var DEFAULTS = { theme: 'dark', clock: '12', hideSeconds: '4', logo: '1', wbLayout: 'auto', cycle: '15', phones: '1', sheetRefresh: '5', radius: '100', radarLoop: '1', dailyReloadHour: '3', radarHours: '1', airmets: '1', sigmets: '1', convective: '1', station: 'auto', autoUpdate: '1', decoded: 'auto', advList: 'auto', advSpeed: '20',
+  var DEFAULTS = { theme: 'dark', clock: '12', hideSeconds: '4', logo: '1', qr: '1', wbLayout: 'auto', cycle: '15', phones: '1', sheetRefresh: '5', radius: '100', radarLoop: '1', dailyReloadHour: '3', radarHours: '1', airmets: '1', sigmets: '1', convective: '1', station: 'auto', autoUpdate: '1', decoded: 'auto', advList: 'auto', advSpeed: '20',
     limits: '0', limSets: '1', runway: 'off', sun: 'off', pireps: '0', barbs: '0', trend: '0', tfrs: '1', catChange: '0', metarAge: '1', aloft: '0', oldObs: '1', stations: '0', quiet: '1', quietFrom: '00:00', quietTo: '05:00', quietMode: 'dim', acDetail: 'off', diagCorner: '0' };
   Object.keys(LIM_DEFAULTS).forEach(function (k) { DEFAULTS[k] = LIM_DEFAULTS[k]; });
   // Thunderstorm alert, sunset countdown, high density altitude, maintenance countdown (all off to start)

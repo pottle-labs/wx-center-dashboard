@@ -76,6 +76,14 @@ html[data-theme="light"] .warn { background: rgba(245,184,65,.22); border-color:
 .chips .left { margin-left: 8px; width: 64px; padding: 0; background: none; font-family: var(--font-data); font-size: 22px; font-weight: 400; color: var(--muted); }
 .src { text-align: right; font-size: 22px; color: var(--muted); line-height: 1.35; }
 .src .stale { color: var(--warn); }
+/* QR code for the phone dashboard (qr=<link>, set by the shell; on unless switched off): it stands taller than the 60 px
+   header row on purpose (negative margins), so the header and everything under it stay where they were */
+.qr { margin: -22px 0; padding: 7px; border-radius: 8px; background: #fff; line-height: 0; }
+.qr[hidden], #qrLabel[hidden] { display: none; }
+.qr svg { display: block; width: 90px; height: 90px; }
+#qrLabel { color: var(--fg); font-weight: 600; }
+.has-qr #srcName { display: none; } /* the label takes the sheet name's line */
+.top .r .qr { margin-left: -8px; }
 .src .bad { color: var(--crit); }
 
 /* Sections */
@@ -274,7 +282,8 @@ html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
       <div class="base" id="base">SGU</div><div class="title">Weight &amp; Balance</div><div class="mock" id="mock" hidden>MOCK DATA</div></div>
     <div class="r">
       <div class="chips" id="chips"></div>
-      <div class="src"><div id="srcName">Weight and Balance Sheet › SGU tab</div><div id="srcTime">Loading…</div></div>
+      <div class="src"><div id="qrLabel" hidden>Scan for mobile dashboard</div><div id="srcName">Weight and Balance Sheet › SGU tab</div><div id="srcTime">Loading…</div></div>
+      <div class="qr" id="qr" hidden></div>
     </div>
   </div>
   <div id="body" style="display:flex;flex-direction:column;gap:22px;flex:1 1 auto;min-height:0;overflow:hidden"></div>
@@ -283,6 +292,7 @@ html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
 </div>
 
 <script src="sheet.js"></script>
+<script src="qrcode.js"></script>
 <script>
 (function () {
   'use strict';
@@ -315,6 +325,15 @@ html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
   var WEB = !!window.WXC_WEB, MOBILE = WEB && innerWidth < 760, WEB_RELAY = WEB ? window.WXC_WEB.relay || '' : '';
   if (WEB) { CFG.phones = false; CFG.logo = 'none'; CFG.acDetail = ''; }
   if (MOBILE) { CFG.layout = 'cards'; document.documentElement.classList.add('mobile'); }
+  // QR code to this base's phone dashboard (TVs only; the shell passes the link unless the setting is off)
+  if (!WEB && /^https:\/\//.test(q.get('qr') || '') && window.qrcode) {
+    try {
+      var qrc = qrcode(0, 'M'); qrc.addData(q.get('qr')); qrc.make();
+      document.getElementById('qr').innerHTML = qrc.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+      document.getElementById('qr').hidden = false; document.getElementById('qrLabel').hidden = false;
+      document.documentElement.classList.add('has-qr');
+    } catch (e) {}
+  }
 
   var FOR = [360, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
   var HDG = ['N', '30', '60', 'E', '120', '150', 'S', '210', '240', 'W', '300', '330'];
