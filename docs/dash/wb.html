@@ -158,6 +158,7 @@ html[data-theme="light"] .warn { background: rgba(245,184,65,.22); border-color:
 .pc .row1 > .badges { flex-shrink: 0; min-width: 0; overflow: hidden; max-width: calc(100% - 176px * var(--k)); } /* a 6-character tail at 44 px, plus its gap */
 .c3 .pc .row1 > .badges { max-width: calc(100% - 152px * var(--k)); }                              /* the same at 38 px */
 .pc .badges .stat { flex: 0 1 auto; min-width: 4em; }
+.pc .badges .stat.short { flex-shrink: 0; min-width: 0; } /* a short word ("Down"): fits its text, never wider (4em was wider than it) */
 .pc .badges .stat.mtb { flex-shrink: 0; } /* the maintenance badge is short; the status badge gives way */
 /* Maintenance countdown (feature maint): cards' bar row, and the board's column (after STATUS) */
 .pc .mt { display: flex; align-items: center; gap: calc(12px * var(--k)); font-size: calc(16px * var(--k)); line-height: 1; color: var(--muted); white-space: nowrap; }
@@ -604,7 +605,7 @@ html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
   function statusBadge(p, showOk) {
     var s = planeStatus(p);
     if (!s.kind || (s.kind === 'ok' && !showOk)) return '';
-    return '<span class="stat ' + s.kind + '" title="' + esc(s.text) + '">' + esc(s.text) + '</span>';
+    return '<span class="stat ' + s.kind + (s.text.length <= 6 ? ' short' : '') + '" title="' + esc(s.text) + '">' + esc(s.text) + '</span>';
   }
   // Maintenance countdown (feature maint): p.maint = the inspection due first ({ name: '100-hr' | '50-hr', every, left },
   // from nextInspection). Yellow at maintWarn hours left or less, red at maintCrit or less (and when overdue).
