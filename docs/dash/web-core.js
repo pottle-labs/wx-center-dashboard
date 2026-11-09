@@ -142,6 +142,7 @@
 
   window.WXCWeb = {
     ready: function () { return loadCentral().then(function () { applyPushes(); applyInstallDefaults(); return true; }); },
+    firstVisit: firstVisit, // nothing was stored when this page loaded (dash.html's first-start screen)
     base: base,
     setBase: function (b) { fresh(); store.values.tab = String(b).toUpperCase(); write(store); applyPushes(); },
     effective: effective,

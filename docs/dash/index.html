@@ -46,6 +46,46 @@ iframe { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: var(
 .note { margin: auto; max-width: 520px; padding: 24px; text-align: center; color: var(--muted); font-size: 18px; }
 .note b { display: block; color: var(--fg); font-size: 22px; margin-bottom: 8px; }
 @media (max-width: 380px) { header h1 { display: none; } }
+/* "Add to Home Screen" banner under the header (phones and tablets, not from the Home Screen app itself) */
+.install { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 9px 8px 9px 12px; border-bottom: 1px solid var(--line); background: #13314D; color: #E8EEF5; font-size: 15px; line-height: 1.3; }
+html.light .install { background: #DCEBF8; color: #0F1A26; }
+.install[hidden] { display: none; }
+.install div { flex: 1 1 auto; min-width: 0; }
+.install div b { font-weight: 600; }
+.install div .t { display: block; font-size: 16px; }
+.install button { flex: 0 0 auto; height: 34px; border-radius: 8px; font: 600 15px inherit; font-family: inherit; cursor: pointer; }
+.install .go { padding: 0 14px; border: 0; background: var(--accent); color: var(--bg); }
+html.light .install .go { color: #fff; }
+.install .x { width: 34px; padding: 0; border: 0; background: none; color: inherit; opacity: .75; font-size: 18px; }
+/* First visit: pick a base (full screen), then a 3-step tour of the header */
+.welcome { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; padding: calc(28px + env(safe-area-inset-top)) 20px calc(16px + env(safe-area-inset-bottom)); background: var(--bg); overflow: auto; }
+.welcome[hidden] { display: none; }
+.welcome img { width: 60px; height: 60px; border-radius: 14px; }
+.welcome h2 { margin: 12px 0 4px; font-size: 29px; font-weight: 700; }
+.welcome p { margin: 0 0 14px; color: var(--muted); font-size: 17px; }
+.welcome .near { display: flex; align-items: center; gap: 8px; width: 100%; height: 44px; padding: 0 14px; margin-bottom: 12px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--accent); font: 600 17px inherit; font-family: inherit; text-align: left; cursor: pointer; }
+.welcome .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.welcome .grid button { padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--panel); color: var(--fg); text-align: left; font-family: inherit; cursor: pointer; }
+.welcome .grid b { display: block; font-size: 21px; font-weight: 700; letter-spacing: .02em; }
+.welcome .grid span { display: block; color: var(--muted); font-size: 14px; }
+.welcome .grid button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--panel)); }
+.welcome .go { flex: 0 0 auto; margin-top: auto; height: 50px; border: 0; border-radius: 12px; background: var(--accent); color: var(--bg); font: 700 19px inherit; font-family: inherit; cursor: pointer; }
+html.light .welcome .go { color: #fff; }
+.welcome .go:disabled { opacity: .45; cursor: default; }
+.welcome small { display: block; margin-top: 8px; text-align: center; color: var(--muted); font-size: 14px; }
+.tour { position: fixed; inset: 0; z-index: 20; }
+.tour[hidden] { display: none; }
+.tour .ring { position: absolute; border-radius: 10px; box-shadow: 0 0 0 3px #7CC4FF, 0 0 0 3000px rgba(4, 8, 12, .72); transition: all .2s; }
+.tour .tip { position: absolute; left: 16px; right: 16px; max-width: 420px; padding: 14px 16px; border-radius: 14px; background: #F4F8FC; color: #0F1A26; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+.tour .tip::before { content: ''; position: absolute; top: -8px; left: var(--ax, 40px); width: 16px; height: 16px; background: #F4F8FC; transform: rotate(45deg); }
+.tour .tip b { display: block; font-size: 19px; margin-bottom: 3px; }
+.tour .tip p { margin: 0 0 12px; font-size: 16px; color: #33475B; }
+.tour .foot { display: flex; align-items: center; gap: 10px; }
+.tour .dots { flex: 1; display: flex; gap: 6px; } .tour .dots i { width: 7px; height: 7px; border-radius: 50%; background: #B8C4D2; } .tour .dots i.on { background: #0B6CB5; }
+.tour button { height: 36px; padding: 0 16px; border-radius: 9px; border: 0; font: 700 16px inherit; font-family: inherit; cursor: pointer; }
+.tour .skip { background: none; color: #5E6E82; padding: 0 6px; }
+.tour .next { background: #0B6CB5; color: #fff; }
+.gearpic { display: inline-flex; width: 1.5em; height: 1.4em; align-items: center; justify-content: center; border: 1px solid #5E6E82; border-radius: 6px; font-size: .95em; vertical-align: -.25em; }
 </style>
 </head>
 <body>
@@ -55,8 +95,61 @@ iframe { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: var(
   <span class="seg" role="group" aria-label="Page"><button type="button" data-v="wb">Aircraft</button><button type="button" data-v="weather">Weather</button></span>
   <button type="button" class="gear" id="gear" aria-label="Settings" title="Settings">⚙</button>
 </header>
+<div class="install" id="install" role="region" aria-label="Add to Home Screen" hidden></div>
 <iframe id="page" title="Dashboard page"></iframe>
 <iframe id="settings" title="Settings" hidden></iframe>
+<div class="welcome" id="welcome" role="dialog" aria-label="Choose a base" hidden></div>
+<div class="tour" id="tour" role="dialog" aria-label="Tour" hidden><div class="ring" id="tourRing"></div><div class="tip" id="tourTip"></div></div>
+<script>
+// "Add to Home Screen" banner: on a phone or tablet in the browser, says how to add the dashboard (it then opens full
+// screen like an app and keeps its settings: Safari can clear a website's saved data after about a week unvisited).
+// Android: the browser's own install prompt behind an Install button when it offers one; iPhone/iPad: the steps for
+// that browser and iOS version (the same steps as Central Settings' banner, phone.js). ✕ hides it for 14 days.
+(function () {
+  'use strict';
+  var KEY = 'wxc-web-install-x', DAYS = 14, evt = null;
+  var ua = navigator.userAgent;
+  var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && 'ontouchend' in document);
+  var mobile = ios || /Android/i.test(ua);
+  function standalone() { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+  function dismissed() { try { return Date.now() - (+localStorage.getItem(KEY) || 0) < DAYS * 864e5; } catch (e) { return false; } }
+  function icon(kind) {
+    var p = kind === 'menu' ? '<path d="M3 5h14M3 10h14M3 15h9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
+      : kind === 'dots' ? '<circle cx="4" cy="10" r="1.8" fill="currentColor"/><circle cx="10" cy="10" r="1.8" fill="currentColor"/><circle cx="16" cy="10" r="1.8" fill="currentColor"/>'
+      : '<path d="M10 2.5v10M6.5 6 10 2.5 13.5 6M7 8.5H5.5A1.5 1.5 0 0 0 4 10v6.5A1.5 1.5 0 0 0 5.5 18h9a1.5 1.5 0 0 0 1.5-1.5V10a1.5 1.5 0 0 0-1.5-1.5H13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>';
+    return '<span aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;width:1.55em;height:1.55em;margin:0 .1em;vertical-align:-.4em;border:1px solid currentColor;border-radius:50%;opacity:.85"><svg viewBox="0 0 20 20" width="1em" height="1em">' + p + '</svg></span>';
+  }
+  // Which browser and version on iPhone/iPad. Safari froze the iOS version in its user agent at 18.x from iOS 26 on,
+  // but its Version/NN matches the iOS major version; Chrome, Edge and Firefox report the real iOS version.
+  function iosHow() {
+    var os = /OS (\d+)_(\d+)/.exec(ua), osv = os ? +os[1] + +os[2] / 100 : 0, add = ', then <b>Add to Home Screen</b>.';
+    var other = /CriOS/.test(ua) ? 'Chrome' : /EdgiOS/.test(ua) ? 'Edge' : /FxiOS/.test(ua) ? 'Firefox' : '';
+    if (other) return osv && osv < 16.04 ? 'Open this page in <b>Safari</b> to add it to your Home Screen.'
+      : 'Tap <b>Share</b> ' + icon('share') + ' in ' + other + '’s address bar or menu' + add;
+    var v = /Version\/(\d+)/.exec(ua), ver = v ? +v[1] : 0;
+    if (ver >= 27) return 'Tap ' + icon('menu') + ' left of the address bar, then <b>Share</b>' + add;
+    if (ver === 26) return 'Tap ' + icon('dots') + ' next to the address bar, then <b>Share</b>' + add;
+    if (ver) return 'Tap <b>Share</b> ' + icon('share') + ' in Safari’s toolbar' + add;
+    return 'Tap <b>Share</b> ' + icon('share') + ' (or <b>•••</b> first)' + add;
+  }
+  function welcoming() { try { return /^(new|tour)$/.test(localStorage.getItem('wxc-web-welcome') || ''); } catch (e) { return false; } }
+  function draw() {
+    var el = document.getElementById('install');
+    if (!mobile || standalone() || dismissed() || welcoming()) { el.hidden = true; return; } // not over the first-start screens
+    var how = ios ? iosHow() : evt ? 'It opens full screen, like an app.' : 'In the browser menu <span aria-hidden="true">(⋮)</span>, choose <b>Add to Home screen</b> or <b>Install app</b>.';
+    el.innerHTML = '<div><b class="t">Add WX Dashboard to your Home Screen</b>' + how + '</div>' +
+      (evt ? '<button type="button" class="go" id="installGo">Install</button>' : '') +
+      '<button type="button" class="x" id="installX" aria-label="Hide for now" title="Hide for now">✕</button>';
+    el.hidden = false;
+    if (evt) document.getElementById('installGo').addEventListener('click', function () { var e = evt; e.prompt(); e.userChoice.then(function () { evt = null; draw(); }); });
+    document.getElementById('installX').addEventListener('click', function () { try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {} el.hidden = true; });
+  }
+  addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); if (!ios) { evt = e; draw(); } });
+  addEventListener('appinstalled', function () { evt = null; document.getElementById('install').hidden = true; });
+  window.wxcInstallDraw = draw; // again when the first-start screens finish
+  draw();
+})();
+</script>
 <script src="sheet.js"></script>
 <script src="web-core.js"></script>
 <script>
@@ -69,6 +162,13 @@ iframe { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: var(
   // A link can pick the base and page (?base=SGU&view=weather); otherwise the last ones used on this phone. The base
   // is this phone's Base setting (the same one the settings window shows).
   var view = q.get('view') || get('view', 'wb');
+  // First-start screens (wxc-web-welcome): 'new' = pick a base, then the tour; 'tour' = the tour; 'done'. Only a phone
+  // that had nothing stored gets them; one that used the dashboard before is marked done. A link with ?base= (the TVs'
+  // QR code) already picked the base, so it goes straight to the tour.
+  var welcome = get('welcome', '');
+  if (!welcome) { welcome = WXCWeb.firstVisit && !get('base', '') ? 'new' : 'done'; put('welcome', welcome); }
+  if (welcome === 'new' && q.get('base')) { welcome = 'tour'; put('welcome', welcome); }
+  if (window.wxcInstallDraw) wxcInstallDraw(); // the install banner waits until the first-start screens are done
   if (q.get('base')) WXCWeb.setBase(q.get('base'));
   else if (get('base', '') && (function () { try { return !localStorage.getItem('wxc-web-settings'); } catch (e) { return false; } })()) WXCWeb.setBase(get('base', '')); // picked before there were settings
   if (!window.WXC_WEB || !WXC_WEB.relay) {
@@ -107,7 +207,75 @@ iframe { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: var(
     if (names.indexOf(b) < 0) names.push(b);
     $('base').innerHTML = names.map(function (n) { return '<option value="' + n + '"' + (n === b ? ' selected' : '') + '>' + n + '</option>'; }).join('');
   }
-  Promise.all([WXSheet.tabs(), WXCWeb.ready()]).then(function (r) { tabs = r[0]; drawBases(); show(); });
+  Promise.all([WXSheet.tabs(), WXCWeb.ready()]).then(function (r) {
+    tabs = r[0]; drawBases();
+    if (welcome === 'new') { look(); pickBase(); return; } // the page loads once a base is picked
+    show();
+    if (welcome === 'tour') setTimeout(function () { tour(0); }, 400);
+  });
+
+  // ---- First visit: pick a base ----
+  function pickBase() {
+    var el = $('welcome'), chosen = '', geo = !!navigator.geolocation;
+    el.innerHTML = '<img src="../icon-192.png" alt=""><h2>Welcome to WX Dashboard</h2><p>Which base do you fly from? You can change it anytime.</p>' +
+      (geo ? '<button type="button" class="near" id="wNear">◎ Use my location to pick the nearest</button>' : '') +
+      '<div class="grid" id="wGrid">' + tabs.map(function (t) {
+        var c = WXSheet.code(t.name), p = WXSheet.place(c);
+        return '<button type="button" data-c="' + c + '" aria-pressed="false"><b>' + c + '</b><span>' + (p ? p.city : '&nbsp;') + '</span></button>';
+      }).join('') + '</div><button type="button" class="go" id="wGo" disabled>Choose a base</button><small>Saved on this phone only.</small>';
+    el.hidden = false;
+    function choose(c) {
+      chosen = c;
+      Array.prototype.forEach.call(el.querySelectorAll('.grid button'), function (b) { b.setAttribute('aria-pressed', String(b.dataset.c === c)); });
+      $('wGo').disabled = false; $('wGo').textContent = 'Continue with ' + c;
+    }
+    $('wGrid').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) choose(b.dataset.c); });
+    if (geo) $('wNear').addEventListener('click', function () {
+      var btn = this; btn.textContent = '◎ Finding you…';
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        var c = WXSheet.nearest(tabs, pos.coords.latitude, pos.coords.longitude);
+        if (!c) { btn.textContent = '◎ No base location known yet; pick one below'; return; }
+        choose(c); btn.textContent = '◎ Nearest base: ' + c;
+        var b = el.querySelector('.grid button[data-c="' + c + '"]'); if (b && b.scrollIntoView) b.scrollIntoView({ block: 'nearest' });
+      }, function () { btn.textContent = '◎ Couldn’t get your location; pick one below'; }, { timeout: 15000, maximumAge: 600000 });
+    });
+    $('wGo').addEventListener('click', function () {
+      if (!chosen) return;
+      WXCWeb.setBase(chosen); drawBases(); show();
+      el.hidden = true; el.innerHTML = '';
+      welcome = 'tour'; put('welcome', welcome);
+      setTimeout(function () { tour(0); }, 400);
+    });
+  }
+
+  // ---- The tour: the base picker, the Aircraft / Weather switch, the gear ----
+  function tour(i) {
+    var steps = [
+      ['base', 'Your base', 'You’re seeing ' + WXCWeb.base() + '. Tap here to look at another base anytime.'],
+      ['seg', 'Aircraft or Weather', 'Switch between weight &amp; balance (aircraft and instructor weights) and the weather map for the base.'],
+      ['gear', 'Settings', 'Tap the gear <span class="gearpic" aria-hidden="true">⚙</span> to change your base, light or dark look, 12 or 24-hour clock, and what the map shows. Settings stay on this phone.']
+    ];
+    var el = $('tour');
+    if (i >= steps.length) { el.hidden = true; welcome = 'done'; put('welcome', welcome); removeEventListener('resize', place); if (window.wxcInstallDraw) wxcInstallDraw(); return; }
+    var s = steps[i], last = i === steps.length - 1;
+    $('tourTip').innerHTML = '<b>' + s[1] + '</b><p>' + s[2] + '</p><div class="foot"><span class="dots">' +
+      steps.map(function (x, n) { return '<i' + (n === i ? ' class="on"' : '') + '></i>'; }).join('') + '</span>' +
+      (last ? '' : '<button type="button" class="skip" id="tourSkip">Skip</button>') + '<button type="button" class="next" id="tourNext">' + (last ? 'Got it' : 'Next') + '</button></div>';
+    el.hidden = false; el.dataset.step = i;
+    place();
+    $('tourNext').addEventListener('click', function () { tour(i + 1); });
+    if ($('tourSkip')) $('tourSkip').addEventListener('click', function () { tour(steps.length); });
+    removeEventListener('resize', place); addEventListener('resize', place);
+  }
+  function place() { // the ring around this step's control, the tip under it with its arrow pointing at it
+    var el = $('tour'); if (el.hidden) return;
+    var t = [$('base'), document.querySelector('.seg'), $('gear')][+el.dataset.step].getBoundingClientRect(), pad = 4;
+    var ring = $('tourRing'), tip = $('tourTip');
+    ring.style.left = (t.left - pad) + 'px'; ring.style.top = (t.top - pad) + 'px'; ring.style.width = (t.width + pad * 2) + 'px'; ring.style.height = (t.height + pad * 2) + 'px';
+    tip.style.top = (t.bottom + pad + 14) + 'px';
+    var tl = tip.getBoundingClientRect().left, ax = t.left + t.width / 2 - tl - 8;
+    tip.style.setProperty('--ax', Math.max(14, Math.min(tip.offsetWidth - 30, ax)) + 'px');
+  }
   // Appearance Auto follows the phone's light / dark mode, also when the phone switches while this is open
   if (window.matchMedia) {
     var mq = matchMedia('(prefers-color-scheme: light)'), onMode = function () { if (WXCWeb.effective().theme === 'auto' && $('settings').hidden) show(); };

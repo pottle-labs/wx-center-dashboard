@@ -190,6 +190,37 @@ button.quiet:hover { color: var(--crit); background: none; }
   footer button { flex: 1 1 auto; }
   .people { grid-template-columns: 1fr auto; }
 }
+/* First-start screen of a new install (?welcome=1, opened by the app): pick the base, then where the settings gear is */
+html.welcoming body > header, html.welcoming body > main, html.welcoming body > footer { display: none; }
+#welcome { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+#welcome[hidden] { display: none; }
+.wl-step { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.wl-step[hidden] { display: none; }
+.wl-body { flex: 1 1 auto; overflow: auto; padding: 26px 28px 16px; }
+.wl-body h1 { font-size: 30px; }
+.wl-body > p { margin: 6px 0 18px; color: var(--muted); font-size: 18px; }
+.wl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.wl-grid button { height: auto; padding: 10px 14px; text-align: left; border-radius: 10px; background: var(--panel); }
+.wl-grid button b { display: block; font-size: 24px; font-weight: 700; letter-spacing: .02em; }
+.wl-grid button span { display: block; color: var(--muted); font-size: 15px; font-weight: 500; }
+.wl-grid button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--panel)); }
+.wl-pic { display: block; width: 100%; height: auto; margin: 4px 0 18px; }
+.wl-list { margin: 0; padding-left: 26px; font-size: 19px; line-height: 1.4; } .wl-list li { margin: 0 0 10px; }
+.wl-keys { margin: 14px 0 0; padding: 12px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--fg-2); font-size: 16px; }
+kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px solid var(--line-strong); background: var(--bg); font: 500 14px var(--font-data); }
+.wl-h { margin: 18px 0 8px; font-size: 15px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); }
+.wl-h:first-of-type { margin-top: 4px; }
+.wl-opts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; }
+.wl-opts button { height: auto; min-height: 64px; padding: 10px 14px; text-align: left; border-radius: 10px; background: var(--panel); }
+.wl-opts button b { display: block; font-size: 20px; font-weight: 700; }
+.wl-opts button span { display: block; color: var(--muted); font-size: 15px; font-weight: 500; }
+.wl-opts button svg { display: block; margin: 2px 0 6px; }
+.wl-opts button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--panel)); }
+.wl-opts button:disabled { opacity: .55; cursor: default; }
+.wl-opts button:disabled[aria-pressed="true"] { opacity: 1; }
+.wl-small { margin: 16px 0 0; color: var(--muted); font-size: 15px; }
+.wl-lock { margin-left: 8px; padding: 1px 7px; border-radius: 6px; border: 1px solid var(--line-strong); color: var(--muted); font-size: 12px; letter-spacing: .5px; text-transform: none; vertical-align: 2px; }
+.wl-dots { flex: 1 1 auto; display: flex; gap: 7px; } .wl-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line-strong); } .wl-dots i.on { background: var(--accent); }
 </style>
 </head>
 <body>
@@ -1199,6 +1230,158 @@ button.quiet:hover { color: var(--crit); background: none; }
   $('quit').addEventListener('click', function () { if (confirm('Close the dashboard on both screens?')) host.send('quit'); });
   addEventListener('keydown', function (e) { if (e.key === 'Escape') host.send('close'); });
   if (CENTRAL) startCentral();
+})();
+</script>
+<section id="welcome" hidden>
+  <div class="wl-step" id="wl1">
+    <div class="wl-body">
+      <h1>Welcome to WX Center Dashboard</h1>
+      <p>Which base is this dashboard for? It shows that base’s aircraft and instructors, and its airport’s weather. You can change it later in settings.</p>
+      <div class="wl-grid" id="wlBases"><span class="wl-loading">Loading bases…</span></div>
+    </div>
+    <footer><span class="wl-dots"><i class="on"></i><i></i><i></i></span>
+      <button type="button" class="quiet" id="wlKeep">Skip</button>
+      <button type="button" class="primary" id="wlNext" disabled>Choose a base</button></footer>
+  </div>
+  <div class="wl-step" id="wlLook" hidden>
+    <div class="wl-body">
+      <h1>Screens and look</h1>
+      <p id="wlScrNote">Which TV shows what, and how the dashboard looks.</p>
+      <h3 class="wl-h" id="wlScrHead">Weight &amp; balance screen</h3>
+      <div class="wl-opts" id="wlScr"></div>
+      <h3 class="wl-h">Appearance</h3>
+      <div class="wl-opts" id="wlTheme">
+        <button type="button" data-v="auto"><b>Auto</b><span>Light from sunrise to sunset at the base</span></button>
+        <button type="button" data-v="light"><b>Light</b><span>Suits a bright room</span></button>
+        <button type="button" data-v="dark"><b>Dark</b><span>Easier on the eyes in a dim room</span></button>
+      </div>
+      <h3 class="wl-h">Local time format</h3>
+      <div class="wl-opts" id="wlClock">
+        <button type="button" data-v="12"><b>12-hour</b><span>2:05 PM</span></button>
+        <button type="button" data-v="24"><b>24-hour</b><span>14:05</span></button>
+      </div>
+      <p class="wl-small">Zulu times are always 24-hour. All of these can be changed later in settings.</p>
+    </div>
+    <footer><span class="wl-dots"><i></i><i class="on"></i><i></i></span>
+      <button type="button" id="wlBack1">Back</button>
+      <button type="button" class="primary" id="wlNext2">Next</button></footer>
+  </div>
+  <div class="wl-step" id="wl2" hidden>
+    <div class="wl-body">
+      <h1>Finding the settings later</h1>
+      <p>The dashboard hides its controls so the screens stay clean.</p>
+      <svg class="wl-pic" viewBox="0 0 640 250" role="img" aria-label="A screen with the settings gear in its bottom-left corner, which appears when the mouse reaches the screen's edge">
+        <rect x="10" y="10" width="420" height="236" rx="10" fill="var(--panel)" stroke="var(--line-strong)" stroke-width="2"/>
+        <rect x="18" y="18" width="404" height="220" rx="6" fill="none" stroke="var(--accent)" stroke-width="3" stroke-dasharray="9 7"/>
+        <rect x="40" y="40" width="170" height="16" rx="4" fill="var(--line-strong)"/><rect x="40" y="70" width="110" height="58" rx="6" fill="var(--line)"/><rect x="160" y="70" width="110" height="58" rx="6" fill="var(--line)"/><rect x="280" y="70" width="110" height="58" rx="6" fill="var(--line)"/>
+        <rect x="40" y="140" width="230" height="10" rx="4" fill="var(--line)"/><rect x="40" y="158" width="180" height="10" rx="4" fill="var(--line)"/>
+        <circle cx="52" cy="204" r="22" fill="var(--bg)" stroke="var(--accent)" stroke-width="2.5"/>
+        <g transform="translate(52 204)" fill="none" stroke="var(--fg)" stroke-width="2.6"><circle r="6"/><path d="M0-12v4M0 8v4M-12 0h4M8 0h4M-8.5-8.5l2.8 2.8M5.7 5.7l2.8 2.8M-8.5 8.5l2.8-2.8M5.7-5.7l2.8-2.8" stroke-linecap="round"/></g>
+        <path d="M352 132 l0 30 l8-7 l6 13 l6-3 l-6-12 l11-1 z" fill="var(--fg)" stroke="var(--bg)" stroke-width="1.5"/>
+        <path d="M384 148 h26" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" marker-end="url(#wlArrow)"/>
+        <defs><marker id="wlArrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--accent)"/></marker></defs>
+        <text x="456" y="88" fill="var(--fg)" font-size="19" font-weight="600" font-family="Barlow Semi Condensed, Segoe UI, sans-serif">1. Mouse to any edge</text>
+        <text x="456" y="112" fill="var(--muted)" font-size="16" font-family="Barlow Semi Condensed, Segoe UI, sans-serif">of the screens</text>
+        <text x="456" y="190" fill="var(--fg)" font-size="19" font-weight="600" font-family="Barlow Semi Condensed, Segoe UI, sans-serif">2. Click the gear</text>
+        <text x="456" y="214" fill="var(--muted)" font-size="16" font-family="Barlow Semi Condensed, Segoe UI, sans-serif">bottom-left corner</text>
+        <path d="M450 200 H90" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 5"/>
+      </svg>
+      <ol class="wl-list">
+        <li>Move the mouse to <b>any outer edge</b> of the screens.</li>
+        <li>A <b>gear</b> appears in the <b>bottom-left corner</b>. Click it to open the settings, where you can change the base, the light or dark look, the clock and what the screens show.</li>
+      </ol>
+      <p class="wl-keys">Keys: <kbd>F11</kbd> switches between full screen and a window. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Q</kbd> closes the dashboard.</p>
+    </div>
+    <footer><span class="wl-dots"><i></i><i></i><i class="on"></i></span>
+      <button type="button" id="wlBack">Back</button>
+      <button type="button" class="primary" id="wlDone">Done</button></footer>
+  </div>
+</section>
+<script>
+// The first-start screen (settings.html?welcome=1): the app opens it on a new install (settings.ini welcome=1).
+// 1 the base, 2 screens and look (which TV shows W&B, or with one screen what it shows; appearance; time format),
+// 3 where the settings gear is. Done sends them with finishWelcome (Skip on step 1 keeps the current base), which also
+// sets welcome=0. Settings the central settings set for this dashboard are shown locked.
+(function () {
+  'use strict';
+  if (new URLSearchParams(location.search).get('welcome') !== '1') return;
+  var $ = function (id) { return document.getElementById(id); }, host = window.dashHost, chosen = '', current = 'SGU';
+  if (!host || !host.call) return;
+  document.documentElement.classList.add('welcoming');
+  document.title = 'WX Center Dashboard Setup';
+  $('welcome').hidden = false;
+  var look = { theme: 'dark', clock: '12', wbScreen: 'left', singleScreen: 'split' }, scrKey = 'wbScreen', managed = [];
+  var startLight = document.documentElement.dataset.theme === 'light';
+  function pick(c) {
+    chosen = c;
+    Array.prototype.forEach.call($('wlBases').querySelectorAll('button'), function (b) { b.setAttribute('aria-pressed', String(b.dataset.c === c)); });
+    $('wlNext').disabled = false; $('wlNext').textContent = 'Continue with ' + c;
+  }
+  // Small pictures of the two TVs for the W&B screen choice
+  function tvs(left, right) {
+    function tv(x, label, on) { return '<rect x="' + x + '" y="2" width="58" height="34" rx="4" fill="' + (on ? 'var(--accent)' : 'var(--line)') + '" opacity="' + (on ? '.9' : '1') + '"/><text x="' + (x + 29) + '" y="24" text-anchor="middle" font-size="12" font-weight="700" font-family="Barlow Semi Condensed, Segoe UI, sans-serif" fill="' + (on ? 'var(--bg)' : 'var(--fg-2)') + '">' + label + '</text>'; }
+    return '<svg width="128" height="40" viewBox="0 0 128 40" aria-hidden="true">' + tv(2, left, left === 'W&amp;B') + tv(68, right, right === 'W&amp;B') + '</svg>';
+  }
+  function opts(id, key) { // a row of choice buttons for one setting
+    Array.prototype.forEach.call($(id).querySelectorAll('button'), function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.v === look[key]));
+      b.disabled = managed.indexOf(key) >= 0;
+    });
+  }
+  function drawLook() {
+    opts('wlScr', scrKey); opts('wlTheme', 'theme'); opts('wlClock', 'clock');
+    // Show the chosen appearance on this window right away (Auto: what the app showed when it opened)
+    if (look.theme === 'light' || (look.theme === 'auto' && startLight)) document.documentElement.dataset.theme = 'light';
+    else delete document.documentElement.dataset.theme;
+  }
+  [['wlScr', function () { return scrKey; }], ['wlTheme', function () { return 'theme'; }], ['wlClock', function () { return 'clock'; }]].forEach(function (g) {
+    $(g[0]).addEventListener('click', function (e) { var b = e.target.closest('button'); if (b && !b.disabled) { look[g[1]()] = b.dataset.v; drawLook(); } });
+  });
+  Promise.all([host.call('getSettings').catch(function () { return {}; }), host.call('getDisplayInfo').catch(function () { return {}; }), host.call('getCentralStatus').catch(function () { return {}; })]).then(function (r) {
+    var s = r[0] || {}, screens = (r[1] && r[1].screens) || [];
+    Object.keys(look).forEach(function (k) { if (s[k]) look[k] = String(s[k]).toLowerCase(); });
+    if (!/^(auto|light|dark)$/.test(look.theme)) look.theme = 'dark';
+    if (look.clock !== '24') look.clock = '12';
+    managed = (r[2] && r[2].central && r[2].managed) || [];
+    if (screens.length === 1) { // one screen: what it shows (W&B left/right matters once a second TV is connected)
+      scrKey = 'singleScreen';
+      $('wlScrHead').innerHTML = 'What the screen shows <span class="wl-lock">1 screen found</span>';
+      $('wlScr').innerHTML = '<button type="button" data-v="split"><b>Both pages</b><span>Side by side</span></button>' +
+        '<button type="button" data-v="wb"><b>Weight &amp; balance</b><span>Only</span></button><button type="button" data-v="weather"><b>Weather</b><span>Only</span></button>';
+      if (!/^(split|wb|weather)$/.test(look.singleScreen)) look.singleScreen = 'split';
+    } else {
+      $('wlScrHead').innerHTML = 'Weight &amp; balance screen' + (screens.length > 2 ? ' <span class="wl-lock">' + screens.length + ' screens: the left-most two are used</span>' : '');
+      $('wlScr').innerHTML = '<button type="button" data-v="left">' + tvs('W&amp;B', 'Weather') + '<b>Left TV</b><span>Weather on the right</span></button>' +
+        '<button type="button" data-v="right">' + tvs('Weather', 'W&amp;B') + '<b>Right TV</b><span>Weather on the left</span></button>';
+      if (look.wbScreen !== 'right') look.wbScreen = 'left';
+    }
+    var heads = document.querySelectorAll('#wlLook .wl-h');
+    if (managed.indexOf('theme') >= 0) heads[1].insertAdjacentHTML('beforeend', '<span class="wl-lock">Set by central settings</span>');
+    if (managed.indexOf('clock') >= 0) heads[2].insertAdjacentHTML('beforeend', '<span class="wl-lock">Set by central settings</span>');
+    drawLook();
+  });
+  Promise.all([WXSheet.tabs(), host.call('getSettings').catch(function () { return {}; })]).then(function (r) {
+    current = String((r[1] && r[1].tab) || 'SGU').toUpperCase();
+    $('wlKeep').textContent = 'Skip (keep ' + current + ')';
+    $('wlBases').innerHTML = r[0].map(function (t) {
+      var c = WXSheet.code(t.name), p = WXSheet.place(c);
+      return '<button type="button" data-c="' + c + '" aria-pressed="false"><b>' + c + '</b><span>' + (p ? p.city : '&nbsp;') + '</span></button>';
+    }).join('');
+  });
+  $('wlBases').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) pick(b.dataset.c); });
+  $('wlBases').addEventListener('dblclick', function (e) { var b = e.target.closest('button'); if (b) { pick(b.dataset.c); $('wlNext').click(); } });
+  function step(n) { $('wl1').hidden = n !== 1; $('wlLook').hidden = n !== 2; $('wl2').hidden = n !== 3; }
+  $('wlNext').addEventListener('click', function () { if (chosen) step(2); });
+  $('wlKeep').addEventListener('click', function () { chosen = ''; step(2); });
+  $('wlBack1').addEventListener('click', function () { step(1); });
+  $('wlNext2').addEventListener('click', function () { step(3); });
+  $('wlBack').addEventListener('click', function () { step(2); });
+  $('wlDone').addEventListener('click', function () {
+    $('wlDone').disabled = true;
+    var v = { theme: look.theme, clock: look.clock }; v[scrKey] = look[scrKey];
+    managed.forEach(function (k) { delete v[k]; });
+    host.call('finishWelcome', { base: chosen, values: v }).then(function () { host.send('close'); }, function () { $('wlDone').disabled = false; });
+  });
 })();
 </script>
 </body>
