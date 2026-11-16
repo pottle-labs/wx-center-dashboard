@@ -1939,10 +1939,13 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
     if (!ends || !ends.length) { el.innerHTML = h + '<div class="sub">' + (state.runways ? 'No runway data for this airport.' : 'Loading runways…') + '</div>' + daHtml; el.hidden = false; return; }
     var calm = !m.wspd, vrb = m.wdir === 'VRB';
     function hwText(e) { return calm ? '—' : vrb ? 'VRB' : '<span class="' + (Math.round(e.hw) >= 0 ? 'hw' : 'tw') + '">' + Math.abs(Math.round(e.hw)) + (Math.round(e.hw) >= 0 ? ' HW' : ' TW') + '</span>'; }
-    function xwText(e) { return calm ? '—' : '<span class="' + (Math.abs(e.xw) > Math.min.apply(null, CFG.lims.map(function (L) { return L.xwind; })) ? 'xw-hi' : '') + '">' + side(e.xw) + ' XW</span>'; }
+    // Variable wind: the direction is unknown, so the whole speed may be crosswind from either side: "≤4 XW", no side,
+    // and no runway is "best"
+    function xwText(e) { return calm ? '—' : '<span class="' + (Math.abs(e.xw) > Math.min.apply(null, CFG.lims.map(function (L) { return L.xwind; })) ? 'xw-hi' : '') + '">' + (vrb ? '≤' + Math.abs(Math.round(e.xw)) : side(e.xw)) + ' XW</span>'; }
+    function gxText(e) { return calm ? '—' : vrb ? (m.wgst ? '≤' + Math.round(m.wgst) : '—') : e.gx != null ? side(e.gx) : '—'; }
     if (F.runway === 'table') {
       h += '<table class="rtab"><thead><tr><th>Rwy</th><th>Head</th><th>Cross</th><th>Gust X</th></tr></thead><tbody>' + ends.slice(0, 4).map(function (e, i) { // the 4 most into-wind ends
-        return '<tr' + (i === 0 && !calm ? ' class="best"' : '') + '><td>' + esc(e.id) + '</td><td>' + hwText(e) + '</td><td>' + xwText(e) + '</td><td>' + (e.gx != null && !calm ? side(e.gx) : '—') + '</td></tr>';
+        return '<tr' + (i === 0 && !calm && !vrb ? ' class="best"' : '') + '><td>' + esc(e.id) + '</td><td>' + hwText(e) + '</td><td>' + xwText(e) + '</td><td>' + gxText(e) + '</td></tr>';
       }).join('') + '</tbody></table>';
     } else { // diagram: every runway drawn at its true heading, wind arrow from the reported direction
       var svg = '<svg viewBox="0 0 170 170" width="136" height="136" role="img" aria-label="Runway layout with wind arrow">' +
@@ -1957,9 +1960,10 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
       svg += '</svg>';
       var b = ends[0];
       var rest = ends.slice(1, 4).map(function (e) { return '<div class="sub mono">' + esc(e.id) + ' · ' + hwText(e) + ' · ' + xwText(e) + '</div>'; }).join('');
-      h += '<div class="rwy">' + svg + '<div class="nums"><div class="lbl2">Runway ' + esc(b.id) + (calm ? '' : ' · best') + '</div>' +
+      h += '<div class="rwy">' + svg + '<div class="nums"><div class="lbl2">Runway ' + esc(b.id) + (calm || vrb ? '' : ' · best') + '</div>' +
         '<div class="big">' + hwText(b) + ' · ' + xwText(b) + '</div>' +
-        (b.gx != null && !calm ? '<div class="sub mono">gusts ' + Math.abs(Math.round(b.gh)) + (b.gh >= 0 ? ' HW' : ' TW') + ' · ' + side(b.gx) + ' XW</div>' : '') + rest + '</div></div>';
+        (vrb && m.wgst ? '<div class="sub mono">gusts ' + gxText(b) + ' XW</div>' : '') +
+        (b.gx != null && !calm && !vrb ? '<div class="sub mono">gusts ' + Math.abs(Math.round(b.gh)) + (b.gh >= 0 ? ' HW' : ' TW') + ' · ' + side(b.gx) + ' XW</div>' : '') + rest + '</div></div>';
     }
     el.innerHTML = h + daHtml;
     el.hidden = false;
