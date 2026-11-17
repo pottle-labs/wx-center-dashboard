@@ -724,6 +724,9 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
 
     // While a legend item is hovered (state.hl), everything that isn't that kind fades back and its matches grow
     var hl = state.hl, FADE = 0.18;
+    // Advisory and TFR outline width (user's pick, 2026-11-17): 60% of the HAZ widths on a wide map (TV, computer),
+    // 40% on a narrow one (phone), where the same pixels cover far more of the map. Dashes shrink with them (AD).
+    var AW = v.w < 900 ? 0.4 : 0.6, AD = Math.max(AW, 0.6);
     g.globalAlpha = hl ? FADE : 1;
     // Advisory polygons: G-AIRMETs under SIGMETs, convective on top
     var feats = state.gairmets.concat(state.sigmets).filter(function (f) { return showLayer(advKind(f)); })
@@ -737,9 +740,9 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
         pts.forEach(function (p, i) { i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y); });
         if (!line) { g.closePath(); g.fillStyle = hexA(s.c, s.fill); g.fill(); }
         g.setLineDash([]);
-        g.lineWidth = s.w + 5; g.strokeStyle = 'rgba(11,15,20,.7)'; g.stroke(); // solid dark halo under the dashes
-        g.setLineDash(s.dash || []);
-        g.lineWidth = s.w; g.strokeStyle = s.c; g.stroke();
+        g.lineWidth = (s.w + 5) * AW; g.strokeStyle = 'rgba(11,15,20,.7)'; g.stroke(); // solid dark halo under the dashes
+        g.setLineDash((s.dash || []).map(function (d) { return d * AD; }));
+        g.lineWidth = s.w * AW; g.strokeStyle = s.c; g.stroke();
         // Tag the outline at its on-screen vertex nearest the map center
         var best = null, cx = v.w / 2, cy = v.h / 2;
         pts.forEach(function (p) {
@@ -760,8 +763,8 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
         pts.forEach(function (p, i) { i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y); });
         g.closePath();
         if (live) { g.fillStyle = tfrHatch(g); g.fill(); }
-        g.setLineDash([]); g.lineWidth = 8; g.strokeStyle = 'rgba(11,15,20,.6)'; g.stroke();
-        g.setLineDash(live ? [] : [14, 9]); g.lineWidth = 4; g.strokeStyle = TFR_RED; g.stroke(); g.setLineDash([]);
+        g.setLineDash([]); g.lineWidth = 8 * AW; g.strokeStyle = 'rgba(11,15,20,.6)'; g.stroke();
+        g.setLineDash(live ? [] : [14 * AD, 9 * AD]); g.lineWidth = 4 * AW; g.strokeStyle = TFR_RED; g.stroke(); g.setLineDash([]);
         var top = pts.reduce(function (a, p) { return !a || p.y < a.y ? p : a; }, null); // tag at the shape's top edge
         if (top && top.y > 30 && top.x > 40 && top.x < v.w - 40) tags.push({ x: top.x, y: top.y - 4, s: { tag: live ? 'TFR' : 'TFR ' + hhmmZ(new Date(t.from)), c: TFR_RED, fg: '#FFFFFF' }, src: t });
       });
