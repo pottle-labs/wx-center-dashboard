@@ -272,6 +272,67 @@ html.mobile .cfis { --k: .62 !important; grid-template-columns: repeat(2, minmax
 html.mobile .ic { padding: 8px 12px; }
 html.mobile .warn { font-size: 15px; }
 html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
+
+/* Sim lab page (setting sim=1; data from simlab.js): one column per lab day in the next 7 (or first 5) days, a divider
+   where weekend days are skipped. Approved mockup 2026-11-18 (mockups/sim). */
+:root { --open: #4FD18B; --open-bg: rgba(79,209,139,.10); --open-line: rgba(79,209,139,.35); }
+html[data-theme="light"] { --open: #137A45; --open-bg: rgba(19,122,69,.08); --open-line: rgba(19,122,69,.35); }
+.title-sub { font-size: 26px; color: var(--muted); }
+.title-sub[hidden] { display: none; }
+.sw { flex: 1 1 auto; min-height: 0; display: flex; gap: 18px; }
+.sw .day { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.sw .day.today { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+html[data-theme="light"] .sw .day { box-shadow: 0 1px 3px rgba(15,26,38,.08); }
+html[data-theme="light"] .sw .day.today { box-shadow: inset 0 0 0 1px var(--accent), 0 1px 3px rgba(15,26,38,.08); }
+.sw .dh { display: flex; align-items: baseline; gap: 12px; }
+.sw .dow { font-size: 32px; font-weight: 700; letter-spacing: 1px; }
+.sw .date { font-size: 26px; color: var(--muted); white-space: nowrap; }
+.sw .tag { margin-left: auto; padding: 2px 12px; border-radius: 7px; background: var(--accent); color: var(--bg); font-size: 20px; font-weight: 700; letter-spacing: 1px; align-self: center; }
+html[data-theme="light"] .sw .tag { color: #fff; }
+.sw .ins { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 9px; font-size: 25px; font-weight: 600; background: rgba(124,196,255,.12); color: var(--accent); white-space: nowrap; overflow: hidden; }
+html[data-theme="light"] .sw .ins { background: rgba(11,108,181,.10); }
+.sw .ins span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.sw .ins .k { flex: 0 0 auto; font-size: 18px; letter-spacing: 1px; opacity: .8; }
+.sw .ins.pending { background: rgba(245,184,65,.14); color: var(--warn); }
+html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
+.sw .lab-note { padding: 6px 12px; border-radius: 9px; background: rgba(255,106,77,.12); color: var(--crit); font-size: 22px; font-weight: 600; text-align: center; }
+.sw .blocks { flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.sw .none { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 2px dashed var(--line-strong); border-radius: 10px; color: var(--muted); font-size: 26px; text-align: center; padding: 12px; }
+.sw .none small { font-size: 21px; }
+.sw .b { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; justify-content: center; padding: 6px 14px; border-radius: 10px; border: 1px solid var(--line-strong); }
+.sw .b .t { display: flex; align-items: baseline; gap: 10px; font-size: 20px; color: var(--muted); }
+.sw .b .t b { font-weight: 600; color: var(--fg-2); font-family: var(--font-data); font-size: 18px; }
+.sw .b .n { display: flex; align-items: center; gap: 10px; font-size: 27px; font-weight: 600; white-space: nowrap; overflow: hidden; }
+.sw .b .n span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.sw .b .ph { margin-left: auto; flex: 0 0 auto; padding: 0 9px; border-radius: 6px; border: 1px solid var(--line-strong); font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: .5px; }
+.sw .b.open { background: var(--open-bg); border-color: var(--open-line); }
+.sw .b.open .n { color: var(--open); }
+.sw .b.closed .n { color: var(--muted); font-weight: 500; }
+.sw .b.past { opacity: .5; }
+.sw .b.now { box-shadow: inset 4px 0 0 var(--accent); }
+.sw .b .nowtag { margin-left: auto; font-size: 17px; font-weight: 700; letter-spacing: 1px; color: var(--accent); }
+.sw .foot { font-size: 21px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+.sw .foot b { color: var(--fg-2); font-weight: 600; }
+.sw .gap { flex: 0 0 34px; display: flex; align-items: center; justify-content: center; }
+.sw .gap span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 20px; letter-spacing: 3px; color: var(--muted); white-space: nowrap; border-left: 2px dashed var(--line-strong); padding-left: 8px; }
+.sim-legend { flex: 0 0 auto; display: flex; gap: 22px; font-size: 21px; color: var(--muted); align-items: center; }
+.sim-legend i { display: inline-block; width: 18px; height: 18px; border-radius: 5px; vertical-align: -3px; margin-right: 6px; border: 1px solid var(--line-strong); }
+.sim-legend i.o { background: var(--open-bg); border-color: var(--open-line); }
+.sim-legend i.n { box-shadow: inset 4px 0 0 var(--accent); }
+.sim-legend .r { margin-left: auto; }
+/* 6-7 columns: tighter */
+.sw.d7 { gap: 12px; }
+.sw.d7 .day { padding: 14px 12px; }
+.sw.d7 .b { padding: 6px 10px; }
+.sw.d7 .b .n { font-size: 22px; gap: 6px; }
+.sw.d7 .b .ph { font-size: 15px; padding: 0 6px; }
+.sw.d7 .dh { gap: 8px; }
+.sw.d7 .dow { font-size: 28px; }
+.sw.d7 .date { font-size: 22px; }
+.sw.d7 .tag { font-size: 15px; padding: 1px 8px; }
+.sw.d7 .ins { font-size: 21px; }
+.sw.d7 .foot { font-size: 18px; }
+.sw.d7 .none { font-size: 22px; }
 </style>
 </head>
 <body>
@@ -279,7 +340,7 @@ html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
   <div class="top">
     <div class="l"><div class="brand h"><img src="assets/logo-light.png" alt="Epic Flight Academy"></div>
       <div class="brand p"><img src="assets/logo-color.png" alt="Epic Flight Academy"></div>
-      <div class="base" id="base">SGU</div><div class="title">Weight &amp; Balance</div><div class="mock" id="mock" hidden>MOCK DATA</div></div>
+      <div class="base" id="base">SGU</div><div class="title" id="title">Weight &amp; Balance</div><div class="title-sub" id="titleSub" hidden></div><div class="mock" id="mock" hidden>MOCK DATA</div></div>
     <div class="r">
       <div class="chips" id="chips"></div>
       <div class="src"><div id="qrLabel" hidden>Scan for mobile dashboard</div><div id="srcName">Weight and Balance Sheet › SGU tab</div><div id="srcTime">Loading…</div></div>
@@ -292,6 +353,7 @@ html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
 </div>
 
 <script src="sheet.js"></script>
+<script src="simlab.js"></script>
 <script src="qrcode.js"></script>
 <script>
 (function () {
@@ -317,13 +379,18 @@ html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
     maint: /^(badge|bar)$/.test(q.get('maint')) ? q.get('maint') : '',
     maintWarn: q.get('maintWarn') != null && +q.get('maintWarn') >= 0 ? +q.get('maintWarn') : 10,
     maintCrit: q.get('maintCrit') != null && +q.get('maintCrit') >= 0 ? +q.get('maintCrit') : 3,
-    csv: q.get('csv')                      // testing: read this CSV URL instead of the sheet (e.g. a reworded copy of a tab)
+    csv: q.get('csv'),                     // testing: read this CSV URL instead of the sheet (e.g. a reworded copy of a tab)
+    // Sim lab page (simlab.js): on/off, 7 = every lab day in the next 7 days or 5 = the first 5, seconds on the page
+    sim: q.get('sim') === '1',
+    simDays: q.get('simDays') === '5' ? 5 : 7,
+    simCycle: Math.max(5, +(q.get('simCycle') || 15)),
+    simNow: q.get('simNow') ? new Date(q.get('simNow')) : null // testing: pretend it's this time (ISO) on the sim page
   };
   // The web version (docs/dash on GitHub Pages; config.js sets WXC_WEB): never shows instructor phone numbers (the relay
   // also strips them from the sheet before they reach the browser), no logo or click-for-detail. On a phone-width screen
   // (MOBILE) every aircraft and instructor is on one page that scrolls, laid out for the narrow screen.
   var WEB = !!window.WXC_WEB, MOBILE = WEB && innerWidth < 760, WEB_RELAY = WEB ? window.WXC_WEB.relay || '' : '';
-  if (WEB) { CFG.phones = false; CFG.logo = 'none'; CFG.acDetail = ''; }
+  if (WEB) { CFG.phones = false; CFG.logo = 'none'; CFG.acDetail = ''; CFG.sim = false; } // the web dashboard has its own Sim lab tab
   if (MOBILE) { CFG.layout = 'cards'; document.documentElement.classList.add('mobile'); }
   // QR code to this base's phone dashboard (TVs only; the shell passes the link unless the setting is off)
   if (!WEB && /^https:\/\//.test(q.get('qr') || '') && window.qrcode) {
@@ -708,8 +775,64 @@ html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
   function build() {
     var d = state.data;
     state.pages = d ? makePages(d) : [];
-    if (state.page >= state.pages.length) state.page = 0;
+    if (state.pages.length === 1 && state.pages[0].kind === 'both') state.pages[0].label = 'Weight & balance';
+    // The Sim lab page joins the rotation once its schedule has been read, at bases the scheduler has
+    if (d && CFG.sim && state.sim && state.sim.loc) state.pages.push({ kind: 'sim', label: 'Sim lab' });
+    if (state.page >= state.pages.length) { state.page = 0; state.elapsed = 0; }
     render();
+  }
+  function pageSeconds(pg) { return pg && pg.kind === 'sim' ? CFG.simCycle : CFG.cycle; }
+
+  /* ---------- Sim lab page (simlab.js) ---------- */
+  // Read every 5 minutes on the clock (offset 20 s from the sheet); redrawn every minute while it's showing, so NOW and
+  // the faded blocks move along. A failed read keeps the last schedule, marked in the header.
+  function simGetJSON(url) {
+    if (window.chrome && window.chrome.webview && window.dashHost && window.dashHost.getJSON) return window.dashHost.getJSON(url);
+    return fetch(url, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+  }
+  function loadSim() {
+    if (!CFG.sim || !window.WXSim) return;
+    WXSim.load(CFG.tab, simGetJSON, CFG.simNow || new Date()).then(function (raw) {
+      var had = !!(state.sim && state.sim.loc);
+      state.sim = raw; state.simError = '';
+      if (had !== !!raw.loc) build(); else if (curKind() === 'sim') render();
+    }).catch(function (e) {
+      state.simError = String(e && e.message || e);
+      if (curKind() === 'sim') render();
+    });
+  }
+  function curKind() { var pg = state.pages[state.page]; return pg && pg.kind; }
+  function simHtml() {
+    var v = WXSim.view(state.sim, CFG.simDays, CFG.simNow || new Date(), CFG.clock24), wide = v.days.length > 5, html = '';
+    v.days.forEach(function (d) {
+      if (d.gap) html += '<div class="gap"><span>' + esc(d.gap) + '  ·  NO LAB</span></div>';
+      html += '<div class="day' + (d.today ? ' today' : '') + '"><div class="dh"><span class="dow">' + d.dow + '</span><span class="date">' + d.date + '</span>' +
+        (d.today ? '<span class="tag">TODAY</span>' : '') + '</div>';
+      if (d.cancelled) { html += '<div class="none"><b>Lab cancelled</b>' + (d.reason ? '<small>' + esc(d.reason) + '</small>' : '') + '</div></div>'; return; }
+      if (d.noLab) { html += '<div class="none">No lab scheduled</div></div>'; return; }
+      html += '<div class="ins' + (d.pending ? ' pending' : '') + '"><span class="k">INST</span><span>' + (d.pending ? (wide ? 'Pending' : 'Pending instructor') : esc(d.instructor)) + '</span></div>';
+      if (d.closed) html += '<div class="lab-note">Lab closed</div>';
+      html += '<div class="blocks">' + d.blocks.map(function (b) {
+        return '<div class="b ' + (b.state === 'booked' ? '' : b.state) + (b.past ? ' past' : '') + (b.now ? ' now' : '') + '"><div class="t"><b>' + b.n + '</b>' + b.time +
+          (b.now ? '<span class="nowtag">NOW</span>' : '') + '</div><div class="n"><span>' + (b.name ? esc(b.name) : b.state === 'open' ? 'Open' : 'Closed') + '</span>' +
+          (b.phase ? '<span class="ph">' + esc(b.phase) + '</span>' : '') + '</div></div>';
+      }).join('') + '</div><div class="foot"><b>' + d.filled + '/' + d.total + '</b> filled · ' + d.range + '</div></div>';
+    });
+    var shown = v.days.length;
+    return { name: v.name, sim: v.sim, html: '<div class="sw' + (wide ? ' d7' : '') + '">' + html + '</div>' +
+      '<div class="sim-legend"><span><i class="o"></i>Open</span><span><i class="n"></i>Now</span><span>Faded = already started</span><span class="r">' +
+      (CFG.simDays === 5 ? 'Next 5 lab days' : 'Next 7 days · ' + shown + ' lab day' + (shown === 1 ? '' : 's') + ' shown') + '</span></div>' };
+  }
+  function renderSimPage(body) {
+    var r = simHtml();
+    $('title').textContent = 'Sim Lab';
+    $('titleSub').textContent = r.sim; $('titleSub').hidden = !r.sim;
+    $('srcName').textContent = 'Sim Lab Scheduler › ' + r.name;
+    var d = new Date(state.sim.at), t = CFG.clock24 ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    $('srcTime').innerHTML = state.simError ? '<span class="bad">Sync failed · showing ' + t + ' copy</span>' : 'Synced ' + t;
+    $('warn').hidden = true;
+    body.innerHTML = r.html;
+    body.classList.remove('pick');
   }
   function render() {
     var d = state.data, body = $('body');
@@ -728,6 +851,15 @@ html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
     }
     if (!d.planes.length && !d.cfis.length) { body.innerHTML = '<div class="msg"><b>The ' + esc(CFG.tab) + ' tab is empty</b></div>'; $('chips').innerHTML = ''; return; }
     var pg = state.pages[state.page], html = '', multi = d.groups.length > 1;
+    $('title').textContent = 'Weight & Balance'; $('titleSub').hidden = true;
+    if (pg.kind === 'sim' && !state.detail) {
+      renderSimPage(body);
+      state.shortChips = false; renderChips();
+      var tp = document.querySelector('.top');
+      if (tp.scrollWidth > tp.clientWidth + 1) { state.shortChips = true; renderChips(); }
+      if (tp.scrollWidth > tp.clientWidth + 1) $('titleSub').hidden = true;
+      return;
+    }
     var groups = d.groups.map(groupName).join(' / ');
     var open = state.detail && d.planes.filter(function (p) { return p.tail === state.detail; })[0];
     if (state.detail && !open) state.detail = null; // gone from the sheet
@@ -830,10 +962,10 @@ html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
       var label = state.shortChips ? p.label.charAt(0) + p.label.replace(/\D/g, '') : p.label; // Aircraft 2 -> A2, Instructors -> I
       return '<span' + (i === state.page ? ' class="on"' : '') + (state.shortChips ? ' title="' + p.label + '"' : '') + '>' + label + '</span>';
     }).join('') +
-      '<span class="left">' + Math.max(1, CFG.cycle - state.elapsed) + 's</span>';
+      '<span class="left">' + Math.max(1, pageSeconds(state.pages[state.page]) - state.elapsed) + 's</span>';
   }
   function renderSync() {
-    var el = $('srcTime');
+    var el = curKind() === 'sim' ? document.createElement('div') : $('srcTime'); // the sim lab page shows its own sync time
     if (!state.syncedAt) { el.innerHTML = state.error ? '<span class="bad">Sync failed</span>' : 'Loading…'; return; }
     var d = new Date(state.syncedAt);
     var t = CFG.clock24 ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
@@ -877,9 +1009,11 @@ html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
   setInterval(function () {
     if (state.pages.length < 2 || state.detail) return;
     state.elapsed++;
-    if (state.elapsed >= CFG.cycle) { state.elapsed = 0; state.page = (state.page + 1) % state.pages.length; render(); }
+    if (state.elapsed >= pageSeconds(state.pages[state.page])) { state.elapsed = 0; state.page = (state.page + 1) % state.pages.length; render(); }
     else renderChips();
   }, 1000);
+  // Keep NOW and the faded blocks current while the sim lab page shows (also when it's the only page)
+  setInterval(function () { if (curKind() === 'sim') render(); }, 60000);
 
   /* ---------- Boot ---------- */
   load();
@@ -888,6 +1022,7 @@ html.mobile .msg { font-size: 18px; } html.mobile .msg b { font-size: 24px; }
   // After the first load, re-read the sheet on the clock (:00, :05, :10 … for 5 minutes), not counted from page open
   (function next() { var p = CFG.refresh * 60000; setTimeout(function () { load(); next(); }, p - Date.now() % p + 1000); })();
   setInterval(renderSync, 60000);
+  if (CFG.sim) { loadSim(); (function nextSim() { var p = 300000; setTimeout(function () { loadSim(); nextSim(); }, p - Date.now() % p + 20000); })(); }
 })();
 </script>
 </body>

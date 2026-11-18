@@ -4,7 +4,7 @@
 // Rows about the PC itself (screens, quiet hours, updates, the logo, phone numbers) are hidden.
 (function () {
   'use strict';
-  var HIDE = ['wbScreen', 'singleScreen', 'hideSeconds', 'phones', 'logo', 'qr', 'dailyReloadHour', 'autoUpdate', 'repo', 'quiet', 'quietFrom', 'quietTo', 'quietMode', 'diagCorner', 'acDetail', 'stations'];
+  var HIDE = ['wbScreen', 'singleScreen', 'hideSeconds', 'phones', 'logo', 'qr', 'dailyReloadHour', 'autoUpdate', 'repo', 'quiet', 'quietFrom', 'quietTo', 'quietMode', 'diagCorner', 'acDetail', 'stations', 'sim', 'simCycle'];
   function tell(m) { try { parent.postMessage(m, location.origin); } catch (e) {} }
   window.dashHost = {
     call: function (cmd, a) {
@@ -24,7 +24,11 @@
     var $ = function (id) { return document.getElementById(id); };
     $('title').textContent = 'Dashboard settings';
     $('sub').textContent = 'For this phone only: saved in this browser. Settings marked Central come from the central settings for the base, like on its TVs.';
-    HIDE.forEach(function (k) { var el = $(k); if (el) { var row = el.closest('.row'); if (row) row.hidden = true; } });
+    // (data-dep removed too, so syncDeps can't show them again when their switch is on)
+    HIDE.forEach(function (k) { var el = $(k); if (el) { var row = el.closest('.row'); if (row) { row.hidden = true; row.removeAttribute('data-dep'); } } });
+    // The phone has its own Sim lab tab whatever the TVs' switch says; its days setting applies there
+    var sd = $('simDays') && $('simDays').closest('.row');
+    if (sd) { sd.removeAttribute('data-dep'); sd.classList.remove('sub-row'); sd.querySelector('label').firstChild.textContent = 'Sim lab days shown'; }
     ['info', 'upVersion', 'quiet', 'dailyReloadHour'].forEach(function (id) { var el = $(id); var f = el && el.closest('fieldset'); if (f) f.hidden = true; });
     Array.prototype.forEach.call(document.querySelectorAll('fieldset'), function (f) { // a fieldset whose rows are all hidden
       var rows = f.querySelectorAll('.row'); if (rows.length && Array.prototype.every.call(rows, function (r) { return r.hidden; })) f.hidden = true;

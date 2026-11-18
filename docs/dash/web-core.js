@@ -122,6 +122,10 @@
     var v = effective(), q = [];
     function add(k, val) { if (val != null && val !== '') q.push(k + '=' + encodeURIComponent(val)); }
     var theme = function () { if (light(v)) add('theme', 'light'); if (v.clock === '24') add('clock', '24'); };
+    if (view === 'sim') { // the Sim lab tab (phones only): read-only schedule, with Sign in to book
+      add('tab', v.tab); add('days', v.simDays === '5' ? '5' : '7'); theme();
+      return 'sim.html?' + q.join('&');
+    }
     if (view !== 'weather') {
       add('tab', v.tab); add('cycle', v.cycle || '15'); add('phones', '0'); add('refresh', v.sheetRefresh || '5');
       add('logo', 'none'); add('acDetail', v.acDetail || 'off'); add('stations', v.stations || '0'); add('layout', v.wbLayout || 'auto');

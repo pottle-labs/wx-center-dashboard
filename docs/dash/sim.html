@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<script src="config.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sim lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* The web dashboard's Sim lab tab (docs/dash/sim.html, inside dash/index.html's frame): the base's schedule from the Sim
+   Lab Scheduler, read-only (simlab.js), and a "Sign in to book" button that shows the scheduler site itself here.
+   ?tab=SGU&days=7|5&theme=light&clock=24 (built by web-core.js pageUrl('sim')). Approved mockup 2026-11-18. */
+:root { --bg: #0B0F14; --panel: #121820; --line: #1E2836; --line-strong: #2A3646; --fg: #E8EEF5; --fg-2: #C9D3DF; --muted: #93A1B3; --accent: #7CC4FF; --warn: #F5B841; --crit: #FF6A4D;
+  --open: #4FD18B; --open-bg: rgba(79,209,139,.10); --open-line: rgba(79,209,139,.35); color-scheme: dark; }
+html.light { --bg: #EEF2F6; --panel: #FFFFFF; --line: #D5DDE6; --line-strong: #B8C4D2; --fg: #0F1A26; --fg-2: #334255; --muted: #5E6E82; --accent: #0B6CB5; --warn: #8F5B00; --crit: #C2361C;
+  --open: #137A45; --open-bg: rgba(19,122,69,.08); --open-line: rgba(19,122,69,.35); color-scheme: light; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; overscroll-behavior: none; background: var(--bg); color: var(--fg); font: 16px/1.3 'Barlow Semi Condensed', 'Segoe UI', system-ui, sans-serif; }
+body { display: flex; flex-direction: column; }
+.bar { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--bg); color: var(--muted); font-size: 15px; }
+.bar b { color: var(--fg); font-weight: 600; }
+.bar .go { margin-left: auto; flex: 0 0 auto; height: 34px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--accent); color: var(--bg); font: 700 15px inherit; font-family: inherit; cursor: pointer; }
+html.light .bar .go { color: #fff; }
+.bar a { color: var(--accent); text-decoration: none; font-weight: 600; font-size: 16px; cursor: pointer; }
+.bar a.r { margin-left: auto; }
+.bar[hidden], main[hidden], iframe[hidden] { display: none; }
+main { flex: 1 1 auto; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; padding: 10px 10px 24px; display: flex; flex-direction: column; gap: 10px; }
+iframe { flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #fff; }
+.day { flex: 0 0 auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+.day.today { border-color: var(--accent); }
+html.light .day { box-shadow: 0 1px 3px rgba(15,26,38,.08); }
+.dh { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.dow { font-size: 20px; font-weight: 700; letter-spacing: .5px; }
+.date { font-size: 17px; color: var(--muted); white-space: nowrap; }
+.tag { padding: 1px 7px; border-radius: 6px; background: var(--accent); color: var(--bg); font-size: 12px; font-weight: 700; letter-spacing: 1px; }
+html.light .tag { color: #fff; }
+.ins { margin-left: auto; min-width: 0; font-size: 15px; font-weight: 600; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ins.pending { color: var(--warn); }
+.ins .k { font-size: 11px; letter-spacing: 1px; opacity: .8; margin-right: 4px; }
+.b { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--line-strong); margin-top: 5px; font-size: 16px; }
+.b .t { flex: 0 0 auto; width: 96px; color: var(--muted); font-size: 14px; white-space: nowrap; }
+.b .t b { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--fg-2); margin-right: 4px; }
+.b .n { min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b .ph { margin-left: auto; flex: 0 0 auto; padding: 0 6px; border-radius: 5px; border: 1px solid var(--line-strong); font-size: 12px; font-weight: 700; color: var(--accent); }
+.b.open { background: var(--open-bg); border-color: var(--open-line); }
+.b.open .n { color: var(--open); }
+.b.closed .n { color: var(--muted); font-weight: 500; }
+.b.past { opacity: .5; }
+.b.now { box-shadow: inset 3px 0 0 var(--accent); }
+.b .nowtag { margin-left: auto; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--accent); }
+.note { margin-top: 6px; padding: 5px 9px; border-radius: 8px; background: rgba(255,106,77,.12); color: var(--crit); font-size: 15px; font-weight: 600; text-align: center; }
+.none { margin-top: 6px; padding: 12px; border: 1px dashed var(--line-strong); border-radius: 8px; color: var(--muted); text-align: center; }
+.none small { display: block; margin-top: 2px; }
+.foot { margin-top: 7px; font-size: 13px; color: var(--muted); }
+.gap { text-align: center; font-size: 13px; letter-spacing: 2px; color: var(--muted); }
+.msg { margin: auto; max-width: 420px; padding: 24px; text-align: center; color: var(--muted); font-size: 18px; }
+.msg b { display: block; color: var(--fg); font-size: 22px; margin-bottom: 8px; }
+.sync { text-align: center; font-size: 13px; color: var(--muted); }
+.sync .bad { color: var(--warn); }
+</style>
+</head>
+<body>
+<div class="bar" id="roBar"><span><b id="place">Sim lab</b> · <span id="span">next 7 days</span></span><button type="button" class="go" id="signin" hidden>Sign in to book</button></div>
+<div class="bar" id="siteBar" hidden><a id="back">‹ Back to schedule</a><a class="r" id="open" target="_blank" rel="noopener">Open in browser ↗</a></div>
+<main id="list"><div class="msg">Loading the sim lab schedule…</div></main>
+<iframe id="site" title="Sim Lab Scheduler" hidden></iframe>
+<script src="simlab.js"></script>
+<script>
+(function () {
+  'use strict';
+  var q = new URLSearchParams(location.search);
+  var TAB = (q.get('tab') || 'SGU').toUpperCase(), DAYS = q.get('days') === '5' ? 5 : 7, H24 = q.get('clock') === '24';
+  if (q.get('theme') === 'light') document.documentElement.classList.add('light');
+  var $ = function (id) { return document.getElementById(id); };
+  var raw = null, err = '', at = 0;
+  $('open').href = WXSim.site;
+  $('span').textContent = DAYS === 5 ? 'next 5 lab days' : 'next 7 days';
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function getJSON(url) { return fetch(url, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }); }
+  function hm(t) { var d = new Date(t); return H24 ? ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
+
+  function draw() {
+    if (!raw) { if (err) $('list').innerHTML = '<div class="msg"><b>Can’t read the sim lab schedule</b>' + esc(err) + '<br>Trying again in a minute.</div>'; return; }
+    if (!raw.loc) {
+      $('place').textContent = TAB; $('signin').hidden = true;
+      $('list').innerHTML = '<div class="msg"><b>No sim lab schedule for ' + esc(TAB) + '</b>The Sim Lab Scheduler has no location for this base (' + esc(raw.id) + ').</div>';
+      return;
+    }
+    $('signin').hidden = false;
+    var v = WXSim.view(raw, DAYS, new Date(), H24), html = '';
+    $('place').textContent = v.name;
+    v.days.forEach(function (d) {
+      if (d.gap) html += '<div class="gap">' + esc(d.gap) + ' · NO LAB</div>';
+      html += '<div class="day' + (d.today ? ' today' : '') + '"><div class="dh"><span class="dow">' + d.dow + '</span><span class="date">' + d.date + '</span>' + (d.today ? '<span class="tag">TODAY</span>' : '');
+      if (d.cancelled) { html += '</div><div class="none"><b>Lab cancelled</b>' + (d.reason ? '<small>' + esc(d.reason) + '</small>' : '') + '</div></div>'; return; }
+      if (d.noLab) { html += '</div><div class="none">No lab scheduled</div></div>'; return; }
+      html += '<span class="ins' + (d.pending ? ' pending' : '') + '"><span class="k">INST</span>' + (d.pending ? 'Pending instructor' : esc(d.instructor)) + '</span></div>';
+      if (d.closed) html += '<div class="note">Lab closed</div>';
+      d.blocks.forEach(function (b) {
+        html += '<div class="b ' + (b.state === 'booked' ? '' : b.state) + (b.past ? ' past' : '') + (b.now ? ' now' : '') + '"><span class="t"><b>' + b.n + '</b>' + b.time + '</span><span class="n">' +
+          (b.name ? esc(b.name) : b.state === 'open' ? 'Open' : 'Closed') + '</span>' + (b.phase ? '<span class="ph">' + esc(b.phase) + '</span>' : b.now ? '<span class="nowtag">NOW</span>' : '') + '</div>';
+      });
+      html += '<div class="foot">' + d.filled + '/' + d.total + ' filled · ' + d.range + '</div></div>';
+    });
+    html += '<div class="sync">' + (err ? '<span class="bad">Can’t reach the scheduler · showing ' + hm(at) + ' copy</span>' : 'Updated ' + hm(at)) + '</div>';
+    var top = $('list').scrollTop;
+    $('list').innerHTML = html;
+    $('list').scrollTop = top;
+  }
+  function load() {
+    WXSim.load(TAB, getJSON, new Date()).then(function (r) { raw = r; err = ''; at = r.at; draw(); }, function (e) { err = String(e && e.message || e); draw(); });
+  }
+
+  // Sign in to book: the scheduler site itself, inside the dashboard (its sign-in is kept in this app's storage)
+  $('signin').addEventListener('click', function () {
+    if (!$('site').src) $('site').src = WXSim.site;
+    $('roBar').hidden = true; $('list').hidden = true; $('siteBar').hidden = false; $('site').hidden = false;
+  });
+  $('back').addEventListener('click', function () {
+    $('roBar').hidden = false; $('list').hidden = false; $('siteBar').hidden = true; $('site').hidden = true;
+    load(); // a booking made there shows here
+  });
+
+  load();
+  setInterval(function () { if (!$('list').hidden && document.visibilityState !== 'hidden') load(); }, 120000);
+  setInterval(function () { if (!$('list').hidden) draw(); }, 60000);
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && !$('list').hidden) load(); });
+})();
+</script>
+</body>
+</html>

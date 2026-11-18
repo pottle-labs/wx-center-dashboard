@@ -69,7 +69,7 @@ fieldset > .row[hidden]:first-of-type + .row { border-top: 0; } /* the Location 
 .divider[hidden] { display: none; }
 .row[hidden] { display: none; }
 /* 3-position switch */
-.seg { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--bg); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 3px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--bg); }
 .seg button { height: 32px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--muted); font: 600 16px var(--font-ui); cursor: pointer; }
 .seg button:hover { color: var(--fg); background: none; }
 .seg button[aria-checked="true"] { background: var(--accent); color: var(--bg); }
@@ -303,6 +303,14 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
         <span class="switch"><input type="checkbox" id="stations"><span></span></span></div>
       <div class="row"><label for="sheetRefresh">Check the sheet for changes every</label>
         <span class="unit"><input type="number" id="sheetRefresh" min="1" max="60" step="1" required>minutes</span></div>
+      <div class="row"><label for="sim">Sim lab schedule<small>A “Sim lab” page in the rotation with the base’s simulator schedule from the Sim Lab Scheduler (location K + base). Left out at bases the scheduler doesn’t have.</small></label>
+        <span class="switch"><input type="checkbox" id="sim"><span></span></span></div>
+      <div class="row sub-row" data-dep="sim"><label id="simDaysLabel">Days shown<small>Lab days in the next 7 days, starting today. 5 shows only the first five, for more room at bases with weekend labs.</small></label>
+        <div class="seg" role="radiogroup" aria-labelledby="simDaysLabel" data-for="simDays">
+          <button type="button" role="radio" data-v="5">Next 5</button><button type="button" role="radio" data-v="7">Next 7</button>
+        </div><input type="hidden" id="simDays"></div>
+      <div class="row sub-row" data-dep="sim"><label for="simCycle">Time on the sim lab page</label>
+        <span class="unit"><input type="number" id="simCycle" min="5" max="120" step="1" required>seconds</span></div>
     </fieldset>
     <fieldset>
       <legend>Weather map</legend>
@@ -546,7 +554,7 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
   $('limAdd').addEventListener('click', function () { $('limSets').value = String(Math.min(LIM_MAX, limCount() + 1)); syncLimSets(); });
   $('limRemove').addEventListener('click', function () { $('limSets').value = String(Math.max(1, limCount() - 1)); syncLimSets(); });
   var FIELDS = ['theme', 'clock', 'wbScreen', 'singleScreen', 'hideSeconds', 'tab', 'cycle', 'phones', 'logo', 'qr', 'wbLayout', 'sheetRefresh', 'statusDown', 'statusNote', 'statusOk',
-    'maint', 'maintWarn', 'maintCrit', 'station', 'radius', 'radarLoop',
+    'maint', 'maintWarn', 'maintCrit', 'sim', 'simDays', 'simCycle', 'station', 'radius', 'radarLoop',
     'radarHours', 'airmets', 'sigmets', 'convective', 'dailyReloadHour', 'autoUpdate', 'decoded', 'advList', 'advSpeed',
     'limits', 'limSets'].concat(LIM_KEYS).concat(['runway', 'daFlag', 'daWarn', 'daCrit', 'sun', 'sunCount', 'tstorm', 'pireps', 'barbs', 'trend', 'tfrs', 'catChange', 'metarAge', 'aloft', 'oldObs', 'acDetail', 'stations', 'diagCorner', 'quiet', 'quietFrom', 'quietTo', 'quietMode', 'repo']);
   // Never set centrally: the PC's base and screens, and updates (matches CentralSettings.LocalOnly in the shell)
@@ -557,7 +565,8 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
     limits: '0', limSets: '1', runway: 'off', sun: 'off', pireps: '0', barbs: '0', trend: '0', tfrs: '1', catChange: '0', metarAge: '1', aloft: '0', oldObs: '1', stations: '0', quiet: '1', quietFrom: '00:00', quietTo: '05:00', quietMode: 'dim', acDetail: 'off', diagCorner: '0' };
   Object.keys(LIM_DEFAULTS).forEach(function (k) { DEFAULTS[k] = LIM_DEFAULTS[k]; });
   // Thunderstorm alert, sunset countdown, high density altitude, maintenance countdown (all off to start)
-  [['tstorm', '0'], ['sunCount', 'off'], ['daFlag', 'off'], ['daWarn', '5000'], ['daCrit', '7000'], ['maint', 'off'],['maintWarn', '10'], ['maintCrit', '3']]
+  [['tstorm', '0'], ['sunCount', 'off'], ['daFlag', 'off'], ['daWarn', '5000'], ['daCrit', '7000'], ['maint', 'off'],['maintWarn', '10'], ['maintCrit', '3'],
+   ['sim', '0'], ['simDays', '7'], ['simCycle', '15']]
     .forEach(function (d) { DEFAULTS[d[0]] = d[1]; });
   // Aircraft status keywords (match wb.html's STATUS_DEF and the settings.ini template)
   DEFAULTS.statusDown = 'down, maint, annual, 100 hr, 100hr, 100 hour, ground, inop, aog, unavailable, out of service, oos, not available, shop, repair';
@@ -595,7 +604,7 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
     });
     syncLimSets(); // sets past the chosen count stay hidden
   }
-  ['limits', 'daFlag', 'maint'].forEach(function (k) { $(k).addEventListener('change', syncDeps); });
+  ['limits', 'daFlag', 'maint', 'sim'].forEach(function (k) { $(k).addEventListener('change', syncDeps); });
   var host = window.dashHost;
 
   // Display info: version, uptime, screens, each page's data status and recent updates
