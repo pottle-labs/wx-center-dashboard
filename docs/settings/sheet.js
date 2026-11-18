@@ -24,27 +24,37 @@
     if (window.WXC_WEB && window.WXC_WEB.relay) url = window.WXC_WEB.relay + '/?u=' + encodeURIComponent(url);
     return fetch(url, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); });
   }
+  // The first tab ("Revision 1 10.2.19" as of 2026-11-18) lists the whole fleet: since 2026-11-18 the W&B page takes each
+  // aircraft's numbers from it and uses the base tab only for which aircraft are there (plus status, maintenance and
+  // instructors). It is never offered as a base.
+  var FLEET_KEY = 'wxc-sheet-fleet', FLEET_BUILT_IN = { name: 'Revision 1 10.2.19', gid: '1315003475' };
+  var lastFleet = null;
   function parse(html) {
     var re = /name: "((?:[^"\\]|\\.)*)",[^}]*?gid: "(\d+)"/g, m, out = [];
     while ((m = re.exec(html))) out.push({ name: JSON.parse('"' + m[1] + '"').trim(), gid: m[2] });
+    lastFleet = out[0] || null;
     return out.slice(1); // drop the fleet-wide first tab
   }
   function cached() { try { var c = JSON.parse(localStorage.getItem(CACHE_KEY)); return c && c.length ? c : null; } catch (e) { return null; } }
+  function cachedFleet() { try { var c = JSON.parse(localStorage.getItem(FLEET_KEY)); return c && c.gid ? c : null; } catch (e) { return null; } }
 
   window.WXSheet = {
     id: SHEET_ID,
     csvUrl: function (gid) { return 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv&gid=' + gid; },
-    // Resolves to [{ name, gid }] in sheet order, with .source = 'sheet' | 'cache' | 'built-in'
+    // Resolves to [{ name, gid }] in sheet order, with .source = 'sheet' | 'cache' | 'built-in' and .fleet = the first
+    // (fleet-wide) tab { name, gid }
     tabs: function () {
       return getText('https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/htmlview').then(function (html) {
         var tabs = parse(html);
         if (!tabs.length) throw new Error('no tabs found');
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify(tabs)); } catch (e) {}
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify(tabs)); if (lastFleet) localStorage.setItem(FLEET_KEY, JSON.stringify(lastFleet)); } catch (e) {}
         tabs.source = 'sheet';
+        tabs.fleet = lastFleet || cachedFleet() || FLEET_BUILT_IN;
         return tabs;
       }).catch(function () {
         var tabs = cached() || BUILT_IN.slice();
         tabs.source = cached() ? 'cache' : 'built-in';
+        tabs.fleet = cachedFleet() || FLEET_BUILT_IN;
         return tabs;
       });
     },

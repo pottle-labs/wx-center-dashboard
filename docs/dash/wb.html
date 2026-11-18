@@ -380,6 +380,7 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
     maintWarn: q.get('maintWarn') != null && +q.get('maintWarn') >= 0 ? +q.get('maintWarn') : 10,
     maintCrit: q.get('maintCrit') != null && +q.get('maintCrit') >= 0 ? +q.get('maintCrit') : 3,
     csv: q.get('csv'),                     // testing: read this CSV URL instead of the sheet (e.g. a reworded copy of a tab)
+    fleetCsv: q.get('fleetCsv'),           // testing: this CSV as the fleet list (with ?csv= alone, the tab's own numbers are used)
     // Sim lab page (simlab.js): on/off, 7 = every lab day in the next 7 days or 5 = the first 5, seconds on the page
     sim: q.get('sim') === '1',
     simDays: q.get('simDays') === '5' ? 5 : 7,
@@ -443,14 +444,16 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
     });
   }
   // The CSV export needs the tab's gid (reading by tab name through gviz garbles text columns); a new tab is found by name
-  function csvUrl() {
-    if (CFG.csv) return Promise.resolve(CFG.csv);
-    if (CFG.gid) return Promise.resolve(WXSheet.csvUrl(CFG.gid));
+  // { base: the base tab's CSV, fleet: the fleet-wide first tab's CSV (or '' when testing with ?csv= alone) }
+  function csvUrls() {
+    if (CFG.csv) return Promise.resolve({ base: CFG.csv, fleet: CFG.fleetCsv || '' });
     return WXSheet.tabs().then(function (tabs) {
+      var fleet = CFG.fleetCsv || WXSheet.csvUrl(tabs.fleet.gid);
+      if (CFG.gid) return { base: WXSheet.csvUrl(CFG.gid), fleet: fleet };
       var t = WXSheet.find(tabs, CFG.tab);
       if (!t) throw new Error('The weight and balance sheet has no “' + CFG.tab + '” tab' +
         (tabs.source === 'sheet' ? '.' : ' that this PC knows of (the sheet’s tab list couldn’t be read).') + ' Pick a base in the dashboard settings.');
-      return WXSheet.csvUrl(t.gid);
+      return { base: WXSheet.csvUrl(t.gid), fleet: fleet };
     });
   }
 
@@ -507,19 +510,58 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
   // Most tabs list instructors below the aircraft. Some (TLH) put them in a side table to the right instead:
   // an "Instructor Weights" block (name, weight) and an "Instructor Phone Numbers" block (name, phone).
   // The side table is cut off and read separately, so the aircraft rows parse the same either way.
-  function parseSheet(rows) {
+  // fleet: the fleet list (parseFleet), or null to use the base tab's own numbers (testing with ?csv=, or the first tab
+  // couldn't be read)
+  function parseSheet(rows, fleet) {
     var side = -1, data;
     rows.forEach(function (r) { r.forEach(function (c, i) { if (i > 0 && side < 0 && CFI_SIDE.test(c)) side = i; }); });
-    if (side < 0) data = parseMain(rows);
+    if (side < 0) data = parseMain(rows, fleet);
     else {
-      data = parseMain(rows.map(function (r) { return r.slice(0, side); }));
+      data = parseMain(rows.map(function (r) { return r.slice(0, side); }), fleet);
       parseSide(rows.map(function (r) { return r.slice(side); }), data.cfis);
       data.sawCfis = true;
     }
     if (!data.sawCfis) data.warnings.push('no instructor list was found');
     else if (!data.cfis.length && !/Weight column/.test(data.warnings.join())) data.warnings.push('the instructor list has no names with weights');
     delete data.sawCfis;
+    if (fleet) mergeFleet(data, fleet);
     return data;
+  }
+
+  /* ---------- The fleet list (the sheet's first tab; user request 2026-11-18) ---------- */
+  // Each aircraft's numbers (call sign, BEW, moment, paint, autopilot, ADS-B In, compass card, group) come from the
+  // fleet-wide first tab. A base tab only says which aircraft are at that base, by tail number or call sign, plus what
+  // only it has: the status and maintenance columns, and the instructors. Matching (user's choice): the tail number
+  // first; the call sign only when a row has no tail or its tail isn't on the fleet list (so a base tab whose call sign
+  // is out of date can't pull in a second aircraft). Not on the fleet list: shown from the base tab, with a warning.
+  // A blank call sign on the fleet list is filled from the base tab.
+  function parseFleet(rows) {
+    var d = parseMain(rows, null, true), byTail = {}, byCall = {};
+    d.planes.forEach(function (p) {
+      if (!byTail[norm(p.tail)]) byTail[norm(p.tail)] = p;
+      if (p.call && !byCall[norm(p.call)]) byCall[norm(p.call)] = p;
+    });
+    return { byTail: byTail, byCall: byCall, count: d.planes.length, warnings: d.warnings };
+  }
+  function mergeFleet(data, fleet) {
+    var out = [], used = {}, missing = [];
+    data.planes.forEach(function (p) {
+      var f = p.tail ? fleet.byTail[norm(p.tail)] : null;
+      if (!f && p.call) f = fleet.byCall[norm(p.call)];
+      if (!f) { if (!p.tail) return; missing.push(p.tail); out.push(p); return; } // a call sign that matches nothing isn't an aircraft row
+      if (used[f.tail]) return; // listed twice on the base tab
+      used[f.tail] = 1;
+      out.push({ call: f.call || p.call, tail: f.tail, group: f.group || p.group,
+        bew: f.bew != null ? f.bew : p.bew, mom: f.mom != null ? f.mom : p.mom,
+        paint: f.paint || p.paint, ap: f.ap || p.ap, adsb: f.adsb || p.adsb, steer: f.steer,
+        status: p.status, maint: p.maint }); // only the base tab has these
+    });
+    data.planes = out;
+    data.groups = [];
+    out.forEach(function (p) { if (p.group && data.groups.indexOf(p.group) < 0) data.groups.push(p.group); });
+    if (missing.length) data.warnings.push(missing.join(', ') + (missing.length > 1 ? ' aren’t' : ' isn’t') + ' on the fleet list (first tab), so ' +
+      (missing.length > 1 ? 'their' : 'its') + ' numbers come from this tab');
+    fleet.warnings.forEach(function (w) { data.warnings.push('fleet list (first tab): ' + w); });
   }
   function parseSide(rows, cfis) {
     var mode = '', phones = {}, seen = {};
@@ -537,7 +579,9 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
   }
 
   // Finds the header and section rows by their text, not by fixed row numbers
-  function parseMain(rows) {
+  // fleet: matching base-tab rows against the fleet list (a row may then give only a call sign); isFleet: this is the
+  // fleet list itself
+  function parseMain(rows, fleet, isFleet) {
     var planes = [], cfis = [], groups = [], seen = {}, warnings = [];
     var hdr = null, ihdr = null, group = '', inCfis = false, sawCfis = false;
     rows.forEach(function (r) {
@@ -564,9 +608,10 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
         return;
       }
       if (!hdr) return;
-      if (filled === 1 && a) { group = a; if (groups.indexOf(a) < 0) groups.push(a); return; } // group label row, e.g. C172-NAVIII
+      // group label row, e.g. C172-NAVIII (unless it's a call sign alone that the fleet list knows)
+      if (filled === 1 && a && !(fleet && fleet.byCall[norm(a)])) { group = a; if (groups.indexOf(a) < 0) groups.push(a); return; }
       var tail = hdr.tail >= 0 ? r[hdr.tail] : '';
-      if (!tail) return;
+      if (!tail && !(fleet && a && fleet.byCall[norm(a)])) return;
       var get = function (i) { return i >= 0 ? (r[i] || '') : ''; };
       var noCompass = /no\s*magnetic\s*compass/i.test(r.join(' '));
       planes.push({
@@ -576,9 +621,9 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
         steer: noCompass ? null : hdr.compass.map(function (i) { return i == null ? null : num(r[i]); })
       });
     });
-    if (!hdr) throw new Error('The ' + CFG.tab + ' tab has no aircraft header row (a row starting with “Call Sign”).');
-    if (hdr.tail < 0) warnings.push('no Tail Number column, so no aircraft could be read');
-    else {
+    if (!hdr) throw new Error((isFleet ? 'The fleet list (first tab)' : 'The ' + CFG.tab + ' tab') + ' has no aircraft header row (a row starting with “Call Sign”).');
+    if (hdr.tail < 0) { if (!fleet || !planes.length) warnings.push('no Tail Number column, so no aircraft could be read'); }
+    else if (!fleet) { // with the fleet list, the numbers come from there, so the base tab needn't have these columns
       if (hdr.bew < 0) warnings.push('no BEW column');
       if (hdr.mom < 0) warnings.push('no Moment column');
       var missing = HDG.filter(function (h, i) { return hdr.compass[i] == null; });
@@ -607,8 +652,16 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
   /* ---------- Loading ---------- */
   function load() {
     if (CFG.mock) { state.data = mockData(CFG.mock); state.syncedAt = Date.now(); state.error = ''; build(); return; }
-    csvUrl().then(getText).then(function (text) {
-      var data = parseSheet(parseCsv(text));
+    csvUrls().then(function (u) {
+      // The fleet list is optional: if it can't be read, the base tab's own numbers are used (with a warning)
+      return Promise.all([getText(u.base), u.fleet ? getText(u.fleet).catch(function (e) { return { failed: String(e && e.message || e) }; }) : null]);
+    }).then(function (texts) {
+      var fleet = null, fleetNote = '';
+      if (texts[1] && typeof texts[1] === 'string') {
+        try { fleet = parseFleet(parseCsv(texts[1])); } catch (e) { fleetNote = String(e && e.message || e); }
+      } else if (texts[1]) fleetNote = texts[1].failed;
+      var data = parseSheet(parseCsv(texts[0]), fleet);
+      if (fleetNote) data.warnings.unshift('the fleet list (first tab) couldn’t be read (' + fleetNote + '), so this tab’s own numbers are shown');
       if (WEB) data.cfis.forEach(function (c) { c.phone = ''; }); // never kept or shown on the web version
       state.data = data; state.syncedAt = Date.now(); state.error = '';
       try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: state.syncedAt, data: data })); } catch (e) {}
