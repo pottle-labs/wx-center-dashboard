@@ -448,7 +448,8 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
   function csvUrls() {
     if (CFG.csv) return Promise.resolve({ base: CFG.csv, fleet: CFG.fleetCsv || '' });
     return WXSheet.tabs().then(function (tabs) {
-      var fleet = CFG.fleetCsv || WXSheet.csvUrl(tabs.fleet.gid);
+      // (an older cached sheet.js has no .fleet: use the first tab's built-in gid)
+      var fleet = CFG.fleetCsv || WXSheet.csvUrl(tabs.fleet && tabs.fleet.gid || '1315003475');
       if (CFG.gid) return { base: WXSheet.csvUrl(CFG.gid), fleet: fleet };
       var t = WXSheet.find(tabs, CFG.tab);
       if (!t) throw new Error('The weight and balance sheet has no “' + CFG.tab + '” tab' +
