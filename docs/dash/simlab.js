@@ -138,5 +138,6 @@
     return { name: loc.name || raw.id, sim: (loc.sims || [])[0] || '', days: out };
   }
 
-  window.WXSim = { load: load, view: view, site: SITE };
+  // The scheduler's locations { "KSGU": { name, timezone, ... } } (the first-start screen asks only where there is one)
+  window.WXSim = { load: load, view: view, site: SITE, locations: loadIndex };
 })();
