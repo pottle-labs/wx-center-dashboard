@@ -963,7 +963,7 @@ html[data-theme="light"] .ss .b { box-shadow: 0 1px 3px rgba(15,26,38,.08); }
     return head + (day.today ? 'today' : esc(day.dow + ' ' + day.date)) + '</div>' +
       '<div class="ins' + (day.pending ? ' pending' : '') + '"><span class="k">INST</span>' + (day.pending ? 'Pending instructor' : esc(day.instructor)) + '</div>' +
       '<div class="fill"><b>' + day.filled + '/' + day.total + '</b> filled' + (day.closed ? ' · lab closed' : '') +
-      (next ? ' · Next lab day: ' + esc(next.dow.charAt(0) + next.dow.slice(1).toLowerCase()) + ', <b>' + open(next) + ' open</b>' : '') +
+      (next ? ' · Next lab day: ' + esc(next.dow.charAt(0) + next.dow.slice(1).toLowerCase()) + ', <b>' + open(next) + ' of ' + next.total + ' open</b>' : '') +
       (state.simError ? ' · <span class="bad">sync failed</span>' : '') + '</div></div>' +
       '<div class="ss' + (day.blocks.length > 6 ? ' many' : '') + '">' + day.blocks.map(function (b) {
         return '<div class="b ' + (b.state === 'booked' ? '' : b.state) + (b.past ? ' past' : '') + (b.now ? ' now' : '') + '"><div class="t"><b>' + b.n + '</b>' + b.range +
@@ -1297,6 +1297,8 @@ html[data-theme="light"] .ss .b { box-shadow: 0 1px 3px rgba(15,26,38,.08); }
     }
   }
   renderClock();
+  // Turn over right at each minute, together with the weather screen's clock (the 1 s page timer isn't on the second)
+  (function onMinute() { setTimeout(function () { renderClock(); onMinute(); }, 60000 - Date.now() % 60000 + 30); })();
 
   /* ---------- Page cycle ---------- */
   setInterval(function () {

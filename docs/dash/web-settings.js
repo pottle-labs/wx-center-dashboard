@@ -4,7 +4,7 @@
 // Rows about the PC itself (screens, quiet hours, updates, the logo, phone numbers) are hidden.
 (function () {
   'use strict';
-  var HIDE = ['wbScreen', 'singleScreen', 'hideSeconds', 'phones', 'logo', 'qr', 'dailyReloadHour', 'autoUpdate', 'repo', 'quiet', 'quietFrom', 'quietTo', 'quietMode', 'diagCorner', 'acDetail', 'stations', 'sim', 'simCycle', 'simView', 'sideOrder'];
+  var HIDE = ['wbScreen', 'singleScreen', 'hideSeconds', 'phones', 'logo', 'qr', 'dailyReloadHour', 'autoUpdate', 'repo', 'quiet', 'quietFrom', 'quietTo', 'quietMode', 'diagCorner', 'acDetail', 'stations', 'sim', 'simCycle', 'simView', 'sideOrder', 'sideScroll'];
   function tell(m) { try { parent.postMessage(m, location.origin); } catch (e) {} }
   window.dashHost = {
     call: function (cmd, a) {

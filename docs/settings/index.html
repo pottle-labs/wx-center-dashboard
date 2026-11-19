@@ -365,6 +365,8 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
       <div class="row w2"><label>Order of the side column<small id="orderNote"></small></label>
         <div><div class="order" id="orderList"></div><input type="hidden" id="sideOrder">
           <span class="inline" style="justify-content:flex-end;margin-top:8px"><button type="button" id="orderReset">Use the built-in order</button></span></div></div>
+      <div class="row"><label for="sideScroll">Scroll the side column<small>Nothing is left out: every block that is switched on shows under the airport’s conditions, in one slow scroll that glides down, rests, and returns to the top. Off: blocks that don’t fit are left out, from the bottom of the order up.</small></label>
+        <span class="switch"><input type="checkbox" id="sideScroll"><span></span></span></div>
       <div class="row"><label for="metarAge">Show how old the report is<small>Under the category badge, e.g. “38 min old”. Amber with “Late” after 70 minutes, red after 2 hours. With category changes on, it also says when the category changed.</small></label>
         <span class="switch"><input type="checkbox" id="metarAge"><span></span></span></div>
       <div class="row"><label for="catChange">Show flight category changes<small>For an hour after the airport’s category changes, the old one shows faded before the new one, with when it changed.</small></label>
@@ -572,13 +574,13 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
   $('limRemove').addEventListener('click', function () { $('limSets').value = String(Math.max(1, limCount() - 1)); syncLimSets(); });
   var FIELDS = ['theme', 'clock', 'wbScreen', 'singleScreen', 'hideSeconds', 'tab', 'cycle', 'phones', 'logo', 'qr', 'wbLayout', 'sheetRefresh', 'statusDown', 'statusNote', 'statusOk',
     'maint', 'maintWarn', 'maintCrit', 'sim', 'simDays', 'simView', 'simCycle', 'station', 'radius', 'radarLoop',
-    'radarHours', 'airmets', 'sigmets', 'convective', 'dailyReloadHour', 'autoUpdate', 'decoded', 'taf', 'sideOrder', 'advList', 'advSpeed',
+    'radarHours', 'airmets', 'sigmets', 'convective', 'dailyReloadHour', 'autoUpdate', 'decoded', 'taf', 'sideOrder', 'sideScroll', 'advList', 'advSpeed',
     'limits', 'limSets'].concat(LIM_KEYS).concat(['runway', 'daFlag', 'daWarn', 'daCrit', 'sun', 'sunCount', 'tstorm', 'pireps', 'barbs', 'trend', 'tfrs', 'catChange', 'metarAge', 'aloft', 'oldObs', 'acDetail', 'stations', 'diagCorner', 'quiet', 'quietFrom', 'quietTo', 'quietMode', 'repo']);
   // Never set centrally: the PC's base and screens, and updates (matches CentralSettings.LocalOnly in the shell)
   var LOCAL_ONLY = ['tab', 'wbScreen', 'singleScreen', 'autoUpdate', 'repo'];
   var CENTRAL = new URLSearchParams(location.search).get('central') === '1' || !!window.WXC_PHONE; // the central settings editor (on a PC, or the phone version)
   // Shown when settings.ini doesn't have the key yet (it was installed by an older version). Features start off.
-  var DEFAULTS = { theme: 'dark', clock: '12', hideSeconds: '4', logo: '1', qr: '1', wbLayout: 'auto', cycle: '15', phones: '1', sheetRefresh: '5', radius: '100', radarLoop: '1', dailyReloadHour: '3', radarHours: '1', airmets: '1', sigmets: '1', convective: '1', station: 'auto', autoUpdate: '1', decoded: 'auto', taf: 'raw', sideOrder: 'default', advList: 'auto', advSpeed: '20',
+  var DEFAULTS = { theme: 'dark', clock: '12', hideSeconds: '4', logo: '1', qr: '1', wbLayout: 'auto', cycle: '15', phones: '1', sheetRefresh: '5', radius: '100', radarLoop: '1', dailyReloadHour: '3', radarHours: '1', airmets: '1', sigmets: '1', convective: '1', station: 'auto', autoUpdate: '1', decoded: 'auto', taf: 'raw', sideOrder: 'default', sideScroll: '0', advList: 'auto', advSpeed: '20',
     limits: '0', limSets: '1', runway: 'off', sun: 'off', pireps: '0', barbs: '0', trend: '0', tfrs: '1', catChange: '0', metarAge: '1', aloft: '0', oldObs: '1', stations: '0', quiet: '1', quietFrom: '00:00', quietTo: '05:00', quietMode: 'dim', acDetail: 'off', diagCorner: '0' };
   Object.keys(LIM_DEFAULTS).forEach(function (k) { DEFAULTS[k] = LIM_DEFAULTS[k]; });
   // Thunderstorm alert, sunset countdown, high density altitude, maintenance countdown (all off to start)

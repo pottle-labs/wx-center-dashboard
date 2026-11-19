@@ -195,6 +195,21 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
 .keys[hidden] { display: none; }
 .keys kbd { display: inline-block; min-width: 26px; text-align: center; padding: 0 7px; margin-right: 5px; border-radius: 6px; border: 1px solid #3A4759; background: #0B0F14; color: #E8EEF5; font: 500 16px var(--font-data); }
 .tafd { font-family: var(--font-ui); white-space: normal; overflow-wrap: normal; }
+/* Range buttons on the map (2026-11-19: moved out of the side column to give it room; the phone page keeps them in
+   the column) and the scrolling side column (setting sideScroll; approved mockup 11) */
+.map-range { position: absolute; top: 18px; right: 18px; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 14px; border-radius: 10px; background: rgba(11,15,20,.86); }
+html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
+.map-range .label { font-size: 15px; letter-spacing: 1.5px; white-space: nowrap; }
+.map-range .btns { display: flex; gap: 6px; }
+.map-range .btns button { min-width: 52px; height: 32px; font-size: 19px; }
+@media (max-width: 1800px) { .map-range { top: 72px; } } /* a narrower map: under the radar chip's row */
+.side > .sscroll { flex: 1 1 0; min-height: 0; overflow: hidden; position: relative; } /* (.side > * doesn't shrink; this one must) */
+.sscroll.moving { -webkit-mask-image: linear-gradient(transparent, #000 16px, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(transparent, #000 16px, #000 calc(100% - 26px), transparent); }
+.strack { display: flex; flex-direction: column; gap: 14px; }
+.strack > .card { flex: none; }
+.sbar { position: absolute; right: 2px; top: 8px; bottom: 8px; width: 4px; border-radius: 2px; background: var(--line); }
+.sbar[hidden] { display: none; }
+.sbar i { position: absolute; left: 0; right: 0; top: 0; border-radius: 2px; background: var(--accent); }
 .tafd .seg { display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin: 2px 0; background: var(--line); }
 .tafd .seg i { display: block; height: 100%; border-right: 3px solid var(--panel); }
 .tafd .seg i:last-child { border-right: 0; }
@@ -447,7 +462,8 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
     clock24: q.get('clock') === '24',       // local times as 14:05 instead of 2:05 PM (Zulu is always 24-hour)
     decoded: /^(on|off)$/.test(q.get('decoded')) ? q.get('decoded') : 'auto', // decoded METAR grid: auto | on | off
     advList: /^(on|off)$/.test(q.get('advList')) ? q.get('advList') : 'auto', // advisory list in the side column: auto | on | off
-    taf: q.get('taf') === 'decoded' ? 'decoded' : 'raw', // the TAF as issued, or decoded into a timeline of periods
+    taf: q.get('taf') === 'decoded' ? 'decoded' : 'raw',
+    sideScroll: q.get('sideScroll') === '1' && !window.WXC_WEB, // every block shows, in one slow scroll under the conditions card (the phone page scrolls anyway) // the TAF as issued, or decoded into a timeline of periods
     // The side column's blocks under the airport's conditions, top to bottom (a custom order also sets which give way
     // first when the column is full: from the bottom up). null = the built-in order and rules.
     sideOrder: (function (v) {
@@ -956,7 +972,7 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
     var el = $('limBanner'), v = state.view;
     if (el.hidden || !v || !state.mapBoxes) return;
     var mr = mapEl.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight, M = 18;
-    var fixed = ['.map-chip', '#layersBtn', '.map-credit', '#banner'].map(function (s) { return document.querySelector(s); })
+    var fixed = ['.map-chip', '#layersBtn', '.map-range', '.map-credit', '#banner'].map(function (s) { return document.querySelector(s); })
       .filter(function (e) { return e && !e.hidden && e.offsetWidth; })
       .map(function (e) { var r = e.getBoundingClientRect(); return { x0: r.left - mr.left - 8, y0: r.top - mr.top - 8, x1: r.right - mr.left + 8, y1: r.bottom - mr.top + 8 }; });
     function at(c) {
@@ -1510,6 +1526,38 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
     layoutSide();
   }
 
+  // The scrolling side column (setting sideScroll): the clock, sun strip and conditions card stay put; every block that
+  // is on sits below them in one track that glides up at the advisory scroll speed, rests at the end, glides back to the
+  // top and rests there (each block exists once, so it can't wrap round like the advisory list does). Nothing is left
+  // out. The decoded METAR values on Auto show unless that leaves the scrolling window under SCROLL_MIN px. Hovering
+  // pauses it. A thin bar at the right shows where the window is.
+  var SCROLL_MIN = 380, sideAnim = null, barAnim = null;
+  function layoutScroll(obs, taf, list, tafHtml, advHtml, tafCard, advCard) {
+    var wrap = $('sideScroll'), track = wrap.firstChild, bar = wrap.lastChild;
+    [$('sunCard'), $('trendCard'), $('aloftCard'), $('rwyCard')].forEach(function (c) { c.classList.remove('squeezed'); });
+    renderSun();
+    advCard.hidden = CFG.advList === 'off' || (CFG.advList === 'auto' && advEmpty);
+    tafCard.hidden = false;
+    tafCard.style.minHeight = advCard.style.minHeight = '0px';
+    fitsIn(taf, tafHtml); if (!advCard.hidden) fitsIn(list, advHtml);
+    obs.hidden = CFG.decoded === 'off';
+    if (CFG.decoded === 'auto' && track.offsetHeight > wrap.clientHeight && wrap.clientHeight < SCROLL_MIN) obs.hidden = true;
+    if (sideAnim) { sideAnim.cancel(); sideAnim = null; }
+    if (barAnim) { barAnim.cancel(); barAnim = null; }
+    var view = wrap.clientHeight, total = track.offsetHeight, d = total - view, moving = d > 4 && !!track.animate;
+    wrap.classList.toggle('moving', moving);
+    bar.hidden = !moving;
+    if (moving) {
+      var move = d / CFG.advSpeed * 1000, hold = 6000, back = Math.min(3000, 800 + d * 1.5), all = hold + move + hold + back;
+      var at = [0, hold / all, (hold + move) / all, (hold + move + hold) / all, 1], opts = { duration: all, iterations: Infinity };
+      var frames = function (a, b) { return [a, a, b, b, a].map(function (v, i) { return { transform: 'translateY(' + v + 'px)', offset: at[i] }; }); };
+      sideAnim = track.animate(frames(0, -d), opts);
+      var thumb = bar.firstChild, th = Math.max(24, view / total * bar.clientHeight);
+      thumb.style.height = th + 'px';
+      barAnim = thumb.animate(frames(0, bar.clientHeight - th), opts);
+    }
+    layoutBar();
+  }
   // Fits the side column. The advisories box keeps a minimum height (about 4 rows) and a long TAF box gives way first.
   // - Advisory list (CFG.advList): on, off, or auto = shown when there are advisories and the column has room; it is
   //   the first thing Auto drops, since the bottom strip already lists what's active.
@@ -1537,6 +1585,7 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
         c[0].style.minHeight = Math.min(c[3], need) + 'px';
       });
     }
+    if (CFG.sideScroll) { layoutScroll(obs, taf, list, tafHtml, advHtml, tafCard, advCard); return; }
     function sideOver() { return side.scrollHeight > side.clientHeight + 1; }
     // Feature cards that don't fit give way, smallest loss first: the daylight arc becomes the strip of times, then the
     // trend card, the winds aloft card, then the runway card are left out (until there's room again)
@@ -1569,10 +1618,24 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
     if (!advCard.hidden) loopScroll(list, advHtml);
     layoutBar(); // the strip depends on whether the list is showing
   }
-  // A custom order: move the blocks once (the airport's conditions card stays on top)
+  // Stack the blocks in their order once (the airport's conditions card stays on top); with sideScroll they go into
+  // the scrolling track
   (function () {
-    var side = document.querySelector('.side'), el = { rwy: 'rwyCard', trend: 'trendCard', sun: 'sunCard', aloft: 'aloftCard', taf: 'tafCard', adv: 'advCard' };
-    CFG.sideOrder.forEach(function (k) { side.appendChild($(el[k])); });
+    var side = document.querySelector('.side'), el = { rwy: 'rwyCard', trend: 'trendCard', sun: 'sunCard', aloft: 'aloftCard', taf: 'tafCard', adv: 'advCard' }, into = side;
+    if (CFG.sideScroll) {
+      side.insertAdjacentHTML('beforeend', '<div class="sscroll" id="sideScroll"><div class="strack"></div><div class="sbar" hidden><i></i></div></div>');
+      into = $('sideScroll').firstChild;
+      $('sideScroll').addEventListener('mouseenter', function () { if (sideAnim) sideAnim.pause(); if (barAnim) barAnim.pause(); });
+      $('sideScroll').addEventListener('mouseleave', function () { if (sideAnim) sideAnim.play(); if (barAnim) barAnim.play(); });
+    }
+    CFG.sideOrder.forEach(function (k) { into.appendChild($(el[k])); });
+    // The range buttons sit on the map (TVs and computers; the phone page keeps them above the conditions)
+    if (!window.WXC_WEB) {
+      var range = document.querySelector('.side .range');
+      range.className = 'range map-range';
+      mapEl.appendChild(range);
+      ['pointerdown', 'mousemove', 'click', 'wheel', 'dblclick'].forEach(function (t) { range.addEventListener(t, function (e) { e.stopPropagation(); }); });
+    }
   })();
 
   // Bottom strip: the active advisories as chips; when there are more than fit, they scroll sideways in a loop
@@ -2532,6 +2595,9 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
 
   // Legend lists only the advisory types drawn on the map
   tickClock(); setInterval(tickClock, 1000 * 10);
+  // The clock also turns over right at each minute, so it changes together with the W&B screen's clock (the 10 s tick
+  // alone could leave it up to 10 s behind)
+  (function onMinute() { setTimeout(function () { tickClock(); onMinute(); }, 60000 - Date.now() % 60000 + 30); })();
   setInterval(renderStatus, 60000);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { drawOverlay(); sideSig = barSig = ''; layoutSide(); if (barChips) layoutBar(); });
   if (CFG.decoded === 'off') $('obs').hidden = true;
