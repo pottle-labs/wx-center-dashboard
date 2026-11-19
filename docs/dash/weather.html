@@ -319,6 +319,19 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
   html.web .bar-k { padding-left: 0; border-left: 0; }
   html.web .bar-adv { flex: 1 1 100%; }
   html.web .status { padding-left: 0; border-left: 0; }
+  /* Bottom strip on a phone (user, 2026-11-19): the legend wraps inside the screen, advisory chips stack and keep
+     their text on whole lines, and the update time sits centered above the phone's rounded corners and home bar */
+  html.web .bar { padding-bottom: max(26px, calc(12px + env(safe-area-inset-bottom))); }
+  html.web .bar-legend { flex: 1 1 100%; min-width: 0; gap: 6px 14px; }
+  html.web .bar-k { flex: 1 1 100%; }
+  html.web .bar-adv .xtrack, html.web .bar-adv .xcopy { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+  html.web .bar-adv .xcopy + .xcopy { display: none; } /* no sideways scrolling copy on a phone: the chips wrap */
+  html.web .bar-adv.scrolling-x { -webkit-mask-image: none; mask-image: none; }
+  html.web .bar-adv.scrolling-x .xtrack { animation: none; padding-left: 0; }
+  html.web .achip { height: auto; min-height: 34px; padding: 5px 12px; flex-wrap: wrap; gap: 2px 9px; max-width: 100%; }
+  html.web .achip b { flex: 0 0 auto; }
+  html.web .achip .u { flex: 1 1 100%; padding-left: 29px; }
+  html.web .bar .status { flex: 1 1 100%; margin-left: 0; justify-content: center; flex-wrap: wrap; }
   html.web .map-chip { top: 10px; left: 10px; padding: 6px 10px; font-size: 16px; gap: 6px; }
   html.web .layers-btn { top: 10px; height: 38px; padding: 0 10px; font-size: 16px; }
   html.web .layers-panel { top: 56px; left: 10px; width: min(320px, calc(100vw - 20px)); }
@@ -333,6 +346,9 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
   html.web .stn-tip { max-width: calc(100vw - 24px); }
   html.web .sunstrip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   html.web .sunstrip .t { font-size: 17px; white-space: nowrap; }
+  /* Runway card's bottom line (density alt, pressure alt, field): each value under its label, never broken mid-value */
+  html.web .fcard .row2 > span:not(.da-tag) { display: flex; flex-direction: column; white-space: nowrap; line-height: 1.25; }
+  html.web .fcard .row2 b { font-size: 17px; }
 }
 </style>
 </head>
