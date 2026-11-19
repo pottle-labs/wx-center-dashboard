@@ -801,10 +801,12 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     var feats = state.gairmets.concat(state.sigmets).filter(function (f) { return showLayer(advKind(f)); })
       .sort(function (a, b) { return styleFor(a).w - styleFor(b).w; });
     var tags = [];
+    state.advLines = []; // each drawn outline in screen points, so the pointer on the line itself finds its advisory
     feats.forEach(function (f) {
       var s = styleFor(f), line = f.geometry && f.geometry.type === 'LineString';
       rings(f.geometry).forEach(function (ring) {
         var pts = ring.map(function (c) { return toScreen(c[1], c[0]); });
+        state.advLines.push({ src: f, pts: pts, closed: !line });
         g.beginPath();
         pts.forEach(function (p, i) { i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y); });
         if (!line) { g.closePath(); g.fillStyle = hexA(s.c, s.fill); g.fill(); }
@@ -858,6 +860,9 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
           g.beginPath();
           pts.forEach(function (p, i) { i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y); });
           if (!open) g.closePath();
+          // the area it covers is tinted (user, 2026-11-19): when only part of the border is on the map, this shows
+          // which side is inside
+          if (!open) { g.fillStyle = hexA(hs.c, ah.properties ? 0.3 : 0.18); g.fill(); }
           g.setLineDash([]); g.lineJoin = 'round';
           g.shadowColor = hs.c; g.shadowBlur = 22;
           g.lineWidth = hs.w + 12; g.strokeStyle = 'rgba(255,255,255,.95)'; g.stroke();
@@ -1625,8 +1630,17 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     if (CFG.sideScroll) {
       side.insertAdjacentHTML('beforeend', '<div class="sscroll" id="sideScroll"><div class="strack"></div><div class="sbar" hidden><i></i></div></div>');
       into = $('sideScroll').firstChild;
-      $('sideScroll').addEventListener('mouseenter', function () { if (sideAnim) sideAnim.pause(); if (barAnim) barAnim.pause(); });
-      $('sideScroll').addEventListener('mouseleave', function () { if (sideAnim) sideAnim.play(); if (barAnim) barAnim.play(); });
+      // The pointer over the column holds the scroll while it moves; SCROLL_IDLE_SEC without movement and it carries on,
+      // so a mouse left parked there (and hidden by the shell) doesn't freeze the column (user, 2026-11-19)
+      var SCROLL_IDLE_SEC = 30, idleTimer = 0;
+      var go = function () { clearTimeout(idleTimer); if (sideAnim) sideAnim.play(); if (barAnim) barAnim.play(); };
+      var hold = function () {
+        if (sideAnim) sideAnim.pause(); if (barAnim) barAnim.pause();
+        clearTimeout(idleTimer); idleTimer = setTimeout(go, SCROLL_IDLE_SEC * 1000);
+      };
+      $('sideScroll').addEventListener('mouseenter', hold);
+      $('sideScroll').addEventListener('mousemove', hold);
+      $('sideScroll').addEventListener('mouseleave', go);
     }
     CFG.sideOrder.forEach(function (k) { into.appendChild($(el[k])); });
     // The range buttons sit on the map (TVs and computers; the phone page keeps them above the conditions)
@@ -1786,7 +1800,6 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
       if (!hover || hover.adv !== tag.src) showAdvTip(tag);
       return;
     }
-    if (hover && hover.adv) hideTip();
     state.metars.forEach(function (m) {
       if (m.lat == null) return;
       var p = toScreen(m.lat, m.lon), d = (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y);
@@ -1798,6 +1811,20 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     });
     clearTimeout(tipTimer);
     tipTimer = setTimeout(hideTip, 15000); // don't leave a panel up on the TV when someone walks away
+    if (!best) { // no airport or PIREP here: an advisory's outline under the pointer (within 7 px) counts like its tag
+      var onLine = null, ld = 7;
+      (state.advLines || []).forEach(function (L) {
+        for (var i = 0, n = L.pts.length; i < (L.closed ? n : n - 1); i++) {
+          var d = segDist({ x: x, y: y }, L.pts[i], L.pts[(i + 1) % n]);
+          if (d < ld) { ld = d; onLine = L.src; }
+        }
+      });
+      if (onLine) {
+        if (!hover || hover.adv !== onLine) showAdvTip({ src: onLine, box: { x0: x - 30, y0: y - 12, x1: x + 30, y1: y + 12 } });
+        return;
+      }
+    }
+    if (hover && hover.adv) hideTip(); // off the advisory's tag and line
     if (!best) { if (hover) hideTip(); return; }
     if (best.p) { if (hover !== best) showPirepTip(best); return; }
     if (!hover || hover.icaoId !== best.icaoId) showTip(best);
@@ -2114,7 +2141,10 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
       var a = Array.isArray(list) && list[0];
       if (!a) return;
       var mv = parseInt(a.magdec, 10) || 0; if (/W/i.test(a.magdec || '')) mv = -mv;
-      if (CFG.elevFt == null && a.elev != null) CFG.elevFt = a.elev * 3.28084;
+      // The airport record's elevation is the field elevation (KSGU 879 m = 2,884 ft, as in the Chart Supplement); the
+      // station record read at startup is the weather sensor's (877 m), so this one replaces it (user, 2026-11-19).
+      // AWC gives whole metres, so the feet shown can be a foot or two off the published figure.
+      if (a.elev != null && !CFG.elevFaa) CFG.elevFt = a.elev * 3.28084; // (the FAA's own figure in feet wins: loadFieldElev)
       state.runways = (a.runways || []).map(function (r) {
         var ids = String(r.id || '').split('/');
         var n = parseInt(ids[0], 10);
@@ -2256,7 +2286,7 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     if (!F.runway || !m) { el.hidden = true; return; }
     var ends = runwayWinds(m), da = densityAlt(m), wind = m.wspd === 0 ? 'Calm' : (m.wdir === 'VRB' ? 'VRB' : pad3(m.wdir) + '°') + ' ' + m.wspd + (m.wgst ? 'G' + m.wgst : '') + ' kt';
     var daHi = da && F.daFlag === 'runway' && daLevel(da.da); // feature daFlag: a "HIGH DA" tag in place of the plain value
-    var daHtml = da ? '<div class="row2">' + (daHi ? '<span class="da-tag ' + daHi + '">HIGH DA ' + fmtFt(da.da) + ' ft</span>' : '<span>Density alt <b>' + fmtFt(da.da) + ' ft</b></span>') + '<span>Pressure alt <b>' + fmtFt(da.pa) + ' ft</b></span><span>Field <b>' + fmtFt(Math.round(CFG.elevFt / 10) * 10) + '</b></span></div>' : '';
+    var daHtml = da ? '<div class="row2">' + (daHi ? '<span class="da-tag ' + daHi + '">HIGH DA ' + fmtFt(da.da) + ' ft</span>' : '<span>Density alt <b>' + fmtFt(da.da) + ' ft</b></span>') + '<span>Pressure alt <b>' + fmtFt(da.pa) + ' ft</b></span><span>Field <b>' + fmtFt(Math.round(CFG.elevFt)) + '</b></span></div>' : '';
     var h = '<div class="hd"><span class="label">Runway winds · ' + esc(CFG.station) + '</span><span class="sub mono">' + esc(wind) + '</span></div>';
     if (!ends || !ends.length) { el.innerHTML = h + '<div class="sub">' + (state.runways ? 'No runway data for this airport.' : 'Loading runways…') + '</div>' + daHtml; el.hidden = false; return; }
     var calm = !m.wspd, vrb = m.wdir === 'VRB';
@@ -2636,8 +2666,24 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     onClock(CFG.refresh.gairmet, loadGairmets);
     onClock(CFG.refresh.radar, loadRadar);
   }
+  // The published field elevation in feet (user, 2026-11-19): FAA Aeronautical Information Services' Airports layer
+  // (the ArcGIS service family the sectional chart comes from), e.g. KSGU 2883.6 -> 2,884 as in the Chart Supplement.
+  // US airports only; without an answer within 6 s the page carries on with AWC's elevation (whole metres). It allows
+  // cross-origin reads, so the phone page asks it directly, not through the relay.
+  function loadFieldElev() {
+    if (!/^[A-Z0-9]{3,4}$/.test(CFG.station)) return Promise.resolve();
+    var url = 'https://services6.arcgis.com/ssFJjBXIUyZDrSYZ/arcgis/rest/services/US_Airport/FeatureServer/0/query?where=' +
+      encodeURIComponent("ICAO_ID='" + CFG.station + "'") + '&outFields=ELEVATION&returnGeometry=false&f=json';
+    var inApp = window.chrome && window.chrome.webview && window.dashHost && window.dashHost.getJSON;
+    var ask = (inApp ? window.dashHost.getJSON(url) : fetch(url).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }))
+      .then(function (j) {
+        var a = j && j.features && j.features[0] && j.features[0].attributes, e = a ? +a.ELEVATION : NaN;
+        if (a && a.ELEVATION != null && isFinite(e)) { CFG.elevFt = Math.round(e); CFG.elevFaa = true; if (state.home) renderFeatures(); }
+      }).catch(function () {});
+    return Promise.race([ask, new Promise(function (ok) { setTimeout(ok, 6000); })]);
+  }
   function boot() {
-    locateStation().then(start, function (e) {
+    locateStation().then(function () { return loadFieldElev(); }).then(start, function (e) {
       if (CFG.station === 'KSGU') { start(); return; }
       state.stationError = /fetch|HTTP|Timed/i.test(String(e && e.message))
         ? 'Can’t look up ' + CFG.station + ' right now. Retrying in a minute.'
