@@ -105,6 +105,12 @@ html[data-theme="light"] .sumgrp.install .sumchip { border-color: #1E7F3C; }
 .bases input { accent-color: var(--accent); }
 .wide { grid-template-columns: 1fr; }
 .row.w2 { grid-template-columns: minmax(0, 1fr) 380px; }
+.order { display: grid; gap: 4px; }
+.ord { display: grid; grid-template-columns: minmax(0, 1fr) 40px 40px; gap: 6px; align-items: center; padding: 4px 4px 4px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); font-size: 17px; }
+.ord.fixed { grid-template-columns: minmax(0, 1fr) auto; padding: 7px 12px; color: var(--muted); }
+.ord.fixed em { font-style: normal; font-size: 14px; }
+.ord button { height: 30px; padding: 0; font-size: 13px; }
+.ord button:disabled { opacity: .3; }
 .pc-label { color: var(--muted); }
 input[type=password] { width: 100%; height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--fg); font: 500 16px var(--font-data); }
 input[type=file] { color: var(--fg-2); font: 15px var(--font-ui); }
@@ -286,6 +292,10 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
         <div class="seg" role="radiogroup" aria-labelledby="simDaysLabel" data-for="simDays">
           <button type="button" role="radio" data-v="5">Next 5</button><button type="button" role="radio" data-v="7">Next 7</button>
         </div><input type="hidden" id="simDays"></div>
+      <div class="row sub-row" data-dep="sim"><label id="simViewLabel">Where it shows<small>Own page: it takes turns with the aircraft and instructor pages. Under aircraft: the next lab shows as a strip below them with no page turning, when everything fits on one page; otherwise it gets its own page.</small></label>
+        <div class="seg" role="radiogroup" aria-labelledby="simViewLabel" data-for="simView">
+          <button type="button" role="radio" data-v="page">Own page</button><button type="button" role="radio" data-v="strip">Under aircraft</button>
+        </div><input type="hidden" id="simView"></div>
       <div class="row sub-row" data-dep="sim"><label for="simCycle">Time on the sim lab page</label>
         <span class="unit"><input type="number" id="simCycle" min="5" max="120" step="1" required>seconds</span></div>
     </fieldset>
@@ -325,6 +335,13 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
         <div class="seg" role="radiogroup" aria-labelledby="decodedLabel" data-for="decoded">
           <button type="button" role="radio" data-v="auto">Auto</button><button type="button" role="radio" data-v="on">On</button><button type="button" role="radio" data-v="off">Off</button>
         </div><input type="hidden" id="decoded"></div>
+      <div class="row"><label id="tafStyleLabel">TAF<small>As issued, or decoded: a bar of the periods ahead colored by flight category, and each period in plain words with local times.</small></label>
+        <div class="seg" role="radiogroup" aria-labelledby="tafStyleLabel" data-for="taf">
+          <button type="button" role="radio" data-v="raw">As issued</button><button type="button" role="radio" data-v="decoded">Decoded</button>
+        </div><input type="hidden" id="taf"></div>
+      <div class="row w2"><label>Order of the side column<small id="orderNote"></small></label>
+        <div><div class="order" id="orderList"></div><input type="hidden" id="sideOrder">
+          <span class="inline" style="justify-content:flex-end;margin-top:8px"><button type="button" id="orderReset">Use the built-in order</button></span></div></div>
       <div class="row"><label for="metarAge">Show how old the report is<small>Under the category badge, e.g. “38 min old”. Amber with “Late” after 70 minutes, red after 2 hours. With category changes on, it also says when the category changed.</small></label>
         <span class="switch"><input type="checkbox" id="metarAge"><span></span></span></div>
       <div class="row"><label for="catChange">Show flight category changes<small>For an hour after the airport’s category changes, the old one shows faded before the new one, with when it changed.</small></label>
@@ -353,7 +370,7 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
       <div id="limSetRows"></div>
       <div class="row sub-row wide" data-dep="limits" id="limSetBtns">
         <span class="inline" style="justify-content:flex-end"><button type="button" id="limRemove">Remove last set</button><button type="button" id="limAdd">Add another set</button></span></div>
-      <div class="row"><label id="advListLabel">Advisory list in the side column<small>The strip along the bottom always shows the active advisories. Auto shows the full list (with valid times, tops and movement) when there's room.</small></label>
+      <div class="row"><label id="advListLabel">Advisory list in the side column<small>SIGMETs and G-AIRMETs with their altitudes, valid times and movement. Auto shows it when there’s room. While it shows, the strip along the bottom leaves those out and keeps only TFRs and thunderstorm alerts.</small></label>
         <div class="seg" role="radiogroup" aria-labelledby="advListLabel" data-for="advList">
           <button type="button" role="radio" data-v="auto">Auto</button><button type="button" role="radio" data-v="on">On</button><button type="button" role="radio" data-v="off">Off</button>
         </div><input type="hidden" id="advList"></div>
@@ -532,19 +549,19 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
   $('limAdd').addEventListener('click', function () { $('limSets').value = String(Math.min(LIM_MAX, limCount() + 1)); syncLimSets(); });
   $('limRemove').addEventListener('click', function () { $('limSets').value = String(Math.max(1, limCount() - 1)); syncLimSets(); });
   var FIELDS = ['theme', 'clock', 'wbScreen', 'singleScreen', 'hideSeconds', 'tab', 'cycle', 'phones', 'logo', 'qr', 'wbLayout', 'sheetRefresh', 'statusDown', 'statusNote', 'statusOk',
-    'maint', 'maintWarn', 'maintCrit', 'sim', 'simDays', 'simCycle', 'station', 'radius', 'radarLoop',
-    'radarHours', 'airmets', 'sigmets', 'convective', 'dailyReloadHour', 'autoUpdate', 'decoded', 'advList', 'advSpeed',
+    'maint', 'maintWarn', 'maintCrit', 'sim', 'simDays', 'simView', 'simCycle', 'station', 'radius', 'radarLoop',
+    'radarHours', 'airmets', 'sigmets', 'convective', 'dailyReloadHour', 'autoUpdate', 'decoded', 'taf', 'sideOrder', 'advList', 'advSpeed',
     'limits', 'limSets'].concat(LIM_KEYS).concat(['runway', 'daFlag', 'daWarn', 'daCrit', 'sun', 'sunCount', 'tstorm', 'pireps', 'barbs', 'trend', 'tfrs', 'catChange', 'metarAge', 'aloft', 'oldObs', 'acDetail', 'stations', 'diagCorner', 'quiet', 'quietFrom', 'quietTo', 'quietMode', 'repo']);
   // Never set centrally: the PC's base and screens, and updates (matches CentralSettings.LocalOnly in the shell)
   var LOCAL_ONLY = ['tab', 'wbScreen', 'singleScreen', 'autoUpdate', 'repo'];
   var CENTRAL = new URLSearchParams(location.search).get('central') === '1' || !!window.WXC_PHONE; // the central settings editor (on a PC, or the phone version)
   // Shown when settings.ini doesn't have the key yet (it was installed by an older version). Features start off.
-  var DEFAULTS = { theme: 'dark', clock: '12', hideSeconds: '4', logo: '1', qr: '1', wbLayout: 'auto', cycle: '15', phones: '1', sheetRefresh: '5', radius: '100', radarLoop: '1', dailyReloadHour: '3', radarHours: '1', airmets: '1', sigmets: '1', convective: '1', station: 'auto', autoUpdate: '1', decoded: 'auto', advList: 'auto', advSpeed: '20',
+  var DEFAULTS = { theme: 'dark', clock: '12', hideSeconds: '4', logo: '1', qr: '1', wbLayout: 'auto', cycle: '15', phones: '1', sheetRefresh: '5', radius: '100', radarLoop: '1', dailyReloadHour: '3', radarHours: '1', airmets: '1', sigmets: '1', convective: '1', station: 'auto', autoUpdate: '1', decoded: 'auto', taf: 'raw', sideOrder: 'default', advList: 'auto', advSpeed: '20',
     limits: '0', limSets: '1', runway: 'off', sun: 'off', pireps: '0', barbs: '0', trend: '0', tfrs: '1', catChange: '0', metarAge: '1', aloft: '0', oldObs: '1', stations: '0', quiet: '1', quietFrom: '00:00', quietTo: '05:00', quietMode: 'dim', acDetail: 'off', diagCorner: '0' };
   Object.keys(LIM_DEFAULTS).forEach(function (k) { DEFAULTS[k] = LIM_DEFAULTS[k]; });
   // Thunderstorm alert, sunset countdown, high density altitude, maintenance countdown (all off to start)
   [['tstorm', '0'], ['sunCount', 'off'], ['daFlag', 'off'], ['daWarn', '5000'], ['daCrit', '7000'], ['maint', 'off'],['maintWarn', '10'], ['maintCrit', '3'],
-   ['sim', '0'], ['simDays', '7'], ['simCycle', '15']]
+   ['sim', '0'], ['simDays', '7'], ['simView', 'page'], ['simCycle', '15']]
     .forEach(function (d) { DEFAULTS[d[0]] = d[1]; });
   // Aircraft status keywords (match wb.html's STATUS_DEF and the settings.ini template)
   DEFAULTS.statusDown = 'down, maint, annual, 100 hr, 100hr, 100 hour, ground, inop, aog, unavailable, out of service, oos, not available, shop, repair';
@@ -564,6 +581,31 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
     var v = +$('advSpeed').value;
     $('advSpeedOut').textContent = v <= 12 ? 'slow' : v <= 30 ? 'medium' : 'fast';
   }
+  // Order of the weather side column (sideOrder): "default", or the six blocks top to bottom. The arrows make it a list.
+  var ORDER_ALL = ['taf', 'rwy', 'trend', 'sun', 'aloft', 'adv'];
+  var ORDER_NAME = { rwy: 'Runway winds', trend: '12-hour trend', sun: 'Daylight arc', aloft: 'Winds aloft', taf: 'TAF', adv: 'Advisory list' };
+  function orderNow() {
+    var o = String($('sideOrder').value || '').split(',').filter(function (k, i, a) { return ORDER_ALL.indexOf(k) >= 0 && a.indexOf(k) === i; });
+    return o.length ? o.concat(ORDER_ALL.filter(function (k) { return o.indexOf(k) < 0; })) : null;
+  }
+  function syncOrder() {
+    var o = orderNow(), list = o || ORDER_ALL;
+    $('orderList').innerHTML = '<div class="ord fixed"><span>Airport conditions</span><em>always on top</em></div>' + list.map(function (k, i) {
+      return '<div class="ord"><span>' + ORDER_NAME[k] + '</span><button type="button" data-k="' + k + '" data-d="-1" aria-label="Move ' + ORDER_NAME[k] + ' up"' + (i ? '' : ' disabled') + '>▲</button>' +
+        '<button type="button" data-k="' + k + '" data-d="1" aria-label="Move ' + ORDER_NAME[k] + ' down"' + (i < list.length - 1 ? '' : ' disabled') + '>▼</button></div>';
+    }).join('');
+    $('orderReset').disabled = !o;
+    $('orderNote').textContent = o ? 'Your order. When the column is full, blocks are left out from the bottom up, so put what matters least last. Blocks that are switched off are skipped.'
+      : 'The built-in order and rules. Move a block to set your own order: blocks are then left out from the bottom up when the column is full.';
+  }
+  $('orderList').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b || b.disabled) return;
+    var list = orderNow() || ORDER_ALL.slice(), i = list.indexOf(b.dataset.k), j = i + +b.dataset.d;
+    if (i < 0 || j < 0 || j >= list.length) return;
+    list.splice(j, 0, list.splice(i, 1)[0]);
+    $('sideOrder').value = list.join(','); syncOrder();
+  });
+  $('orderReset').addEventListener('click', function () { $('sideOrder').value = 'default'; syncOrder(); });
 
   // station=auto means "K + base"; the switch shows that, and the airport box is only for a different airport
   function syncStation() {
@@ -618,7 +660,7 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
         el.value = val;
       }
     });
-    syncSeg(); syncSpeed(); syncDeps();
+    syncSeg(); syncSpeed(); syncDeps(); syncOrder();
     var auto = String(v.station || 'auto').toLowerCase() === 'auto';
     $('stationAuto').checked = auto;
     if (auto) $('station').value = '';

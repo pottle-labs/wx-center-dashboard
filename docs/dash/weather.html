@@ -110,6 +110,8 @@ html[data-theme="light"] .da-tag.red, html[data-theme="light"] .da-tile.red .k, 
 .bar-k { flex: 0 0 auto; padding-left: 16px; border-left: 1px solid var(--line-strong); font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
 .bar-adv { flex: 1 1 auto; min-width: 0; overflow: hidden; display: flex; align-items: center; }
 .bar-adv .none { font-size: 17px; color: var(--muted); }
+.bar-k[hidden], .bar-adv[hidden] { display: none; }
+.bar .status { margin-left: auto; }
 .xtrack { display: inline-flex; align-items: center; }
 .xcopy { display: inline-flex; align-items: center; gap: 10px; }
 .xcopy + .xcopy { margin-left: 44px; }
@@ -179,6 +181,31 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
 .frames { display: flex; gap: 5px; margin-left: 6px; }
 .frames span { width: 18px; height: 6px; border-radius: 3px; background: var(--line-strong); }
 .frames span.on { background: var(--accent); }
+/* Review round (2026-11-19; mockups/review 7-9): radar step and pause buttons, key hints (shown on mouse movement or a
+   key press), the decoded TAF (setting taf=decoded) */
+.rc { display: inline-flex; margin-left: 8px; gap: 6px; }
+.rc[hidden] { display: none; }
+.rc button { width: 34px; height: 30px; padding: 0; border-radius: 7px; background: #1B2533; border: 1px solid #2F3C50; color: #E8EEF5; font: 600 14px 'Segoe UI Symbol', 'Segoe UI', sans-serif; cursor: pointer; }
+.rc button:hover { border-color: var(--accent); }
+.rc button.on { background: var(--accent); border-color: var(--accent); color: #0B0F14; }
+html[data-theme="light"] .rc button { background: #fff; border-color: var(--line-strong); color: var(--fg); }
+html[data-theme="light"] .rc button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.frames span { cursor: pointer; }
+.keys { position: absolute; left: 18px; bottom: 46px; z-index: 6; display: flex; gap: 18px; align-items: center; padding: 9px 16px; border-radius: 12px; background: rgba(14,19,26,.95); border: 1px solid #2A3648; font-size: 18px; color: #93A1B3; white-space: nowrap; }
+.keys[hidden] { display: none; }
+.keys kbd { display: inline-block; min-width: 26px; text-align: center; padding: 0 7px; margin-right: 5px; border-radius: 6px; border: 1px solid #3A4759; background: #0B0F14; color: #E8EEF5; font: 500 16px var(--font-data); }
+.tafd { font-family: var(--font-ui); white-space: normal; overflow-wrap: normal; }
+.tafd .seg { display: flex; height: 12px; border-radius: 6px; overflow: hidden; margin: 2px 0; background: var(--line); }
+.tafd .seg i { display: block; height: 100%; border-right: 3px solid var(--panel); }
+.tafd .seg i:last-child { border-right: 0; }
+.tafd .ax { display: flex; justify-content: space-between; font: 500 13px var(--font-data); color: var(--muted); margin-bottom: 5px; }
+.tafd .r { display: grid; grid-template-columns: 112px 44px 1fr; gap: 9px; align-items: baseline; font-size: 18px; color: var(--fg-2); line-height: 1.35; }
+.tafd .r .tm { font: 500 16px var(--font-data); color: var(--fg); white-space: nowrap; }
+.tafd .r .c { align-self: center; font-size: 13px; font-weight: 700; color: #0B0F14; border-radius: 4px; text-align: center; line-height: 20px; }
+.tafd.h12 .r { grid-template-columns: 132px 48px 1fr; }
+.tafd .r > span:last-child { min-width: 0; }
+.tafd .r.sub, .tafd .r.sub .tm { color: var(--warn); }
+.tafd .r.sub .c { background: transparent !important; color: var(--warn); border: 1px solid var(--warn); line-height: 18px; }
 .map-credit { position: absolute; right: 10px; bottom: 8px; padding: 2px 8px; border-radius: 6px; background: rgba(11,15,20,.72); color: var(--muted); font-size: 14px; }
 /* Hovered airport: ring on the map and a panel beside it with the raw METAR and TAF */
 .stn-ring { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; border: 3px solid var(--accent); box-shadow: 0 0 0 3px rgba(11,15,20,.7); pointer-events: none; z-index: 4; }
@@ -314,7 +341,7 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
     <div class="layer" id="base"></div>
     <div class="layer radar" id="radar"></div>
     <canvas id="overlay" aria-hidden="true"></canvas>
-    <div class="map-chip"><span class="k">Radar</span><span class="v" id="radarTime">--:--Z</span><span class="v local" id="radarLocal"></span><span class="frames" id="frames"></span></div>
+    <div class="map-chip"><span class="k">Radar</span><span class="v" id="radarTime">--:--Z</span><span class="v local" id="radarLocal"></span><span class="frames" id="frames"></span><span class="rc" id="radarCtl" hidden><button type="button" data-r="-1" title="Earlier frame" aria-label="Earlier radar frame">◀</button><button type="button" data-r="0" id="radarPause" title="Pause the radar loop" aria-label="Pause the radar loop">❚❚</button><button type="button" data-r="1" title="Later frame" aria-label="Later radar frame">▶</button></span></div>
     <!-- Layers: show or hide overlays for a while; back to the settings after a minute without use (script: "Layers") -->
     <button type="button" class="layers-btn" id="layersBtn" aria-expanded="false" aria-controls="layersPanel"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg><span>Layers</span><span class="lt" id="layersLeft" hidden></span></button>
     <div class="layers-panel" id="layersPanel" role="dialog" aria-label="Map layers" hidden></div>
@@ -323,6 +350,7 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
     <div class="stn-ring" id="tipRing" hidden></div>
     <div class="stn-tip" id="tip" role="tooltip" hidden></div>
     <div class="map-banner" id="banner" hidden></div>
+    <div class="keys" id="keys" hidden></div>
   </div>
 
   <aside class="side">
@@ -350,18 +378,19 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
       <div class="raw" id="metarRaw"></div>
     </section>
 
+    <!-- The TAF sits right under the airport's conditions (user's choice, 2026-11-19; it was below the feature cards) -->
+    <section class="card taf" id="tafCard" aria-label="Terminal forecast">
+      <div class="station"><span class="label" id="tafLabel">TAF</span><span class="age" id="tafAge"></span></div>
+      <div class="raw" id="tafRaw">--</div>
+    </section>
+
     <!-- Feature cards (each only when switched on in settings) -->
     <section class="card fcard" id="rwyCard" aria-label="Runway winds and density altitude" hidden></section>
     <section class="card fcard" id="trendCard" aria-label="Home airport trend" hidden></section>
     <section class="card fcard" id="sunCard" aria-label="Daylight" hidden></section>
     <section class="card fcard" id="aloftCard" aria-label="Winds aloft" hidden></section>
 
-    <section class="card taf" aria-label="Terminal forecast">
-      <div class="station"><span class="label">TAF</span><span class="age" id="tafAge"></span></div>
-      <div class="raw" id="tafRaw">--</div>
-    </section>
-
-    <section class="card grow" aria-label="Advisories">
+    <section class="card grow" id="advCard" aria-label="Advisories">
       <div class="station"><span class="label" id="advLabel">Advisories within 100 NM</span></div>
       <div class="adv-list" id="advList"><div class="none">Loading…</div></div>
     </section>
@@ -401,6 +430,14 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
     clock24: q.get('clock') === '24',       // local times as 14:05 instead of 2:05 PM (Zulu is always 24-hour)
     decoded: /^(on|off)$/.test(q.get('decoded')) ? q.get('decoded') : 'auto', // decoded METAR grid: auto | on | off
     advList: /^(on|off)$/.test(q.get('advList')) ? q.get('advList') : 'auto', // advisory list in the side column: auto | on | off
+    taf: q.get('taf') === 'decoded' ? 'decoded' : 'raw', // the TAF as issued, or decoded into a timeline of periods
+    // The side column's blocks under the airport's conditions, top to bottom (a custom order also sets which give way
+    // first when the column is full: from the bottom up). null = the built-in order and rules.
+    sideOrder: (function (v) {
+      var all = ['taf', 'rwy', 'trend', 'sun', 'aloft', 'adv'], o = String(v || '').split(',').filter(function (k, i, a) { return all.indexOf(k) >= 0 && a.indexOf(k) === i; });
+      if (!o.length) return null;
+      return o.concat(all.filter(function (k) { return o.indexOf(k) < 0; }));
+    })(q.get('sideOrder')),
     // Features (settings → Features); all off unless switched on
     feat: {
       limits: q.get('limits') === '1',                                           // 1B training-limits banner on the map
@@ -654,7 +691,7 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
     Object.keys(radarLayers).forEach(function (f) { if (!keep[f]) radarEl.removeChild(radarLayers[f]); });
     radarLayers = keep;
     $('frames').innerHTML = state.frames.map(function () { return '<span></span>'; }).join('');
-    state.frame = state.frames.length - 1;
+    if (!state.radarPaused || state.frame == null || state.frame >= state.frames.length) state.frame = state.frames.length - 1; // (paused: stay on the frame being looked at)
     showFrame();
   }
   function showFrame() {
@@ -672,7 +709,7 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
   }
   var dwell = 0;
   setInterval(function () {
-    if (!CFG.loop || state.frames.length < 2) return;
+    if (!CFG.loop || state.radarPaused || state.frames.length < 2) return;
     var last = state.frames.length - 1;
     if (state.frame === last && dwell < 4) { dwell++; return; } // hold on the latest frame for 2 s
     dwell = 0;
@@ -743,14 +780,14 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
         g.lineWidth = (s.w + 5) * AW; g.strokeStyle = 'rgba(11,15,20,.7)'; g.stroke(); // solid dark halo under the dashes
         g.setLineDash((s.dash || []).map(function (d) { return d * AD; }));
         g.lineWidth = s.w * AW; g.strokeStyle = s.c; g.stroke();
-        // Tag the outline at its on-screen vertex nearest the map center
-        var best = null, cx = v.w / 2, cy = v.h / 2;
+        // Tag the outline at its on-screen vertex nearest the map center (the others are spare spots, see the tags below)
+        var cx = v.w / 2, cy = v.h / 2, on = [];
         pts.forEach(function (p) {
           if (p.x < 60 || p.y < 60 || p.x > v.w - 60 || p.y > v.h - 40) return;
-          var d = (p.x - cx) * (p.x - cx) + (p.y - cy) * (p.y - cy);
-          if (!best || d < best.d) best = { x: p.x, y: p.y, d: d };
+          on.push({ x: p.x, y: p.y, d: (p.x - cx) * (p.x - cx) + (p.y - cy) * (p.y - cy) });
         });
-        if (best) tags.push({ x: best.x, y: best.y, s: s, src: f });
+        on.sort(function (a, b) { return a.d - b.d; });
+        if (on.length) tags.push({ x: on[0].x, y: on[0].y, s: s, src: f, spare: on.slice(1, 8) });
       });
     });
     g.setLineDash([]);
@@ -798,17 +835,6 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
       });
       g.globalAlpha = hl ? FADE : 1;
     }
-    var placed = [];
-    state.tagHits = [];
-    tags.forEach(function (t) {
-      if (placed.some(function (p) { return Math.abs(p.x - t.x) < 110 && Math.abs(p.y - t.y) < 26; })) return; // avoid stacking
-      placed.push(t);
-      var on = ah && (t.src === ah || (!ah.properties && !t.src.properties && t.src.id === ah.id)); // a TFR: any area of its NOTAM
-      if (on) g.globalAlpha = 1;
-      var box = label(g, t.s.tag, t.x, t.y, on ? 18 : 16, t.s.fg || '#0B0F14', t.s.c);
-      if (on) { g.lineWidth = 3; g.strokeStyle = '#FFFFFF'; roundRect(g, box.x0 - 1, box.y0 - 1, box.x1 - box.x0 + 2, box.y1 - box.y0 + 2, 6); g.stroke(); g.globalAlpha = hl ? FADE : 1; }
-      state.tagHits.push({ box: box, src: t.src });
-    });
     g.globalAlpha = 1;
 
     // Range rings
@@ -856,6 +882,45 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
         age: old ? (ageMin < 120 ? Math.round(ageMin) + 'm' : Math.floor(ageMin / 60) + 'h') : '' });
     });
     placeLabels(g, spots, taken, v);
+    // Advisory and TFR tags go on last (2026-11-19), where they don't sit on an airport's dot, wind barb or label or on
+    // another tag: the outline's vertex nearest the center first, then nudged beside it, then its next vertices. A tag
+    // with no clear spot keeps the first one.
+    var placed = [], tagBoxes = [];
+    state.tagHits = [];
+    g.globalAlpha = hl ? FADE : 1;
+    tags.forEach(function (t) {
+      if (placed.some(function (p) { return Math.abs(p.x - t.x) < 110 && Math.abs(p.y - t.y) < 26; })) return; // avoid stacking
+      placed.push({ x: t.x, y: t.y });
+      var on = ah && (t.src === ah || (!ah.properties && !t.src.properties && t.src.id === ah.id)); // a TFR: any area of its NOTAM
+      var size = on ? 18 : 16;
+      g.font = '600 ' + size + 'px "Barlow Semi Condensed", "Segoe UI", sans-serif';
+      var tw = g.measureText(t.s.tag).width + 12, th = size + 6, at = null;
+      // (crowded spots, e.g. a TFR over Las Vegas: farther out all round, with a thin line back to the place)
+      var FAR = []; [52, 80, 110].forEach(function (r) { for (var a = 0; a < 8; a++) FAR.push([Math.round(r * 1.3 * Math.cos(a * Math.PI / 4)), Math.round(r * Math.sin(a * Math.PI / 4))]); });
+      var clear = function (x, y) {
+        var b = { x0: x - tw / 2 - 3, y0: y - th / 2 - 3, x1: x + tw / 2 + 3, y1: y + th / 2 + 3 };
+        if (b.x0 < 4 || b.y0 < 4 || b.x1 > v.w - 4 || b.y1 > v.h - 4) return false;
+        var hit = function (o) { return overlap(b, o) > 0; };
+        return !taken.some(hit) && !(state.labelBoxes || []).some(hit) && !tagBoxes.some(hit);
+      };
+      [{ x: t.x, y: t.y }].concat(t.spare || []).some(function (p, i) {
+        return [[0, 0], [0, -th - 4], [0, th + 4], [-tw / 2 - 14, 0], [tw / 2 + 14, 0], [0, -2 * th - 6], [0, 2 * th + 6], [-tw / 2 - 14, -th - 4], [tw / 2 + 14, -th - 4],
+          [-tw / 2 - 14, th + 4], [tw / 2 + 14, th + 4], [0, -3 * th - 8], [0, 3 * th + 8], [-tw - 20, 0], [tw + 20, 0]].concat(FAR).slice(0, i ? 3 : 99).some(function (d) {
+          if (clear(p.x + d[0], p.y + d[1])) { at = { x: p.x + d[0], y: p.y + d[1] }; return true; }
+          return false;
+        });
+      });
+      at = at || { x: t.x, y: t.y };
+      if (on) g.globalAlpha = 1;
+      if (Math.abs(at.x - t.x) > tw / 2 + 20 || Math.abs(at.y - t.y) > th + 10) { // moved well away: a line back to where it belongs
+        g.beginPath(); g.moveTo(t.x, t.y); g.lineTo(at.x, at.y);
+        g.lineWidth = 4; g.strokeStyle = 'rgba(11,15,20,.7)'; g.stroke(); g.lineWidth = 1.6; g.strokeStyle = t.s.c; g.stroke();
+      }
+      var box = label(g, t.s.tag, at.x, at.y, size, t.s.fg || '#0B0F14', t.s.c);
+      if (on) { g.lineWidth = 3; g.strokeStyle = '#FFFFFF'; roundRect(g, box.x0 - 1, box.y0 - 1, box.x1 - box.x0 + 2, box.y1 - box.y0 + 2, 6); g.stroke(); g.globalAlpha = hl ? FADE : 1; }
+      tagBoxes.push(box);
+      state.tagHits.push({ box: box, src: t.src });
+    });
     g.globalAlpha = 1;
     drawPireps(g);
     // What the limits banner should keep off: airport dots (the home one most), their labels, barbs, advisory tags
@@ -1288,11 +1353,103 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
   function pad3(n) { return String(n).padStart(3, '0'); }
   function renderTaf() {
     var t = state.taf;
-    if (!t) { tafText = 'No TAF for ' + CFG.station; $('tafRaw').textContent = tafText; $('tafAge').textContent = ''; layoutSide(); return; }
+    $('tafLabel').textContent = 'TAF';
+    if (!t) { tafText = 'No TAF for ' + CFG.station; tafBody = '<div class="raw">' + esc(tafText) + '</div>'; $('tafRaw').textContent = tafText; $('tafAge').textContent = ''; layoutSide(); return; }
     tafText = tafLines(t.rawTAF);
+    var dec = CFG.taf === 'decoded' ? tafDecoded(t) : '';
+    tafBody = dec || '<div class="raw">' + esc(tafText) + '</div>';
+    if (dec) $('tafLabel').textContent = 'TAF · decoded · local time';
     $('tafRaw').textContent = tafText;
     $('tafAge').textContent = 'Issued ' + hhmmZ(new Date(t.issueTime));
     layoutSide();
+  }
+  // The TAF decoded (setting taf=decoded; approved mockup 7): a bar of the periods still ahead, colored by flight
+  // category, and one line per period in plain words. TEMPO and PROB lines sit under their period in amber. Times are
+  // this computer's local time, like the clock above. Returns '' when the forecast has no decoded periods (raw is shown).
+  var WX_INT = { '-': 'light ', '+': 'heavy ' }, WX_DESC = { MI: 'shallow ', PR: 'partial ', BC: 'patchy ', DR: 'drifting ', BL: 'blowing ', SH: '', TS: 'thunderstorm ', FZ: 'freezing ' };
+  var WX_PHEN = { DZ: 'drizzle', RA: 'rain', SN: 'snow', SG: 'snow grains', IC: 'ice crystals', PL: 'ice pellets', GR: 'hail', GS: 'small hail', UP: 'precipitation',
+    BR: 'mist', FG: 'fog', FU: 'smoke', VA: 'volcanic ash', DU: 'dust', SA: 'sand', HZ: 'haze', PY: 'spray', PO: 'dust whirls', SQ: 'squalls', FC: 'funnel cloud', SS: 'sandstorm', DS: 'dust storm' };
+  var COVER = { FEW: 'few', SCT: 'scattered', BKN: 'broken', OVC: 'overcast', OVX: 'obscured' };
+  function wxWords(s) {
+    return String(s || '').trim().split(/\s+/).filter(Boolean).map(function (tok) {
+      var m = /^([-+]|VC)?((?:MI|PR|BC|DR|BL|SH|TS|FZ)*)((?:[A-Z]{2})*)$/.exec(tok);
+      if (!m) return tok;
+      var desc = (m[2].match(/../g) || []), phen = (m[3].match(/../g) || []).map(function (p) { return WX_PHEN[p] || p; });
+      var out = (WX_INT[m[1]] || '') + desc.map(function (d) { return WX_DESC[d]; }).join('') + phen.join(' and ');
+      if (desc.indexOf('SH') >= 0) out += phen.length ? ' showers' : 'showers';
+      out = out.trim() || tok;
+      return m[1] === 'VC' ? out + ' nearby' : out;
+    }).join(', ');
+  }
+  function tafCat(f) {
+    var ceil = null;
+    (f.clouds || []).forEach(function (c) { if (/^(BKN|OVC|OVX)$/.test(c.cover) && c.base != null && (ceil == null || c.base < ceil)) ceil = c.base; });
+    if (f.vertVis != null && f.vertVis !== '') ceil = Math.min(ceil == null ? 1e9 : ceil, +f.vertVis * 100);
+    var vis = f.visib == null || f.visib === '' ? null : parseFloat(f.visib);
+    if ((ceil != null && ceil < 500) || (vis != null && vis < 1)) return 'LIFR';
+    if ((ceil != null && ceil < 1000) || (vis != null && vis < 3)) return 'IFR';
+    if ((ceil != null && ceil <= 3000) || (vis != null && vis <= 5)) return 'MVFR';
+    return 'VFR';
+  }
+  function tafWords(f, part) { // part: a TEMPO / PROB line, which says only what differs
+    var out = [];
+    if (f.wspd != null) out.push((f.wdir === 'VRB' || f.wdir == null ? 'VRB' : pad3(f.wdir) + '°') + ' ' + f.wspd + (f.wgst ? 'G' + f.wgst : '') + ' kt');
+    var vis = f.visib == null || f.visib === '' ? null : parseFloat(f.visib);
+    if (vis != null && vis < 6) out.push(String(f.visib).replace('+', '') + ' SM');
+    if (f.wxString) out.push(wxWords(f.wxString));
+    var cl = (f.clouds || []).filter(function (c) { return COVER[c.cover] && c.base != null; });
+    cl.slice(0, part ? 1 : 2).forEach(function (c) { out.push(COVER[c.cover] + ' ' + (+c.base).toLocaleString('en-US')); });
+    if (!cl.length && (f.clouds || []).some(function (c) { return /^(SKC|CLR|NSC|CAVOK)$/.test(c.cover); }) && !part) out.push('clear');
+    return out.join(' · ');
+  }
+  function tafDecoded(t) {
+    var now = Date.now() / 1000, main = [], subs = [], last = {};
+    (t.fcsts || []).forEach(function (f) {
+      if (f.timeFrom == null || f.timeTo == null) return;
+      if (f.fcstChange === 'TEMPO' || f.fcstChange === 'PROB' || f.probability) { subs.push(f); return; }
+      // BECMG gives only what changes: the rest carries over from the period before
+      var m = f;
+      if (f.fcstChange === 'BECMG') {
+        m = {}; Object.keys(last).forEach(function (k) { m[k] = last[k]; });
+        Object.keys(f).forEach(function (k) { if (f[k] != null && f[k] !== '' && !(Array.isArray(f[k]) && !f[k].length)) m[k] = f[k]; });
+      }
+      last = m; main.push(m);
+    });
+    main = main.filter(function (m) { return m.timeTo > now; });
+    if (!main.length) return '';
+    var t0 = Math.max(now, main[0].timeFrom), t1 = main[main.length - 1].timeTo, span = t1 - t0;
+    if (span <= 0) return '';
+    var hm = function (s) { // 14:00, or 2PM / 2:30PM
+      var d = new Date(s * 1000), h = d.getHours(), mi = d.getMinutes();
+      return CFG.clock24 ? pad(h) + ':' + pad(mi) : (h % 12 || 12) + (mi ? ':' + pad(mi) : '') + (h < 12 ? 'AM' : 'PM');
+    };
+    var rangeOf = function (a, b) { return (a <= now ? 'Now' : hm(a)) + '–' + hm(b); };
+    var bar = '', rows = '';
+    main.forEach(function (m) {
+      var a = Math.max(m.timeFrom, t0), cat = tafCat(m);
+      bar += '<i style="width:' + ((m.timeTo - a) / span * 100).toFixed(2) + '%;background:' + (CAT[cat] || '#8892A0') + '"></i>';
+      rows += '<div class="r"><span class="tm">' + rangeOf(a, m.timeTo) + '</span><span class="c" style="background:' + (CAT[cat] || '#8892A0') + '">' + cat + '</span><span>' + esc(tafWords(m)) + '</span></div>';
+      subs.filter(function (s) { return s.timeTo > now && s.timeFrom >= m.timeFrom && s.timeFrom < m.timeTo; }).forEach(function (s) {
+        rows += '<div class="r sub"><span class="tm">' + rangeOf(Math.max(s.timeFrom, t0), s.timeTo) + '</span><span class="c">' + (s.probability ? s.probability + '%' : 'TEMPO') +
+          '</span><span>' + esc(tafWords(s, true) || 'see the raw TAF') + '</span></div>';
+      });
+    });
+    var ax = [0, .25, .5, .75, 1].map(function (k) { return '<span>' + hm(t0 + span * k) + '</span>'; }).join('');
+    return '<div class="tafd' + (CFG.clock24 ? '' : ' h12') + '"><div class="seg">' + bar + '</div><div class="ax">' + ax + '</div>' + rows + '</div>';
+  }
+  // A G-AIRMET's levels for the advisory list (the same facts as its hover panel): "SFC to 14,000 ft · moderate". A hazard
+  // with several areas in range gets the first area's levels and "+ N more areas" when the others differ.
+  function gairmetLevels(p, same) {
+    function one(x) {
+      var lv = [alt100(x.base), alt100(x.top)].filter(Boolean), s = lv.length === 2 ? lv[0] + ' to ' + lv[1] : lv.length ? 'Up to ' + lv[0] : '';
+      if (x.fzlbase || x.fzltop) s += (s ? ' · ' : '') + 'freezing level ' + [alt100(x.fzlbase), alt100(x.fzltop)].filter(Boolean).join(' to ');
+      if (x.level) s += (s ? ' · ' : '') + alt100(x.level);
+      if (x.severity) s += (s ? ' · ' : '') + String(x.severity).toLowerCase().replace(/^mod$/, 'moderate').replace(/^sev$/, 'severe');
+      if (!s && x.dueTo && x.dueTo !== x.hazard) s = title1(x.dueTo);
+      return s;
+    }
+    var mine = one(p), others = same.filter(function (o) { return one(o.properties) !== mine; }).length;
+    return mine + (others ? (mine ? ' · ' : '') + '+ ' + others + ' more area' + (others === 1 ? '' : 's') : '');
   }
   function renderAdvisories() {
     $('advLabel').textContent = 'Advisories within ' + CFG.radiusNm + ' NM';
@@ -1309,7 +1466,7 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
       var gm = f._kind === 'gairmet';
       var title = gm ? title1(p.product) + ' · ' + s.label
         : (p.hazard === 'CONVECTIVE' ? 'Convective SIGMET ' + (p.seriesId || '') : 'SIGMET ' + (p.seriesId || '') + ' · ' + (HAZ[p.hazard] ? HAZ[p.hazard].label : title1(p.hazard)));
-      var sub = gm ? '' : (p.altitudeHi1 ? 'Tops ' + fl(p.altitudeHi1) : '') + (p.movementDir ? ' · Moving ' + pad3(p.movementDir) + '° ' + p.movementSpd + ' kt' : '');
+      var sub = gm ? gairmetLevels(p, items.filter(function (o) { return o._kind === 'gairmet' && o.properties.hazard === p.hazard; })) : (p.altitudeHi1 ? 'Tops ' + fl(p.altitudeHi1) : '') + (p.movementDir ? ' · Moving ' + pad3(p.movementDir) + '° ' + p.movementSpd + ' kt' : '');
       if (!showLayer(advKind(f))) sub += (sub ? ' · ' : '') + 'not drawn on map';
       var until = gm ? 'G-AIRMET' : (p.validTimeTo ? 'until ' + hhmmZ(new Date(p.validTimeTo)) : '');
       rows.push('<div class="adv"><span class="sw" style="background:' + s.c + '"></span><div><div class="t">' + esc(title) + '</div>' +
@@ -1330,6 +1487,7 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
     if (g0) $('advLabel').textContent += ' · G-AIRMETs as of ' + hhmmZ(new Date(g0.properties.validTime));
     advEmpty = !rows.length;
     advRows = rows.length ? rows : ['<div class="none">' + (ok ? 'No SIGMETs or G-AIRMETs in the area' : 'Waiting for advisory data…') + '</div>'];
+    barExtra = chips.slice(0, (state.tfrChips || []).length).join(''); // TFRs: on the strip only (the list has SIGMETs and G-AIRMETs)
     barChips = chips.length ? chips.join('') : '<span class="none">' + (ok ? 'No advisories within ' + CFG.radiusNm + ' NM' : 'Waiting for advisory data…') + '</span>';
     layoutBar();
     layoutSide();
@@ -1342,15 +1500,15 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
   // - A TAF or advisory list that still doesn't fit scrolls slowly upward in a seamless loop (a second copy follows the
   //   first); speed CFG.advSpeed px/s; hovering pauses it.
   // Redone only when the content or the space changes, so a refresh with nothing new doesn't restart the scrolling.
-  var advRows = [], advEmpty = true, tafText = '--', sideSig = '', barChips = '', barSig = '';
+  var advRows = [], advEmpty = true, tafText = '--', tafBody = '', sideSig = '', barChips = '', barExtra = '', barSig = '';
   function layoutSide() {
     if (!advRows.length) return;
-    var sig = advRows.join('') + '|' + $('metarRaw').textContent + '|' + tafText + '|' + innerWidth + 'x' + innerHeight + '|' + $('tsStrip').textContent + '|' + $('oDaBox').hidden + '|' +
+    var sig = advRows.join('') + '|' + $('metarRaw').textContent + '|' + tafBody + '|' + innerWidth + 'x' + innerHeight + '|' + $('tsStrip').textContent + '|' + $('oDaBox').hidden + '|' +
       ['rwyCard', 'trendCard', 'sunCard', 'sunStrip', 'aloftCard'].map(function (id) { return $(id).hidden ? 0 : $(id).offsetHeight; }).join(',');
     if (sig === sideSig) return;
     sideSig = sig;
     var obs = $('obs'), taf = $('tafRaw'), list = $('advList');
-    var tafHtml = '<div class="raw">' + esc(tafText) + '</div>', advHtml = '<div class="adv-rows">' + advRows.join('') + '</div>';
+    var tafHtml = tafBody || '<div class="raw">' + esc(tafText) + '</div>', advHtml = '<div class="adv-rows">' + advRows.join('') + '</div>';
     var side = document.querySelector('.side'), tafCard = taf.parentNode, advCard = list.parentNode;
     // Each box keeps room for what it holds, up to about 4 lines (TAF) / 4 rows (advisories); `floor` lets them go smaller
     function reserve(floor) {
@@ -1371,27 +1529,56 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
     function tight() { return !fitsIn(taf, tafHtml) | (!advCard.hidden && !fitsIn(list, advHtml)) | sideOver(); }
     obs.hidden = CFG.decoded === 'off';
     advCard.hidden = CFG.advList === 'off' || (CFG.advList === 'auto' && advEmpty);
+    tafCard.hidden = false;
     reserve(false);
-    if (CFG.advList === 'auto' && !advCard.hidden && (!fitsIn(taf, tafHtml) || sideOver())) { advCard.hidden = true; reserve(false); }
-    if (tight() && CFG.decoded === 'auto') { obs.hidden = true; reserve(false); }
-    if (sideOver()) reserve(true); // e.g. decoded forced on: shrink the boxes so nothing is pushed out
-    for (var i = 0; i < squeeze.length && sideOver(); i++) {
-      if (squeeze[i].hidden) continue;
-      squeeze[i].classList.add('squeezed');
-      if (i === 0) renderSun();
-      reserve(true);
+    if (CFG.sideOrder) {
+      // A custom order (setting sideOrder): the blocks are stacked in that order, and when the column is full they are
+      // left out from the bottom up until the rest fits. The top block always stays; so does an advisory list set to On.
+      // The decoded METAR values (on Auto) give way before any block does, and also when the TAF or the advisory list
+      // still can't show in full; only after all that do those two boxes go smaller and scroll.
+      if (sideOver() && CFG.decoded === 'auto') { obs.hidden = true; reserve(false); }
+      var el = { rwy: $('rwyCard'), trend: $('trendCard'), sun: $('sunCard'), aloft: $('aloftCard'), taf: tafCard, adv: advCard };
+      for (var j = CFG.sideOrder.length - 1; j >= 1 && sideOver(); j--) {
+        var k = CFG.sideOrder[j], c = el[k];
+        if (c.hidden || (k === 'adv' && CFG.advList === 'on')) continue;
+        if (k === 'taf' || k === 'adv') c.hidden = true; else { c.classList.add('squeezed'); if (k === 'sun') renderSun(); }
+        reserve(false);
+      }
+      var tightNow = (!tafCard.hidden && !fitsIn(taf, tafHtml)) || (!advCard.hidden && !fitsIn(list, advHtml)) || sideOver();
+      if (tightNow && CFG.decoded === 'auto' && !obs.hidden) { obs.hidden = true; reserve(false); }
+      if (sideOver()) reserve(true);
+    } else {
+      if (CFG.advList === 'auto' && !advCard.hidden && (!fitsIn(taf, tafHtml) || sideOver())) { advCard.hidden = true; reserve(false); }
+      if (tight() && CFG.decoded === 'auto') { obs.hidden = true; reserve(false); }
+      if (sideOver()) reserve(true); // e.g. decoded forced on: shrink the boxes so nothing is pushed out
+      for (var i = 0; i < squeeze.length && sideOver(); i++) {
+        if (squeeze[i].hidden) continue;
+        squeeze[i].classList.add('squeezed');
+        if (i === 0) renderSun();
+        reserve(true);
+      }
     }
-    loopScroll(taf, tafHtml);
+    if (!tafCard.hidden) loopScroll(taf, tafHtml);
     if (!advCard.hidden) loopScroll(list, advHtml);
+    layoutBar(); // the strip depends on whether the list is showing
   }
+  // A custom order: move the blocks once (the airport's conditions card stays on top)
+  if (CFG.sideOrder) (function () {
+    var side = document.querySelector('.side'), el = { rwy: 'rwyCard', trend: 'trendCard', sun: 'sunCard', aloft: 'aloftCard', taf: 'tafCard', adv: 'advCard' };
+    CFG.sideOrder.forEach(function (k) { side.appendChild($(el[k])); });
+  })();
 
   // Bottom strip: the active advisories as chips; when there are more than fit, they scroll sideways in a loop
   function layoutBar() {
     if (!barChips) return; // still loading
-    var chips = (state.tsChip || '') + barChips; // a thunderstorm alert (feature tstorm) leads the strip
+    // While the side column's advisory list is showing, the strip doesn't repeat it: it keeps only what the list lacks
+    // (a thunderstorm alert, TFRs) and goes away when there's none of that
+    var listed = !$('advCard').hidden && !advEmpty;
+    var chips = (state.tsChip || '') + (listed ? barExtra : barChips); // a thunderstorm alert (feature tstorm) leads the strip
     var sig = chips + '|' + innerWidth;
     if (sig === barSig) return;
     barSig = sig;
+    document.querySelector('.bar-k').hidden = $('barAdv').hidden = !chips;
     var box = $('barAdv'), html = '<span class="xcopy">' + chips + '</span>';
     box.classList.remove('scrolling-x');
     box.innerHTML = '<div class="xtrack">' + html + '</div>';
@@ -1782,6 +1969,68 @@ html[data-theme="light"] .lfoot, html[data-theme="light"] .layers-btn .lt { colo
     if (otherStn || otherR) goView(HOME, HOME_R); else resetView();
   }, 30000);
   showAway();
+
+  /* ---------- Radar buttons and keyboard (2026-11-19; approved mockup 8). TVs and computers, not the phone page ---------- */
+  // ◀ ▶ step through the radar frames and ❚❚ holds the loop (it carries on by itself after RADAR_PAUSE_SEC, so a TV isn't
+  // left on an old frame); a frame mark jumps to that frame. Keys: ← → frame, Space pause, + − range, a letter starts
+  // typing another airport, Esc goes back to the default view. The hints show on mouse movement or a key press.
+  var KEYS = !window.WXC_WEB, RADAR_PAUSE_SEC = 120, radarResume = 0, keysTimer = 0;
+  function radarPause(on) {
+    state.radarPaused = on;
+    clearTimeout(radarResume);
+    if (on) radarResume = setTimeout(function () { radarPause(false); }, RADAR_PAUSE_SEC * 1000);
+    else if (state.frames.length) { state.frame = state.frames.length - 1; showFrame(); }
+    var b = $('radarPause');
+    b.classList.toggle('on', on);
+    b.title = on ? 'Carry on with the radar loop' : 'Pause the radar loop'; b.setAttribute('aria-label', b.title);
+  }
+  function radarStep(d) {
+    var n = state.frames.length; if (n < 2) return;
+    radarPause(true);
+    state.frame = (state.frame + d + n) % n; showFrame();
+  }
+  function showKeys() {
+    if (!KEYS) return;
+    $('keys').hidden = false;
+    clearTimeout(keysTimer);
+    keysTimer = setTimeout(function () { $('keys').hidden = true; }, 5000);
+  }
+  if (KEYS) {
+    $('radarCtl').hidden = false;
+    $('keys').innerHTML = '<span><kbd>A–Z</kbd>another airport</span><span><kbd>+</kbd><kbd>−</kbd>range</span><span><kbd>←</kbd><kbd>→</kbd>radar frame</span>' +
+      '<span><kbd>Space</kbd>pause radar</span><span><kbd>Esc</kbd>default view</span>';
+    $('radarCtl').addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('button'); if (!b) return;
+      b.blur(); // (so Space doesn't press it again)
+      if (b.dataset.r === '0') radarPause(!state.radarPaused); else radarStep(+b.dataset.r);
+    });
+    $('frames').addEventListener('click', function (e) {
+      var i = Array.prototype.indexOf.call($('frames').children, e.target); if (i < 0) return;
+      radarPause(true); state.frame = i; showFrame();
+    });
+    var lastXY = '';
+    addEventListener('mousemove', function (e) { // (a window that opens under a parked pointer sends one move: ignore the first)
+      var xy = e.screenX + ',' + e.screenY; if (xy === lastXY) return;
+      var first = !lastXY; lastXY = xy; if (!first) showKeys();
+    });
+    addEventListener('keydown', function (e) {
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      var k = e.key, typing = /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '');
+      if (typing) return; // the airport box handles its own keys
+      showKeys();
+      if (k === 'ArrowLeft' || k === 'ArrowRight') { e.preventDefault(); radarStep(k === 'ArrowLeft' ? -1 : 1); }
+      else if (k === ' ') { e.preventDefault(); radarPause(!state.radarPaused); }
+      else if (k === '+' || k === '=' || k === '-' || k === '_') {
+        var list = RANGES.indexOf(HOME_R) < 0 ? RANGES.concat(HOME_R).sort(function (a, b) { return a - b; }) : RANGES;
+        var i = list.indexOf(CFG.radiusNm), j = i < 0 ? -1 : i + (k === '+' || k === '=' ? 1 : -1);
+        if (j >= 0 && j < list.length) goView(CFG.station, list[j]);
+      }
+      else if (k === 'Escape') { if (state.radarPaused) radarPause(false); if (otherStn || otherR) goView(HOME, HOME_R); else if (state.moved) resetView(); }
+      else if (k.length === 1 && /[a-z]/i.test(k)) { // start typing another airport: the box opens empty and takes this letter
+        editStation(); var inp = $('stnInput'); if (inp) inp.value = '';
+      }
+    });
+  }
 
   /* =========================================================================================================
      Features (settings → Features). Each is off unless switched on; CFG.feat says which.

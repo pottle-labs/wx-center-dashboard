@@ -333,6 +333,64 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
 .sw.d7 .ins { font-size: 21px; }
 .sw.d7 .foot { font-size: 18px; }
 .sw.d7 .none { font-size: 22px; }
+
+/* Review round (2026-11-19; mockups/review 1-6): header clock, a timer bar on the page that is showing, mouse and
+   keyboard use (click a page, pause, find, other sim lab weeks; the tool bar shows on mouse movement or a key press),
+   the detail popup's close button, and today's sim lab as a strip under the W&B page (simView=strip). */
+.clk { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.12; }
+.clk[hidden] { display: none; }
+.clk b { font: 600 34px var(--font-data); letter-spacing: .5px; }
+.clk span { font-size: 20px; color: var(--muted); letter-spacing: .4px; }
+.chips span.on { position: relative; overflow: hidden; }
+.chips span.on i { position: absolute; left: 0; bottom: 0; height: 5px; background: rgba(11,15,20,.55); border-radius: 0 3px 0 0; }
+html[data-theme="light"] .chips span.on i { background: rgba(255,255,255,.7); }
+.ctl .chips span { cursor: pointer; }
+.ctl .chips span:not(.on):not(.left):hover { color: var(--fg); box-shadow: inset 0 0 0 2px var(--accent); }
+.chips .left.paused { width: auto; margin-left: 4px; padding: 3px 12px; border: 1px solid var(--warn); border-radius: 8px; background: rgba(245,184,65,.12); color: var(--warn); font-family: var(--font-ui); font-weight: 600; }
+.tool { position: absolute; left: 48px; right: 48px; bottom: 24px; z-index: 15; display: flex; align-items: center; gap: 18px; padding: 12px 18px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line-strong); box-shadow: 0 10px 30px rgba(0,0,0,.45); font-size: 21px; color: var(--muted); white-space: nowrap; }
+.tool .grp { display: flex; align-items: center; gap: 12px; }
+.tool[hidden], .tool .grp[hidden] { display: none; }
+.tool .find { display: flex; align-items: center; gap: 10px; width: 330px; padding: 6px 14px; border-radius: 9px; background: var(--bg); border: 2px solid var(--line-strong); }
+.tool .find:focus-within { border-color: var(--accent); }
+.tool .find svg { flex: 0 0 auto; }
+.tool input { flex: 1 1 auto; min-width: 0; background: none; border: 0; outline: 0; color: var(--fg); font: 500 24px var(--font-data); text-transform: uppercase; }
+.tool input::placeholder { color: var(--muted); font: 400 20px var(--font-ui); text-transform: none; }
+.tool b { color: var(--fg); font-weight: 600; }
+.tool .btn { padding: 5px 14px; border-radius: 9px; background: var(--bg); border: 1px solid var(--line-strong); color: var(--fg); font-weight: 600; cursor: pointer; }
+.tool .btn:hover { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.tool .keys { margin-left: auto; display: flex; gap: 20px; }
+.tool kbd { display: inline-block; min-width: 30px; text-align: center; padding: 1px 8px; margin-right: 6px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--fg); font: 500 18px var(--font-data); }
+.pc.hit, .ic.hit { outline: 3px solid var(--accent); outline-offset: 2px; }
+.board .pc.hit { outline-offset: -3px; }
+.finding .pc:not(.hit), .finding .ic:not(.hit) { opacity: .3; }
+.detail { background: rgba(4,7,11,.88); }
+.detail .planes { position: relative; }
+.detail .x { position: absolute; top: -26px; right: -26px; z-index: 2; width: 56px; height: 56px; border-radius: 50%; background: var(--fg); color: var(--bg); font-size: 30px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(0,0,0,.6); cursor: pointer; }
+.detail .hint { margin: 26px auto 0; width: max-content; padding: 10px 22px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line-strong); font-size: 22px; color: var(--fg-2); }
+.detail .hint kbd { padding: 1px 8px; margin-right: 2px; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--bg); color: var(--fg); font: 500 18px var(--font-data); }
+.ss-h { display: flex; align-items: baseline; gap: 26px; }
+.ss-h .ins { font-size: 24px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+.ss-h .ins .k { font-size: 15px; letter-spacing: 1.5px; color: var(--muted); margin-right: 8px; }
+.ss-h .ins.pending { color: var(--warn); }
+.ss-h .fill { margin-left: auto; font-size: 20px; color: var(--muted); white-space: nowrap; }
+.ss-h .fill b { color: var(--fg); font-weight: 600; }
+.ss { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 14px; }
+.ss .b { min-width: 0; padding: 10px 16px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line); }
+.ss .b .t { display: flex; align-items: center; gap: 10px; font: 500 17px var(--font-data); color: var(--muted); white-space: nowrap; }
+.ss .b .t b { color: var(--fg-2); font-weight: 600; }
+.ss .b .n { margin-top: 4px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 27px; font-weight: 600; white-space: nowrap; overflow: hidden; }
+.ss .b .n span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.ss .b .ph { flex: 0 0 auto; padding: 0 7px; border-radius: 5px; border: 1px solid var(--line-strong); font-size: 15px; font-weight: 700; letter-spacing: .5px; color: var(--accent); }
+.ss .b.open { background: var(--open-bg); border-color: var(--open-line); }
+.ss .b.open .n { color: var(--open); }
+.ss .b.closed .n { color: var(--muted); font-weight: 500; }
+.ss .b.past { opacity: .45; }
+.ss .b.now { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ss .nowtag { padding: 1px 6px; border-radius: 4px; background: var(--accent); color: var(--bg); font: 700 13px var(--font-ui); letter-spacing: 1px; }
+html[data-theme="light"] .ss .nowtag { color: #fff; }
+html[data-theme="light"] .ss .b { box-shadow: 0 1px 3px rgba(15,26,38,.08); }
+.ss-none { padding: 14px; border: 2px dashed var(--line-strong); border-radius: 10px; color: var(--muted); font-size: 24px; text-align: center; }
+.ss.many .b { padding: 8px 10px; } .ss.many .b .n { font-size: 21px; } .ss.many .b .t { font-size: 14px; gap: 6px; }
 </style>
 </head>
 <body>
@@ -342,6 +400,7 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
       <div class="brand p"><img src="assets/logo-color.png" alt="Epic Flight Academy"></div>
       <div class="base" id="base">SGU</div><div class="title" id="title">Weight &amp; Balance</div><div class="title-sub" id="titleSub" hidden></div><div class="mock" id="mock" hidden>MOCK DATA</div></div>
     <div class="r">
+      <div class="clk" id="clk" hidden><b id="clkT"></b><span id="clkD"></span></div>
       <div class="chips" id="chips"></div>
       <div class="src"><div id="qrLabel" hidden>Scan for mobile dashboard</div><div id="srcName">Weight and Balance Sheet › SGU tab</div><div id="srcTime">Loading…</div></div>
       <div class="qr" id="qr" hidden></div>
@@ -349,6 +408,12 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
   </div>
   <div id="body" style="display:flex;flex-direction:column;gap:22px;flex:1 1 auto;min-height:0;overflow:hidden"></div>
   <div class="warn" id="warn" role="status" hidden></div>
+  <div class="tool" id="tool" hidden>
+    <div class="grp" id="toolFind"><label class="find"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>
+      <input id="findIn" maxlength="20" spellcheck="false" autocomplete="off" placeholder="Find a tail number or name" aria-label="Find an aircraft or instructor"></label><span id="findRes"></span></div>
+    <div class="grp" id="toolWeek" hidden><span class="btn" data-w="-1">‹ Earlier</span><b id="weekSpan"></b><span class="btn" data-w="1">Later ›</span><span class="btn" data-w="0">This week</span></div>
+    <div class="keys" id="toolKeys"></div>
+  </div>
   <div class="brand f"><span class="tag" id="footTag"></span><img src="assets/logo-light.png" alt="Epic Flight Academy"></div>
 </div>
 
@@ -385,6 +450,8 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
     sim: q.get('sim') === '1',
     simDays: q.get('simDays') === '5' ? 5 : 7,
     simCycle: Math.max(5, +(q.get('simCycle') || 15)),
+    simView: q.get('simView') === 'strip' ? 'strip' : 'page', // strip: today's lab under the W&B page when it all fits on one page
+    now: q.get('now') ? new Date(q.get('now')) : null, // testing: the header clock shows this time
     simNow: q.get('simNow') ? new Date(q.get('simNow')) : null // testing: pretend it's this time (ISO) on the sim page
   };
   // The web version (docs/dash on GitHub Pages; config.js sets WXC_WEB): never shows instructor phone numbers (the relay
@@ -394,14 +461,24 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
   if (WEB) { CFG.phones = false; CFG.logo = 'none'; CFG.acDetail = ''; CFG.sim = false; } // the web dashboard has its own Sim lab tab
   if (MOBILE) { CFG.layout = 'cards'; document.documentElement.classList.add('mobile'); }
   // QR code to this base's phone dashboard (TVs only; the shell passes the link unless the setting is off)
+  // On the sim lab page the code opens the phone dashboard's Sim lab tab (&view=sim), where a student can sign in and book
+  var QR = null, qrKind = '';
   if (!WEB && /^https:\/\//.test(q.get('qr') || '') && window.qrcode) {
     try {
-      var qrc = qrcode(0, 'M'); qrc.addData(q.get('qr')); qrc.make();
-      document.getElementById('qr').innerHTML = qrc.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+      var qrSvg = function (link) { var c = qrcode(0, 'M'); c.addData(link); c.make(); return c.createSvgTag({ cellSize: 4, margin: 0, scalable: true }); };
+      QR = { wb: qrSvg(q.get('qr')), sim: qrSvg(q.get('qr') + '&view=sim') };
       document.getElementById('qr').hidden = false; document.getElementById('qrLabel').hidden = false;
       document.documentElement.classList.add('has-qr');
-    } catch (e) {}
+    } catch (e) { QR = null; }
   }
+  function setQr(kind) {
+    kind = kind === 'sim' ? 'sim' : 'wb';
+    if (!QR || kind === qrKind) return;
+    qrKind = kind;
+    document.getElementById('qr').innerHTML = QR[kind];
+    document.getElementById('qrLabel').textContent = kind === 'sim' ? 'Scan to book a sim' : 'Scan for mobile dashboard';
+  }
+  setQr('wb');
 
   var FOR = [360, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
   var HDG = ['N', '30', '60', 'E', '120', '150', 'S', '210', '240', 'W', '300', '330'];
@@ -821,17 +898,22 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
     return '<div class="planes' + (pg.cols === 3 ? ' c3' : '') + '">' + planes.map(function (p) { return planeCard(p, multi); }).join('') + '</div>';
   }
   function cfiTile(c) {
-    return '<div class="ic"><span class="n">' + esc(c.name) + '</span><span class="w">' + c.weight + '<span class="u"> lb</span></span>' +
+    return '<div class="ic" data-name="' + esc(c.name) + '"><span class="n">' + esc(c.name) + '</span><span class="w">' + c.weight + '<span class="u"> lb</span></span>' +
       (CFG.phones && c.phone ? '<span class="p">' + esc(c.phone) + '</span>' : '') + '</div>';
   }
   var KEY = '<div class="key"><span style="padding:0">Compass deviation</span><span class="d1">1°</span><span class="d2">2–3°</span><span class="d4">4°+</span></div>';
 
-  function build() {
+  // keepStrip: called again by render() after finding that the strip doesn't fit (state.stripFits = false)
+  function build(keepStrip) {
     var d = state.data;
     state.pages = d ? makePages(d) : [];
     if (state.pages.length === 1 && state.pages[0].kind === 'both') state.pages[0].label = 'Weight & balance';
-    // The Sim lab page joins the rotation once its schedule has been read, at bases the scheduler has
-    if (d && CFG.sim && state.sim && state.sim.loc) state.pages.push({ kind: 'sim', label: 'Sim lab' });
+    if (!keepStrip) state.stripFits = true;
+    // The sim lab joins once its schedule has been read, at bases the scheduler has: as a strip under the W&B page
+    // (simView=strip, when everything is on one page and there's room for it), otherwise as its own page in the rotation
+    var hasSim = d && CFG.sim && state.sim && state.sim.loc;
+    state.strip = !!(hasSim && CFG.simView === 'strip' && !MOBILE && state.stripFits && state.pages.length === 1 && state.pages[0].kind === 'both');
+    if (hasSim && !state.strip) state.pages.push({ kind: 'sim', label: 'Sim lab' });
     if (state.page >= state.pages.length) { state.page = 0; state.elapsed = 0; }
     render();
   }
@@ -849,15 +931,50 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
     WXSim.load(CFG.tab, simGetJSON, CFG.simNow || new Date()).then(function (raw) {
       var had = !!(state.sim && state.sim.loc);
       state.sim = raw; state.simError = '';
-      if (had !== !!raw.loc) build(); else if (curKind() === 'sim') render();
+      if (had !== !!raw.loc) build(); else if (curKind() === 'sim' || state.strip) render();
     }).catch(function (e) {
       state.simError = String(e && e.message || e);
-      if (curKind() === 'sim') render();
+      if (curKind() === 'sim' || state.strip) render();
     });
   }
   function curKind() { var pg = state.pages[state.page]; return pg && pg.kind; }
+  // Another week (mouse or keyboard, see "Mouse and keyboard"): state.simOff days from today, its data in state.simNav.
+  // It goes back to this week when the pause ends.
+  function simGo(dir) {
+    var off = dir ? Math.max(-28, Math.min(56, (state.simOff || 0) + 7 * dir)) : 0;
+    state.simOff = off; pause();
+    if (!off) { state.simNav = null; render(); return; }
+    WXSim.load(CFG.tab, simGetJSON, CFG.simNow || new Date(), off).then(function (raw) {
+      if (state.simOff !== off) return;
+      state.simNav = raw; render();
+    }, function () { if (state.simOff === off) { state.simOff = 0; state.simNav = null; render(); } }); // can't be read: back to this week
+  }
+  // Today's lab as a strip under the W&B page (simView=strip): today while it has a lab that isn't over, else the next lab day
+  function stripHtml() {
+    var v = WXSim.view(state.sim, 7, CFG.simNow || new Date(), CFG.clock24);
+    var labs = v.days.filter(function (d) { return !d.noLab && !d.cancelled; });
+    var day = labs.filter(function (d) { return !d.ended; })[0], next = day && labs[labs.indexOf(day) + 1];
+    var head = '<section class="sect"><div class="ss-h"><div class="label">Sim lab · ';
+    if (!day) {
+      var t = v.days[0] && v.days[0].today ? v.days[0] : null;
+      return head + 'next 7 days</div></div><div class="ss-none">' + (t && t.cancelled ? 'Today’s lab is cancelled' + (t.reason ? ' (' + esc(t.reason) + ')' : '') + '. ' : '') + 'No more labs scheduled in the next 7 days</div></section>';
+    }
+    var open = function (d) { return d.blocks.filter(function (b) { return b.state === 'open'; }).length; };
+    return head + (day.today ? 'today' : esc(day.dow + ' ' + day.date)) + '</div>' +
+      '<div class="ins' + (day.pending ? ' pending' : '') + '"><span class="k">INST</span>' + (day.pending ? 'Pending instructor' : esc(day.instructor)) + '</div>' +
+      '<div class="fill"><b>' + day.filled + '/' + day.total + '</b> filled' + (day.closed ? ' · lab closed' : '') +
+      (next ? ' · Next lab day: ' + esc(next.dow.charAt(0) + next.dow.slice(1).toLowerCase()) + ', <b>' + open(next) + ' open</b>' : '') +
+      (state.simError ? ' · <span class="bad">sync failed</span>' : '') + '</div></div>' +
+      '<div class="ss' + (day.blocks.length > 6 ? ' many' : '') + '">' + day.blocks.map(function (b) {
+        return '<div class="b ' + (b.state === 'booked' ? '' : b.state) + (b.past ? ' past' : '') + (b.now ? ' now' : '') + '"><div class="t"><b>' + b.n + '</b>' + b.range +
+          (b.now ? '<span class="nowtag">NOW</span>' : '') + '</div><div class="n"><span>' + (b.name ? esc(b.name) : b.state === 'open' ? 'Open' : 'Closed') + '</span>' +
+          (b.phase ? '<span class="ph">' + esc(b.phase) + '</span>' : '') + '</div></div>';
+      }).join('') + '</div></section>';
+  }
   function simHtml() {
-    var v = WXSim.view(state.sim, CFG.simDays, CFG.simNow || new Date(), CFG.clock24), wide = v.days.length > 5, html = '';
+    var nav = state.simOff && state.simNav, off = nav ? state.simOff : 0;
+    var v = WXSim.view(nav ? state.simNav : state.sim, CFG.simDays, CFG.simNow || new Date(), CFG.clock24, off), wide = v.days.length > 5, html = '';
+    state.simSpan = v.span;
     v.days.forEach(function (d) {
       if (d.gap) html += '<div class="gap"><span>' + esc(d.gap) + '  ·  NO LAB</span></div>';
       html += '<div class="day' + (d.today ? ' today' : '') + '"><div class="dh"><span class="dow">' + d.dow + '</span><span class="date">' + d.date + '</span>' +
@@ -867,7 +984,7 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
       html += '<div class="ins' + (d.pending ? ' pending' : '') + '"><span class="k">INST</span><span>' + (d.pending ? (wide ? 'Pending' : 'Pending instructor') : esc(d.instructor)) + '</span></div>';
       if (d.closed) html += '<div class="lab-note">Lab closed</div>';
       html += '<div class="blocks">' + d.blocks.map(function (b) {
-        return '<div class="b ' + (b.state === 'booked' ? '' : b.state) + (b.past ? ' past' : '') + (b.now ? ' now' : '') + '"><div class="t"><b>' + b.n + '</b>' + b.time +
+        return '<div class="b ' + (b.state === 'booked' ? '' : b.state) + (b.past ? ' past' : '') + (b.now ? ' now' : '') + '"><div class="t"><b>' + b.n + '</b>' + (wide && !CFG.clock24 ? b.time : b.range) +
           (b.now ? '<span class="nowtag">NOW</span>' : '') + '</div><div class="n"><span>' + (b.name ? esc(b.name) : b.state === 'open' ? 'Open' : 'Closed') + '</span>' +
           (b.phase ? '<span class="ph">' + esc(b.phase) + '</span>' : '') + '</div></div>';
       }).join('') + '</div><div class="foot"><b>' + d.filled + '/' + d.total + '</b> filled · ' + d.range + '</div></div>';
@@ -875,7 +992,7 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
     var shown = v.days.length;
     return { name: v.name, sim: v.sim, html: '<div class="sw' + (wide ? ' d7' : '') + '">' + html + '</div>' +
       '<div class="sim-legend"><span><i class="o"></i>Open</span><span><i class="n"></i>Now</span><span>Faded = already started</span><span class="r">' +
-      (CFG.simDays === 5 ? 'Next 5 lab days' : 'Next 7 days · ' + shown + ' lab day' + (shown === 1 ? '' : 's') + ' shown') + '</span></div>' };
+      (off ? esc(v.span) + (off < 0 ? ' · an earlier week' : ' · a later week') : CFG.simDays === 5 ? 'Next 5 lab days' : 'Next 7 days · ' + shown + ' lab day' + (shown === 1 ? '' : 's') + ' shown') + '</span></div>' };
   }
   function renderSimPage(body) {
     var r = simHtml();
@@ -887,6 +1004,7 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
     $('warn').hidden = true;
     body.innerHTML = r.html;
     body.classList.remove('pick');
+    toolFor('sim'); // (again: the week's dates are known now)
   }
   function render() {
     var d = state.data, body = $('body');
@@ -906,12 +1024,11 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
     if (!d.planes.length && !d.cfis.length) { body.innerHTML = '<div class="msg"><b>The ' + esc(CFG.tab) + ' tab is empty</b></div>'; $('chips').innerHTML = ''; return; }
     var pg = state.pages[state.page], html = '', multi = d.groups.length > 1;
     $('title').textContent = 'Weight & Balance'; $('titleSub').hidden = true;
+    setQr(pg.kind); toolFor(pg.kind);
+    body.classList.remove('finding');
     if (pg.kind === 'sim' && !state.detail) {
       renderSimPage(body);
-      state.shortChips = false; renderChips();
-      var tp = document.querySelector('.top');
-      if (tp.scrollWidth > tp.clientWidth + 1) { state.shortChips = true; renderChips(); }
-      if (tp.scrollWidth > tp.clientWidth + 1) $('titleSub').hidden = true;
+      if (fitChips()) $('titleSub').hidden = true;
       return;
     }
     var groups = d.groups.map(groupName).join(' / ');
@@ -933,16 +1050,18 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
       html += '<section class="sect"><div class="label">' + esc(cl) + '</div><div class="cfis' + (pg.kind === 'both' ? ' both' + (d.cfis.length > 10 ? ' tight' : '') : '') + '">' +
         pg.cfis.map(cfiTile).join('') + '</div></section>';
     }
+    if (state.strip) html += stripHtml();
     body.innerHTML = html;
     body.classList.toggle('pick', !!CFG.acDetail);
     fitCards();
+    // The strip has to fit under cards at their design size: if it doesn't, the sim lab gets its own page instead
+    if (state.strip && body.lastElementChild && body.lastElementChild.offsetTop + body.lastElementChild.offsetHeight - body.offsetTop > body.clientHeight + 1) {
+      state.stripFits = false; build(true); return;
+    }
+    applyFind();
     renderDetail();
     // Page buttons use full names ("Aircraft 2") unless the header can't fit them; then short ones ("A2", "I1")
-    state.shortChips = false;
-    renderChips();
-    var top = document.querySelector('.top');
-    if (top.scrollWidth > top.clientWidth + 1) { state.shortChips = true; renderChips(); }
-    if (top.scrollWidth > top.clientWidth + 1) $('srcName').textContent = CFG.tab + ' tab'; // still too wide: drop "Weight and Balance Sheet ›"
+    if (fitChips()) $('srcName').textContent = CFG.tab + ' tab'; // still too wide: drop "Weight and Balance Sheet ›"
   }
 
   /* ---------- Grow cards into empty space ---------- */
@@ -1010,13 +1129,25 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
       });
     }
   }
+  // Full page names and "Paused" unless the header can't fit them: first the word goes, then the names get short ("A2")
+  function fitChips() {
+    var top = document.querySelector('.top'), over = function () { return top.scrollWidth > top.clientWidth + 1; };
+    state.shortChips = false; state.shortPause = false; renderChips();
+    if (over()) { state.shortPause = true; renderChips(); }
+    if (over()) { state.shortChips = true; renderChips(); }
+    return over();
+  }
   function renderChips() {
     if (state.pages.length < 2) { $('chips').innerHTML = ''; return; }
+    var secs = pageSeconds(state.pages[state.page]), left = Math.max(0, Math.ceil((state.pausedUntil - Date.now()) / 1000));
     $('chips').innerHTML = state.pages.map(function (p, i) {
       var label = state.shortChips ? p.label.charAt(0) + p.label.replace(/\D/g, '') : p.label; // Aircraft 2 -> A2, Instructors -> I
-      return '<span' + (i === state.page ? ' class="on"' : '') + (state.shortChips ? ' title="' + p.label + '"' : '') + '>' + label + '</span>';
+      // The page that is showing carries a bar that fills as its time runs out
+      return '<span data-i="' + i + '"' + (i === state.page ? ' class="on"' : '') + (state.shortChips ? ' title="' + p.label + '"' : '') + '>' + label +
+        (i === state.page ? '<i style="width:' + Math.min(100, state.elapsed / secs * 100).toFixed(1) + '%"></i>' : '') + '</span>';
     }).join('') +
-      '<span class="left">' + Math.max(1, pageSeconds(state.pages[state.page]) - state.elapsed) + 's</span>';
+      (state.pausedUntil ? '<span class="left paused" title="Click to carry on">❚❚ ' + (state.shortPause ? '' : 'Paused ') + Math.floor(left / 60) + ':' + pad(left % 60) + '</span>'
+        : '<span class="left"' + (CTL ? ' title="Click to pause"' : '') + '>' + Math.max(1, secs - state.elapsed) + 's</span>');
   }
   function renderSync() {
     var el = curKind() === 'sim' ? document.createElement('div') : $('srcTime'); // the sim lab page shows its own sync time
@@ -1040,11 +1171,15 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
     if (!box) return;
     var p = CFG.acDetail === 'popup' && state.detail && d && d.planes.filter(function (x) { return x.tail === state.detail; })[0];
     box.hidden = !p;
-    box.innerHTML = p ? '<div><div class="planes">' + planeCard(p, d.groups.length > 1, true) + '</div><div class="hint">Click anywhere to close</div></div>' : '';
+    box.innerHTML = p ? '<div><div class="planes">' + planeCard(p, d.groups.length > 1, true) + '<div class="x" title="Close">✕</div></div>' +
+      '<div class="hint"><kbd>Esc</kbd> or a click closes this · it closes by itself in <span id="detLeft">' + detailLeft() + '</span> s</div></div>' : '';
   }
+  var detailEnds = 0;
+  function detailLeft() { return Math.max(1, Math.ceil((detailEnds - Date.now()) / 1000)); }
   function openDetail(tail) {
     state.detail = tail;
     clearTimeout(detailTimer);
+    detailEnds = Date.now() + DETAIL_SEC * 1000;
     detailTimer = setTimeout(closeDetail, DETAIL_SEC * 1000);
     render();
   }
@@ -1059,15 +1194,122 @@ html[data-theme="light"] .sw .ins.pending { background: rgba(245,184,65,.24); }
     addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDetail(); });
   }
 
+  /* ---------- Mouse and keyboard (2026-11-19; approved mockups 4 and 6) ---------- */
+  // Click a page pill to go to it; click the countdown or press Space to pause (PAUSE_SEC, so a TV isn't left paused);
+  // ← → change page; on the sim lab page ↑ ↓ show an earlier or later week; typing finds an aircraft (tail number or
+  // call sign) or instructor across all pages. A tool bar with these shows on mouse movement or a key press and hides
+  // TOOL_SEC later. Not on the phone layout.
+  var CTL = !MOBILE, PAUSE_SEC = 120, TOOL_SEC = 5, toolTimer = 0;
+  if (CTL) document.documentElement.classList.add('ctl');
+  function pause() { state.pausedUntil = Date.now() + PAUSE_SEC * 1000; fitChips(); }
+  function resume() { // also puts everything a visitor changed back: this week, no search
+    state.pausedUntil = 0; state.elapsed = 0; state.simOff = 0; state.simNav = null; state.find = '';
+    if ($('findIn')) { $('findIn').value = ''; $('findIn').blur(); }
+    if (state.data) render();
+  }
+  function goPage(i) {
+    var n = state.pages.length; if (n < 2) return;
+    state.page = ((i % n) + n) % n; state.elapsed = 0;
+    if (state.simOff) { state.simOff = 0; state.simNav = null; }
+    render();
+  }
+  function matches() { // { tails: {}, names: {}, n, first: { tail } | { name } }
+    var f = norm(state.find), m = { tails: {}, names: {}, n: 0, first: null };
+    if (!f || !state.data) return m;
+    state.data.planes.forEach(function (p) { if (norm(p.tail).indexOf(f) >= 0 || norm(p.call).indexOf(f) >= 0) { m.tails[p.tail] = 1; m.n++; if (!m.first) m.first = { tail: p.tail }; } });
+    state.data.cfis.forEach(function (c) { if (norm(c.name).indexOf(f) >= 0) { m.names[c.name] = 1; m.n++; if (!m.first) m.first = { name: c.name }; } });
+    return m;
+  }
+  function applyFind() { // after render(): outline what matches on this page and fade the rest
+    var body = $('body'), m = matches();
+    body.classList.toggle('finding', !!state.find);
+    if ($('findRes')) $('findRes').innerHTML = !state.find ? '' : m.n ? '<b>' + m.n + ' match' + (m.n === 1 ? '' : 'es') + '</b>' +
+      (m.first.tail && CFG.acDetail ? ' · <kbd>Enter</kbd>opens ' + esc(m.first.tail) : '') : '<b>No match</b>';
+    if (!state.find) return;
+    Array.prototype.forEach.call(body.querySelectorAll('.pc'), function (el) { el.classList.toggle('hit', !!m.tails[el.dataset.tail]); });
+    Array.prototype.forEach.call(body.querySelectorAll('.ic'), function (el) { el.classList.toggle('hit', !!m.names[el.dataset.name]); });
+  }
+  function findNow() { // typing: go to the first page that has a match, and hold it there
+    state.find = $('findIn').value.trim();
+    if (!state.find) { render(); return; }
+    var m = matches(), has = function (pg) {
+      return (pg.planes || []).some(function (p) { return m.tails[p.tail]; }) || (pg.cfis || []).some(function (c) { return m.names[c.name]; });
+    };
+    if (m.n && !has(state.pages[state.page] || {})) for (var i = 0; i < state.pages.length; i++) if (has(state.pages[i])) { state.page = i; break; }
+    state.elapsed = 0; pause(); render();
+  }
+  function toolFor(kind) { // the tool bar's contents for the page that is showing
+    if (!CTL || !$('tool')) return;
+    var sim = kind === 'sim', multi = state.pages.length > 1;
+    $('toolFind').hidden = sim; $('toolWeek').hidden = !sim;
+    $('weekSpan').textContent = state.simSpan || '';
+    $('toolKeys').innerHTML = (multi ? '<span><kbd>←</kbd><kbd>→</kbd>page</span><span><kbd>Space</kbd>' + (state.pausedUntil ? 'carry on' : 'pause') + '</span>' : '') +
+      (sim ? '<span><kbd>↑</kbd><kbd>↓</kbd>week</span>' : '<span><kbd>A–Z</kbd>find</span>') + '<span><kbd>Esc</kbd>' + (state.find || state.pausedUntil ? 'reset' : 'close') + '</span>';
+  }
+  function showTool() {
+    if (!state.data) return;
+    $('tool').hidden = false;
+    clearTimeout(toolTimer);
+    toolTimer = setTimeout(function hide() { // stays while a search is on or the box has the cursor
+      if (state.find || document.activeElement === $('findIn')) { toolTimer = setTimeout(hide, 1000); return; }
+      $('tool').hidden = true;
+    }, TOOL_SEC * 1000);
+  }
+  if (CTL) {
+    var lastXY = '';
+    addEventListener('mousemove', function (e) { // (a window that opens under a parked pointer sends one move: ignore the first)
+      var xy = e.screenX + ',' + e.screenY; if (xy === lastXY) return;
+      var first = !lastXY; lastXY = xy; if (!first) showTool();
+    });
+    $('chips').addEventListener('click', function (e) {
+      var s = e.target.closest && e.target.closest('span'); if (!s) return;
+      if (s.classList.contains('left')) { if (state.pausedUntil) resume(); else pause(); toolFor(curKind()); }
+      else if (s.dataset.i != null) goPage(+s.dataset.i);
+    });
+    $('toolWeek').addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('[data-w]'); if (b) simGo(+b.dataset.w); });
+    $('findIn').addEventListener('input', findNow);
+    addEventListener('keydown', function (e) {
+      if (e.ctrlKey || e.altKey || e.metaKey || !state.data) return;
+      var inFind = document.activeElement === $('findIn'), k = e.key;
+      if (state.detail) return; // the open detail has its own Esc
+      if (k === 'Escape') { if (state.find || state.pausedUntil) resume(); $('tool').hidden = true; $('findIn').blur(); return; }
+      showTool();
+      if (k === 'Enter' && inFind) { var m = matches(); if (m.first && m.first.tail && CFG.acDetail) openDetail(m.first.tail); return; }
+      if (inFind && k !== 'ArrowUp' && k !== 'ArrowDown' && !(k === ' ' && !$('findIn').value)) return; // typing
+      if (k === 'ArrowRight') goPage(state.page + 1);
+      else if (k === 'ArrowLeft') goPage(state.page - 1);
+      else if (k === ' ') { e.preventDefault(); if (state.pausedUntil) resume(); else if (state.pages.length > 1) pause(); toolFor(curKind()); }
+      else if (curKind() === 'sim' && (k === 'ArrowUp' || k === 'ArrowDown')) { e.preventDefault(); simGo(k === 'ArrowUp' ? -1 : 1); }
+      else if (k === '/') { e.preventDefault(); $('findIn').focus(); }
+      else if (k.length === 1 && /[a-z0-9]/i.test(k)) { if (curKind() === 'sim') goPage(0); $('findIn').focus(); } // the key then lands in the box
+    });
+  }
+
+  /* ---------- Clock in the header (TVs; the phone shows its own) ---------- */
+  function renderClock() {
+    if (WEB) return;
+    var d = CFG.now || new Date();
+    var t = CFG.clock24 ? pad(d.getHours()) + ':' + pad(d.getMinutes()) : d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    if ($('clkT').textContent !== t) {
+      $('clkT').textContent = t;
+      $('clkD').textContent = d.toLocaleDateString('en-US', { weekday: 'short' }) + ' · ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      $('clk').hidden = false;
+    }
+  }
+  renderClock();
+
   /* ---------- Page cycle ---------- */
   setInterval(function () {
-    if (state.pages.length < 2 || state.detail) return;
+    renderClock();
+    if (state.detail) { var dl = $('detLeft'); if (dl) dl.textContent = detailLeft(); return; }
+    if (state.pausedUntil) { if (Date.now() >= state.pausedUntil) resume(); else renderChips(); return; }
+    if (state.pages.length < 2) return;
     state.elapsed++;
     if (state.elapsed >= pageSeconds(state.pages[state.page])) { state.elapsed = 0; state.page = (state.page + 1) % state.pages.length; render(); }
     else renderChips();
   }, 1000);
   // Keep NOW and the faded blocks current while the sim lab page shows (also when it's the only page)
-  setInterval(function () { if (curKind() === 'sim') render(); }, 60000);
+  setInterval(function () { if ((curKind() === 'sim' || state.strip) && !state.detail) render(); }, 60000);
 
   /* ---------- Boot ---------- */
   load();

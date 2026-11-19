@@ -81,14 +81,15 @@
   }
   // Raw data for a base's location: { id, loc, labs: { "YYYY-MM-DD": lab }, at } or { id, loc: null } when the scheduler
   // has no such location. Reads the weeks the next 7 days touch.
-  function load(base, getJSON, now) {
+  // off: days from today where the 7-day window starts (0, or a multiple of 7 when someone looks at another week)
+  function load(base, getJSON, now, off) {
     var id = 'K' + String(base || '').toUpperCase();
     return loadIndex(getJSON).then(function (locs) {
       var loc = locs[id];
       if (!loc) return { id: id, loc: null, at: Date.now() };
       var today = localNow(loc.timezone, now || new Date()).day, weeks = {};
       for (var i = 0; i < 7; i++) {
-        var t = today + i * 864e5, di = (new Date(t).getUTCDay() + 6) % 7, mon = t - di * 864e5;
+        var t = today + ((off || 0) + i) * 864e5, di = (new Date(t).getUTCDay() + 6) % 7, mon = t - di * 864e5;
         weeks[weekId(mon)] = 1;
       }
       var ids = Object.keys(weeks);
@@ -105,22 +106,30 @@
   // { name, sim, days: [ { key, dow, date, today, gap ("SAT – SUN" skipped before it, or ""), noLab, cancelled, reason,
   //   closed, ended, instructor, pending, range, filled, total, blocks: [ { n, time, name, phase, state } ] } ] }
   // where a block's state is booked | open | closed, plus past (already started... and over) / now flags.
-  function view(raw, days, now, h24) {
+  // Names typed in one case (KAM WEST, kam west) read as Kam West; mixed case is left as typed
+  function tidy(s) {
+    s = String(s || '');
+    if (!s || (s !== s.toUpperCase() && s !== s.toLowerCase())) return s;
+    return s.toLowerCase().replace(/(^|[\s\-'’.])([a-z])/g, function (m, a, b) { return a + b.toUpperCase(); });
+  }
+  // off (optional): the window starts this many days from today (another week); its days are then never "today", and
+  // days before today count as over
+  function view(raw, days, now, h24, off) {
     var loc = raw.loc || {}, n = loc.blocksPerLab || BLOCKS, ln = localNow(loc.timezone, now || new Date()), out = [], skipped = [];
     for (var i = 0; i < 7; i++) {
-      var t = ln.day + i * 864e5, di = (new Date(t).getUTCDay() + 6) % 7;
+      var t = ln.day + ((off || 0) + i) * 864e5, di = (new Date(t).getUTCDay() + 6) % 7, rel = (off || 0) + i;
       if (!(di < 5 || (di === 5 && loc.enableSaturday) || (di === 6 && loc.enableSunday))) { skipped.push(DOW[di]); continue; }
       if (out.length >= (days === 5 ? 5 : 7)) break;
-      var key = ymd(t), lab = (raw.labs || {})[key], d = new Date(t), isToday = i === 0;
+      var key = ymd(t), lab = (raw.labs || {})[key], d = new Date(t), isToday = rel === 0;
       var ds = (loc.defaultStart || {})[DAY_KEYS[di]], start;
       if (lab && lab.startH != null && lab.startM != null) start = lab.startH * 60 + lab.startM;
       else if (ds) start = +ds.split(':')[0] * 60 + +ds.split(':')[1];
       else start = DEFAULT_START[0] * 60 + DEFAULT_START[1];
-      var end = start + n * 30, ended = isToday && ln.min >= end;
+      var end = start + n * 30, ended = rel < 0 || (isToday && ln.min >= end);
       var day = { key: key, dow: DOW[di], date: MON[d.getUTCMonth()] + ' ' + d.getUTCDate(), today: isToday,
         gap: out.length && skipped.length ? (skipped.length > 1 ? skipped[0] + ' – ' + skipped[skipped.length - 1] : skipped[0]) : '',
         noLab: !lab, cancelled: !!(lab && lab.cancelled), reason: lab && lab.cancelledReason || '', closed: !!(lab && lab.closed), ended: ended,
-        instructor: lab && lab.instructor || '', pending: !lab || !lab.instructor || lab.instructor === 'Pending Instructor',
+        instructor: tidy(lab && lab.instructor || ''), pending: !lab || !lab.instructor || lab.instructor === 'Pending Instructor',
         range: range(start, end, h24), filled: 0, total: n, blocks: [] };
       skipped = [];
       if (lab && !lab.cancelled) {
@@ -129,13 +138,15 @@
           var s = start + b * 30, who = bl[b] || '', past = isToday && ln.min >= s + 30, isNow = isToday && ln.min >= s && ln.min < s + 30;
           var ph = who ? ((day.closed && lab.phaseSnapshot && lab.phaseSnapshot[who]) || (lab.blockPhases && lab.blockPhases[b]) || '') : '';
           if (who) day.filled++;
-          day.blocks.push({ n: 'B' + (b + 1), time: clock(s, h24), name: who, phase: ph,
+          day.blocks.push({ n: 'B' + (b + 1), time: clock(s, h24), range: range(s, s + 30, h24), name: tidy(who), phase: ph,
             state: who ? 'booked' : (day.closed || ended || past) ? 'closed' : 'open', past: past || ended, now: isNow && !ended });
         }
       }
       out.push(day);
     }
-    return { name: loc.name || raw.id, sim: (loc.sims || [])[0] || '', days: out };
+    var a = new Date(ln.day + (off || 0) * 864e5), z = new Date(ln.day + ((off || 0) + 6) * 864e5);
+    var span = MON[a.getUTCMonth()] + ' ' + a.getUTCDate() + ' – ' + (z.getUTCMonth() === a.getUTCMonth() ? '' : MON[z.getUTCMonth()] + ' ') + z.getUTCDate();
+    return { name: loc.name || raw.id, sim: (loc.sims || [])[0] || '', days: out, span: span };
   }
 
   // The scheduler's locations { "KSGU": { name, timezone, ... } } (the first-start screen asks only where there is one)
