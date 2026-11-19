@@ -270,6 +270,7 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
 .aloft { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 18px; font: 500 22px var(--font-data); font-variant-numeric: tabular-nums; }
 .aloft .k { font: 600 15px var(--font-ui); letter-spacing: 1px; color: var(--muted); }
 .aloft .na { color: var(--muted); }
+.aloft.two { grid-template-columns: auto 1fr 1fr; }
 .obs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; }
 .obs .k { font-size: 17px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
 .obs .v { font-family: var(--font-data); font-variant-numeric: tabular-nums; font-size: 30px; font-weight: 500; white-space: nowrap; }
@@ -1135,73 +1136,74 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
     }).catch(function (e) { mark('G-AIRMETs', false, e); });
   }
 
-  // Feature aloft (7A): winds and temperatures aloft from the FB winds forecast (text, fixed columns) at the nearest
-  // forecast point within 200 NM that has the 9,000 ft level. Points are found once with stationinfo (K + the point's
-  // code). The 6-hour and 12-hour forecasts are both read and the one whose "FOR USE" window covers now is shown.
-  // Refreshed every hour.
-  var ALOFT_FT = [3000, 6000, 9000, 12000], aloftPts = null;
-  function parseFb(text) {
-    var lines = text.split(/\r?\n/), hdr = lines.filter(function (l) { return /^FT\s+3000/.test(l); })[0];
-    var use = (text.match(/FOR USE (\d{4})-(\d{4})Z/) || []), valid = (text.match(/VALID (\d{6})Z/) || [])[1];
-    if (!hdr) return null;
-    var rows = {};
-    lines.forEach(function (l) {
-      var id = l.slice(0, 3);
-      if (!/^[A-Z0-9]{3}\s/.test(l) || l.indexOf('FT') === 0) return;
-      rows[id] = ALOFT_FT.map(function (ft) {
-        var lab = String(ft), end = hdr.indexOf(' ' + lab) + 1 + lab.length, w = ft === 3000 ? 4 : 7;
-        return decodeFb(l.slice(Math.max(0, end - w), end).trim());
-      });
+  // Feature aloft (7A; rebuilt 2026-11-19, approved mockup 10B): forecast winds at 3,000 to 12,000 ft for now and
+  // ALOFT_AHEAD hours on, from AWC's GFA wind forecast at the grid point nearest the airport (1/8 degree at zoom 9).
+  // The FB winds text table this used was discontinued in November 2026 (AWC's windtemp answers HTTP 400), and AWC
+  // points to the GFA instead. /api/info/gfa gives the forecast cycle; /api/data/wind is the feed AWC's own GFA map
+  // draws its barbs from (not in the published API list, so it may change). No temperatures: AWC has them only as
+  // pictures. Refreshed every hour; a failed read keeps the last one.
+  var ALOFT_FT = [3000, 6000, 9000, 12000], ALOFT_AHEAD = 6, ALOFT_MIN_AGL = 1500;
+  function aloftTry(path, tries) { // the feed answers 502/504 fairly often: a few tries, a few seconds apart
+    return getJSON(path).catch(function (e) {
+      if (tries <= 1) throw e;
+      return new Promise(function (ok) { setTimeout(ok, 4000); }).then(function () { return aloftTry(path, tries - 1); });
     });
-    return { rows: rows, from: use[1], to: use[2], valid: valid };
-  }
-  function decodeFb(f) {
-    if (!/^\d{4}([+-]\d{2})?$/.test(f)) return null;
-    var dd = +f.slice(0, 2), ss = +f.slice(2, 4), t = f.length > 4 ? +f.slice(4) : null;
-    if (dd === 99) return { lv: true, t: t };
-    if (dd >= 51 && dd <= 86) { dd -= 50; ss += 100; }
-    return { dir: dd * 10, spd: ss, t: t };
-  }
-  function inUse(fb) { // "FOR USE 2100-0600Z" may cross midnight
-    if (!fb || !fb.from) return false;
-    var n = new Date(), m = n.getUTCHours() * 100 + n.getUTCMinutes(), a = +fb.from, b = +fb.to;
-    return a < b ? m >= a && m < b : m >= a || m < b;
   }
   function loadAloft() {
-    var url = function (h) { return CFG.awc + '/api/data/windtemp?region=all&level=low&fcst=' + h; };
-    return Promise.all([getText(url('06')), getText(url('12'))]).then(function (res) {
-      var a = parseFb(res[0]), b = parseFb(res[1]), fb = inUse(a) ? a : inUse(b) ? b : a;
-      if (!fb) throw new Error('unreadable forecast');
-      var ids = Object.keys(fb.rows);
-      var pts = aloftPts ? Promise.resolve(aloftPts) : getJSON('/api/data/stationinfo?format=json&ids=' + ids.map(function (i) { return 'K' + i; }).join(',')).then(function (list) {
-        aloftPts = {}; (list || []).forEach(function (s) { if (s.lat != null) aloftPts[String(s.icaoId).slice(1)] = s; });
-        return aloftPts;
+    var lat = CFG.lat, lon = CFG.lon, box = [lat - 0.1, lon - 0.1, lat + 0.1, lon + 0.1].map(function (n) { return n.toFixed(3); }).join(',');
+    return aloftTry('/api/info/gfa?date=' + Math.floor(Date.now() / 1000), 3).then(function (info) {
+      var cyc = String(info && info.datim || ''), t0 = +(info && info.isecs);
+      if (!/^\d{8}_\d{2}$/.test(cyc) || !t0) throw new Error('no forecast cycle');
+      var f0 = Math.max(0, Math.round((Date.now() / 1000 - t0) / 3600)), hours = [f0, f0 + ALOFT_AHEAD];
+      // Like the FB table: no wind for a level within ALOFT_MIN_AGL of the field (those levels aren't asked for)
+      var elev = CFG.elevFt || 0, jobs = [];
+      hours.forEach(function (fh, c) {
+        ALOFT_FT.forEach(function (ft, r) {
+          if (ft - elev < ALOFT_MIN_AGL) return;
+          jobs.push(aloftTry('/api/data/wind?model=gfaak&density=0&zoom=9&bbox=' + box + '&dref=' + cyc.slice(0, 8) + '&tref=' + cyc.slice(9) +
+            '&fhr=' + pad(fh) + '&level=' + pad3(ft / 100), 3).then(function (fc) {
+            var best = null;
+            (fc && fc.features || []).forEach(function (p) {
+              var g = p.geometry && p.geometry.coordinates, w = p.properties || {};
+              if (!g || w.wdir == null || w.wspd == null) return;
+              var d = distNm(lat, lon, g[1], g[0]);
+              if (!best || d < best.d) best = { d: d, dir: +w.wdir, spd: +w.wspd };
+            });
+            return { c: c, r: r, w: best };
+          }, function () { return { c: c, r: r, w: null, failed: true }; }));
+        });
       });
-      return pts.then(function (p) {
-        var best = ids.filter(function (id) { return p[id] && fb.rows[id][2]; })
-          .map(function (id) { return { id: id, d: distNm(CFG.lat, CFG.lon, p[id].lat, p[id].lon) }; })
-          .filter(function (x) { return x.d <= 200; }).sort(function (x, y) { return x.d - y.d; })[0];
-        state.aloft = best ? { id: best.id, d: Math.round(best.d), rows: fb.rows[best.id], from: fb.from, to: fb.to } : { none: true };
+      return Promise.all(jobs).then(function (res) {
+        var cells = [[], []], got = 0;
+        res.forEach(function (x) { cells[x.c][x.r] = x.w; if (x.w) got++; });
+        if (jobs.length && !got) throw new Error('no wind data'); // keep the last good reading on screen
+        state.aloft = { cells: cells, valid: hours.map(function (fh) { return (t0 + fh * 3600) * 1000; }), elev: elev };
         renderAloft(); mark('Winds aloft', true);
       });
-    }).catch(function (e) { mark('Winds aloft', false, e); });
+    }).catch(function (e) {
+      // The phone version reads AWC through the relay. Until the relay's list has the two GFA addresses (relay/worker.js,
+      // deployed by the user), the read fails there: the card is then simply left off, with no failure shown.
+      if (window.WXC_WEB && !state.aloft) { F.aloft = false; renderStatus(); return; }
+      mark('Winds aloft', false, e);
+    });
   }
   function renderAloft() {
     var el = $('aloftCard'), a = state.aloft;
     el.hidden = !F.aloft || !a;
     if (el.hidden) return;
-    if (a.none) { el.innerHTML = '<div class="hd"><span class="label">Winds aloft</span></div><div class="sub">No forecast point within 200 NM.</div>'; layoutSide(); return; }
-    el.innerHTML = '<div class="hd"><span class="label">Winds aloft · ' + esc(a.id) + '</span><span class="sub">' + (a.d < 5 ? 'at the field' : a.d + ' NM') + ' · for use ' + a.from + '–' + a.to + 'Z</span></div>' +
-      '<div class="aloft"><span class="k">FT</span><span class="k">WIND</span><span class="k">TEMP</span>' +
+    var cell = function (w) { // direction to the nearest 10° like the FB table; under 5 kt reads light and variable
+      if (!w) return '<span class="na">—</span>';
+      if (w.spd < 5) return '<span>Lgt &amp; var</span>';
+      return '<span>' + pad3((Math.round(w.dir / 10) * 10) % 360 || 360) + '° ' + Math.round(w.spd) + ' kt</span>';
+    };
+    el.innerHTML = '<div class="hd"><span class="label">Winds aloft · GFA</span><span class="sub">at the field</span></div>' +
+      '<div class="aloft two"><span class="k">FT</span><span class="k">NOW · ' + hhmmZ(new Date(a.valid[0])) + '</span><span class="k">+' + ALOFT_AHEAD + ' H · ' + hhmmZ(new Date(a.valid[1])) + '</span>' +
       ALOFT_FT.map(function (ft, i) {
-        var r = a.rows[i];
-        return '<span>' + ft.toLocaleString('en-US') + '</span>' +
-          (!r ? '<span class="na">—</span><span class="na">—</span>' :
-            '<span>' + (r.lv ? 'Light and variable' : pad3(r.dir) + '° ' + r.spd + ' kt') + '</span><span>' + (r.t == null ? '' : (r.t > 0 ? '+' : r.t < 0 ? '−' : '') + Math.abs(r.t) + '°') + '</span>');
+        if (ft - a.elev < ALOFT_MIN_AGL) return ''; // too close to the ground: the row is left out (user, 2026-11-19)
+        return '<span>' + ft.toLocaleString('en-US') + '</span>' + cell(a.cells[0][i]) + cell(a.cells[1][i]);
       }).join('') + '</div>';
     layoutSide();
   }
-
   // TFRs from the FAA (tfr.faa.gov): the list of current NOTAMs, their shapes (WFS; it also keeps old ones, so only
   // listed NOTAMs count), and each nearby one's details (times, altitudes) from its XML, fetched once and kept.
   // Shown when active, or starting within 12 hours. Refreshed every 10 minutes.

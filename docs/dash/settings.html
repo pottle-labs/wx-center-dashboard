@@ -354,7 +354,7 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
         <select id="daFlag"><option value="off">Off</option><option value="runway">Tag on the runway card</option><option value="grid">Tile in the decoded METAR</option></select></div>
       <div class="row sub-row" data-dep="daFlag"><label>Flag at<small>Density altitude in feet: amber from the first, red from the second.</small></label>
         <span class="lims"><span class="unit">Amber <input type="number" id="daWarn" min="1000" max="15000" step="100" required>ft</span><span class="unit">Red <input type="number" id="daCrit" min="1000" max="15000" step="100" required>ft</span></span></div>
-      <div class="row"><label for="aloft">Winds aloft<small>Wind and temperature at 3,000 to 12,000 ft from the nearest forecast point, in the side column.</small></label>
+      <div class="row"><label for="aloft">Winds aloft<small>Forecast wind at 3,000 to 12,000 ft over the airport, now and 6 hours ahead, from the Aviation Weather Center’s GFA forecast. Levels within 1,500 ft of the field are left out. No temperatures.</small></label>
         <span class="switch"><input type="checkbox" id="aloft"><span></span></span></div>
       <div class="row"><label for="sun">Sunrise, sunset and night times<small>Night for logging (end of civil twilight) and for currency (sunset + 1 hour).</small></label>
         <select id="sun"><option value="off">Off</option><option value="strip">Strip of times</option><option value="arc">Daylight arc</option></select></div>
