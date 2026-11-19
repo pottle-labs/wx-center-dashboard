@@ -451,8 +451,7 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
     // The side column's blocks under the airport's conditions, top to bottom (a custom order also sets which give way
     // first when the column is full: from the bottom up). null = the built-in order and rules.
     sideOrder: (function (v) {
-      var all = ['taf', 'rwy', 'trend', 'sun', 'aloft', 'adv'], o = String(v || '').split(',').filter(function (k, i, a) { return all.indexOf(k) >= 0 && a.indexOf(k) === i; });
-      if (!o.length) return null;
+      var all = ['taf', 'rwy', 'aloft', 'adv', 'sun', 'trend'], o = String(v || '').split(',').filter(function (k, i, a) { return all.indexOf(k) >= 0 && a.indexOf(k) === i; });
       return o.concat(all.filter(function (k) { return o.indexOf(k) < 0; }));
     })(q.get('sideOrder')),
     // Features (settings → Features); all off unless switched on
@@ -1549,8 +1548,8 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
     advCard.hidden = CFG.advList === 'off' || (CFG.advList === 'auto' && advEmpty);
     tafCard.hidden = false;
     reserve(false);
-    if (CFG.sideOrder) {
-      // A custom order (setting sideOrder): the blocks are stacked in that order, and when the column is full they are
+    { // (always: since 2026-11-19 the built-in order follows the same rule as a custom one)
+      // The order (setting sideOrder, or the built-in one): the blocks are stacked in that order, and when the column is full they are
       // left out from the bottom up until the rest fits. The top block always stays; so does an advisory list set to On.
       // The decoded METAR values (on Auto) give way before any block does, and also when the TAF or the advisory list
       // still can't show in full; only after all that do those two boxes go smaller and scroll.
@@ -1565,23 +1564,13 @@ html[data-theme="light"] .rc button.on { background: var(--accent); border-color
       var tightNow = (!tafCard.hidden && !fitsIn(taf, tafHtml)) || (!advCard.hidden && !fitsIn(list, advHtml)) || sideOver();
       if (tightNow && CFG.decoded === 'auto' && !obs.hidden) { obs.hidden = true; reserve(false); }
       if (sideOver()) reserve(true);
-    } else {
-      if (CFG.advList === 'auto' && !advCard.hidden && (!fitsIn(taf, tafHtml) || sideOver())) { advCard.hidden = true; reserve(false); }
-      if (tight() && CFG.decoded === 'auto') { obs.hidden = true; reserve(false); }
-      if (sideOver()) reserve(true); // e.g. decoded forced on: shrink the boxes so nothing is pushed out
-      for (var i = 0; i < squeeze.length && sideOver(); i++) {
-        if (squeeze[i].hidden) continue;
-        squeeze[i].classList.add('squeezed');
-        if (i === 0) renderSun();
-        reserve(true);
-      }
     }
     if (!tafCard.hidden) loopScroll(taf, tafHtml);
     if (!advCard.hidden) loopScroll(list, advHtml);
     layoutBar(); // the strip depends on whether the list is showing
   }
   // A custom order: move the blocks once (the airport's conditions card stays on top)
-  if (CFG.sideOrder) (function () {
+  (function () {
     var side = document.querySelector('.side'), el = { rwy: 'rwyCard', trend: 'trendCard', sun: 'sunCard', aloft: 'aloftCard', taf: 'tafCard', adv: 'advCard' };
     CFG.sideOrder.forEach(function (k) { side.appendChild($(el[k])); });
   })();

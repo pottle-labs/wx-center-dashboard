@@ -582,8 +582,8 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
     $('advSpeedOut').textContent = v <= 12 ? 'slow' : v <= 30 ? 'medium' : 'fast';
   }
   // Order of the weather side column (sideOrder): "default", or the six blocks top to bottom. The arrows make it a list.
-  var ORDER_ALL = ['taf', 'rwy', 'trend', 'sun', 'aloft', 'adv'];
-  var ORDER_NAME = { rwy: 'Runway winds', trend: '12-hour trend', sun: 'Daylight arc', aloft: 'Winds aloft', taf: 'TAF', adv: 'Advisory list' };
+  var ORDER_ALL = ['taf', 'rwy', 'aloft', 'adv', 'sun', 'trend'];
+  var ORDER_NAME = { rwy: 'Runway winds', trend: '12-hour trend', sun: 'Sunrise, sunset and night times', aloft: 'Winds aloft', taf: 'TAF', adv: 'Advisory list' };
   function orderNow() {
     var o = String($('sideOrder').value || '').split(',').filter(function (k, i, a) { return ORDER_ALL.indexOf(k) >= 0 && a.indexOf(k) === i; });
     return o.length ? o.concat(ORDER_ALL.filter(function (k) { return o.indexOf(k) < 0; })) : null;
@@ -596,7 +596,7 @@ kbd { display: inline-block; padding: 0 6px; border-radius: 5px; border: 1px sol
     }).join('');
     $('orderReset').disabled = !o;
     $('orderNote').textContent = o ? 'Your order. When the column is full, blocks are left out from the bottom up, so put what matters least last. Blocks that are switched off are skipped.'
-      : 'The built-in order and rules. Move a block to set your own order: blocks are then left out from the bottom up when the column is full.';
+      : 'The built-in order. When the column is full, the decoded METAR values (on Auto) go first, then blocks are left out from the bottom up. Move a block to set your own order.';
   }
   $('orderList').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b || b.disabled) return;
