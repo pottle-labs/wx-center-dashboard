@@ -956,6 +956,17 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
       spots.push({ m: m, x: p.x, y: p.y, gap: e + 5 * K, home: home, alpha: g.globalAlpha, k: K,
         age: old ? (ageMin < 120 ? Math.round(ageMin) + 'm' : Math.floor(ageMin / 60) + 'h') : '' });
     });
+    if (SLIM) { // phone: names also keep off the map's buttons and the PIREP symbols with their levels
+      var mr0 = mapEl.getBoundingClientRect();
+      ['.map-chip', '#layersBtn', '#fullBtn'].forEach(function (sel) {
+        var e = document.querySelector(sel); if (!e || !e.offsetWidth) return;
+        var r = e.getBoundingClientRect(); taken.push({ x0: r.left - mr0.left, y0: r.top - mr0.top, x1: r.right - mr0.left, y1: r.bottom - mr0.top, dot: true });
+      });
+      if (F.pireps && state.pireps && showLayer('pireps')) state.pireps.forEach(function (x) {
+        var pt = toScreen(x.p.lat, x.p.lon), n = (x.turb ? 1 : 0) + (x.ice ? 1 : 0) + (x.llws ? 1 : 0);
+        taken.push({ x0: pt.x - 10 * n - 4, y0: pt.y - 11, x1: pt.x + 10 * n + (x.p.fltLvl > 0 ? 38 : 4), y1: pt.y + 12, dot: true });
+      });
+    }
     placeLabels(g, spots, taken, v);
     // Advisory and TFR tags go on last (2026-11-19), where they don't sit on an airport's dot, wind barb or label or on
     // another tag: the outline's vertex nearest the center first, then nudged beside it, then its next vertices. A tag
@@ -1081,33 +1092,37 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
   }
   function overlap(a, b) { return Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0)); }
   function placeLabels(g, spots, taken, v) {
-    var cx = v.w / 2, cy = v.h / 2, placed = [];
+    var cx = v.w / 2, cy = v.h / 2, placed = [], named = 0, NAMES_MAX = 10; // (phone: at most this many names besides home)
     spots.sort(function (a, b) { return (b.home - a.home) || ((a.x - cx) * (a.x - cx) + (a.y - cy) * (a.y - cy)) - ((b.x - cx) * (b.x - cx) + (b.y - cy) * (b.y - cy)); });
     // [dx, dy] direction; the box is placed so its nearest edge sits that far from the dot
     var DIRS = [[1, 0], [-1, 0], [0, -1], [0, 1], [.75, -.75], [.75, .75], [-.75, -.75], [-.75, .75]];
     spots.forEach(function (s) {
-      if (SLIM && !s.home && !(hover && hover.icaoId === s.m.icaoId)) return; // phone: the home airport and the tapped one
-      if (SLIM && !s.home) s.gap = Math.max(s.gap, 20); // clear of the ring round the tapped dot
+      // Phone: an airport is named only where its name has a clear spot right beside the dot (no far spots with lines);
+      // the rest are left off. The home airport and the tapped one are always named.
+      var tapped = SLIM && hover && hover.icaoId === s.m.icaoId;
+      if (tapped) s.gap = Math.max(s.gap, 20); // clear of the ring round the tapped dot
       // labels shrink less than the dots (still readable), and not below 12 px (13 for the home airport)
-      var lk = Math.min(1.15, Math.sqrt(s.k || 1)), size = Math.round(Math.max(s.home ? 13 : 12, (s.home ? 22 : 18) * lk)), h = size + 6;
+      var lk = Math.min(1.15, Math.sqrt(s.k || 1)), size = Math.round(Math.max(s.home ? 13 : SLIM ? 11 : 12, (s.home ? 22 : 18) * lk)), h = size + 6;
       g.font = '600 ' + size + 'px "Barlow Semi Condensed", "Segoe UI", sans-serif';
       var idW = g.measureText(s.m.icaoId).width, ageFont = '500 ' + Math.round(size * .8) + 'px "JetBrains Mono", Consolas, monospace';
       if (s.age) { g.font = ageFont; s.ageW = g.measureText(s.age).width; g.font = '600 ' + size + 'px "Barlow Semi Condensed", "Segoe UI", sans-serif'; }
       var w = idW + 12 + (s.age ? s.ageW + 6 : 0), best = null;
-      [1, 2.1].forEach(function (far, tier) {
+      (SLIM ? [1] : [1, 2.1]).forEach(function (far, tier) {
         if (best && best.clear) return;
         DIRS.forEach(function (d, i) {
           var gap = s.gap * far, bx = s.x + d[0] * gap + (d[0] > 0 ? 0 : d[0] < 0 ? -w : -w / 2), by = s.y + d[1] * gap + (d[1] > 0 ? 0 : d[1] < 0 ? -h : -h / 2);
           if (d[0] && d[1]) { bx = s.x + d[0] * gap + (d[0] < 0 ? -w : 0); by = s.y + d[1] * gap + (d[1] < 0 ? -h : 0); }
           var box = { x0: bx, y0: by, x1: bx + w, y1: by + h };
-          var hit = 0, hard = 0;
-          placed.forEach(function (o) { hard += overlap(box, o); });
-          taken.forEach(function (o) { var a = overlap(box, o); if (o.dot) hard += a; else hit += a; });
+          var hit = 0, hard = 0, tb = SLIM ? { x0: bx - 3, y0: by - 3, x1: bx + w + 3, y1: by + h + 3 } : box; // phone: a little air round each name
+          placed.forEach(function (o) { hard += overlap(tb, o); });
+          taken.forEach(function (o) { var a = overlap(o.dot ? box : tb, o); if (o.dot) hard += a; else hit += a; });
           var off = (box.x0 < 4 || box.y0 < 4 || box.x1 > v.w - 4 || box.y1 > v.h - 4) ? 1e6 : 0;
           var score = hard * 10 + hit + off + i * 2 + tier * 40;
-          if (!best || score < best.score) best = { box: box, score: score, far: tier > 0, clear: hard === 0 && !off && hit < 30 };
+          if (!best || score < best.score) best = { box: box, score: score, far: tier > 0, clear: hard === 0 && !off && hit < (SLIM ? 1 : 30) };
         });
       });
+      if (SLIM && best && !s.home && !tapped && (!best.clear || named >= NAMES_MAX)) return;
+      if (!s.home) named++;
       if (!best || (!best.clear && !s.home && (best.score >= 1e6 || best.score - (best.far ? 40 : 0) > 400))) return;
       placed.push(best.box);
       g.globalAlpha = s.alpha;
@@ -2604,7 +2619,7 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
       if (x.ice) syms.push([PIREP_SYM.ice[x.ice], ICE_BLUE]); // icing is always blue; the number of bars gives the intensity
       if (x.llws) syms.push([PIREP_SYM.llws, 'darkred']);
       syms.forEach(function (s, i) { drawSymbol(g, s[0], s[1], pt.x + (i - (syms.length - 1) / 2) * 30 * k, pt.y, 1.3 * k); });
-      if (x.p.fltLvl > 0) label(g, pad3(x.p.fltLvl), pt.x + syms.length * 15 * k + 6, pt.y + 2, 14, '#E8EEF5', 'rgba(11,15,20,.78)', 'left');
+      if (x.p.fltLvl > 0) label(g, pad3(x.p.fltLvl), pt.x + syms.length * 15 * k + 6, pt.y + 2, SLIM ? 12 : 14, '#E8EEF5', 'rgba(11,15,20,.78)', 'left');
     });
     g.globalAlpha = 1;
   }
