@@ -381,10 +381,20 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
   html.web .tip-go { display: block; width: 100%; margin-top: 10px; height: 36px; border-radius: 8px; border: 1px solid var(--accent); background: rgba(124,196,255,.14); color: var(--accent); font: 600 16px var(--font-ui); }
   html.web .tip-n { order: -1; margin: -2px 0 2px; font-size: 13px; font-weight: 600; color: var(--accent); }
   html.web .stn-ring { width: 30px; height: 30px; margin: -15px 0 0 -15px; border-width: 2px; }
-  html.web .full-btn { position: absolute; top: 10px; right: 10px; z-index: 6; display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; border-radius: 10px; border: 1px solid var(--line-strong); background: rgba(11,15,20,.86); color: var(--fg); }
+  html.web .full-btn, html.web .loc-btn { position: absolute; top: 10px; right: 10px; z-index: 6; display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; border-radius: 10px; border: 1px solid var(--line-strong); background: rgba(11,15,20,.86); color: var(--fg); }
   html.web .full-btn .b, html.web.mapfull .full-btn .a { display: none; }
   html.web.mapfull .full-btn .b { display: inline; }
-  html[data-theme="light"].web .full-btn { background: rgba(255,255,255,.92); }
+  html[data-theme="light"].web .full-btn, html[data-theme="light"].web .loc-btn { background: rgba(255,255,255,.92); }
+  html.web .loc-btn { top: 56px; }
+  html.web .loc-btn.on { border-color: #4DA3FF; color: #4DA3FF; }
+  html[data-theme="light"].web .loc-btn.on { border-color: #0A6CDB; color: #0A6CDB; }
+  html.web .me { position: absolute; z-index: 4; pointer-events: none; width: 16px; height: 16px; margin: -8px 0 0 -8px; box-sizing: border-box; border-radius: 50%; background: #2F8CFF; border: 2.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 1px 5px rgba(0,0,0,.55); }
+  html.web .me-acc { position: absolute; z-index: 3; pointer-events: none; box-sizing: border-box; border-radius: 50%; background: rgba(47,140,255,.16); border: 1px solid rgba(47,140,255,.55); }
+  html.web .me-edge { position: absolute; z-index: 5; pointer-events: none; transform: translate(-50%,-50%); display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px 0 7px; border-radius: 13px; background: #2F8CFF; color: #fff; border: 1.5px solid #fff; box-shadow: 0 1px 5px rgba(0,0,0,.55); font: 600 13px var(--font-ui); white-space: nowrap; }
+  html.web .me-edge svg { flex: 0 0 auto; }
+  html.web .loc-note { position: absolute; z-index: 7; top: 56px; right: 56px; max-width: 230px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line-strong); background: rgba(11,15,20,.94); color: var(--fg); font: 500 13px/1.35 var(--font-ui); }
+  html[data-theme="light"].web .loc-note { background: rgba(255,255,255,.97); }
+  html.web .me[hidden], html.web .me-acc[hidden], html.web .me-edge[hidden], html.web .loc-note[hidden] { display: none; }
   html.web.mapfull .full-btn { border-color: var(--accent); color: var(--accent); }
   html.web.mapfull .map { height: 100svh; }
   html.web.mapfull body { overflow: hidden; }
@@ -679,6 +689,50 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     return { x: p.x - state.view.left, y: p.y - state.view.top };
   }
 
+  /* ---------- My location (phone page only) ---------- */
+  // Off until the locate button is tapped (so nobody gets a permission question they didn't ask for); the choice is
+  // remembered on the phone. The position comes from the phone's own GPS and is only used to place the dot here: it
+  // is never sent anywhere. Off the map, a chip on the edge points toward it with the distance from the airport.
+  var me = { on: false, watch: null, pos: null, noteT: 0 };
+  function locNote(t) {
+    var n = $('locNote'); n.textContent = t; n.hidden = false;
+    clearTimeout(me.noteT); me.noteT = setTimeout(function () { n.hidden = true; }, 6000);
+  }
+  function setLoc(on) {
+    var b = $('locBtn'), geo = navigator.geolocation; if (!b) return;
+    if (on && !geo) { locNote('This browser can’t give a location'); return; }
+    me.on = on; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on));
+    try { localStorage.setItem('wxc-web-loc', on ? '1' : '0'); } catch (e) {}
+    if (me.watch != null) { geo.clearWatch(me.watch); me.watch = null; }
+    if (!on) { me.pos = null; placeMe(); return; }
+    me.watch = geo.watchPosition(function (p) {
+      me.pos = { lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy || 0 }; placeMe();
+    }, function (e) {
+      if (e.code === 1) { setLoc(false); locNote('Location is off for this site. Allow it in the phone’s settings, then tap again.'); }
+      else if (!me.pos) locNote('Can’t find your location right now');
+    }, { enableHighAccuracy: true, maximumAge: 15000, timeout: 30000 });
+  }
+  function placeMe() {
+    var d = $('meDot'), v = state.view; if (!d) return;
+    var a = $('meAcc'), e = $('meEdge'), p = me.on && me.pos;
+    d.hidden = a.hidden = e.hidden = true;
+    if (!p || !v) return;
+    var s = toScreen(p.lat, p.lon);
+    if (s.x >= 8 && s.x <= v.w - 8 && s.y >= 8 && s.y <= v.h - 8) {
+      d.hidden = false; d.style.left = s.x + 'px'; d.style.top = s.y + 'px';
+      var r = p.acc / (2 * Math.PI * R_EARTH * Math.cos(p.lat * Math.PI / 180) / (256 * Math.pow(2, v.z)));
+      if (r > 12) { a.hidden = false; a.style.width = a.style.height = 2 * r + 'px'; a.style.left = s.x - r + 'px'; a.style.top = s.y - r + 'px'; }
+      return;
+    }
+    var cx = v.w / 2, cy = v.h / 2, dx = s.x - cx, dy = s.y - cy;
+    var k = Math.min((cx - 20) / Math.abs(dx || 1e-9), (cy - 20) / Math.abs(dy || 1e-9));
+    e.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" style="transform:rotate(' + Math.atan2(dx, -dy).toFixed(3) + 'rad)" aria-hidden="true"><path d="M6 0l5 11-5-3-5 3z" fill="#fff"/></svg>You · ' +
+      Math.round(distNm(CFG.lat, CFG.lon, p.lat, p.lon)) + ' NM';
+    e.hidden = false;
+    var hw = e.offsetWidth / 2 + 6;
+    e.style.left = Math.max(hw, Math.min(v.w - hw, cx + dx * k)) + 'px'; e.style.top = cy + dy * k + 'px';
+  }
+
   /* ---------- Tiles ---------- */
   function tileZoom(min, max) {
     var v = state.view;
@@ -824,6 +878,7 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
 
   function drawOverlay() {
     var v = state.view;
+    placeMe();
     if (!v) return; // fonts or data arrived before the map was laid out; it's drawn once it is
     var dpr = v.dpr;
     canvas.width = Math.round(v.w * dpr); canvas.height = Math.round(v.h * dpr);
@@ -961,7 +1016,7 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     });
     if (SLIM) { // phone: names also keep off the map's buttons and the PIREP symbols with their levels
       var mr0 = mapEl.getBoundingClientRect();
-      ['.map-chip', '#layersBtn', '#fullBtn'].forEach(function (sel) {
+      ['.map-chip', '#layersBtn', '#fullBtn', '#locBtn'].forEach(function (sel) {
         var e = document.querySelector(sel); if (!e || !e.offsetWidth) return;
         var r = e.getBoundingClientRect(); taken.push({ x0: r.left - mr0.left, y0: r.top - mr0.top, x1: r.right - mr0.left, y1: r.bottom - mr0.top, dot: true });
       });
@@ -1726,6 +1781,13 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
         if (on) scrollTo(0, 0);
         hideTip(); rebuild(); placeLayersBtn();
       });
+      // My location: a locate button under it (see "My location")
+      mapEl.insertAdjacentHTML('beforeend', '<button type="button" class="loc-btn" id="locBtn" aria-pressed="false" aria-label="Show my location">' +
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg></button>' +
+        '<div class="me-acc" id="meAcc" hidden></div><div class="me" id="meDot" hidden></div><div class="me-edge" id="meEdge" hidden></div><div class="loc-note" id="locNote" hidden></div>');
+      $('locBtn').addEventListener('click', function () { setLoc(!me.on); });
+      var locOn = '0'; try { locOn = localStorage.getItem('wxc-web-loc'); } catch (e) {}
+      if (locOn === '1') setLoc(true);
     }
   })();
 
