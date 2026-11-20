@@ -372,11 +372,14 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
   html.web .lim-card.open .lim-more { display: grid; }
   html.web .lim-more strong { color: #fff; font-weight: 600; white-space: nowrap; }
   html.web .map-credit.under { position: static; padding: 5px 14px 0; background: none; font-size: 11px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  html.web .stn-tip { box-sizing: border-box; max-width: none; padding: 10px 12px 12px; pointer-events: auto; max-height: 58%; overflow: hidden; }
+  html.web .stn-tip { box-sizing: border-box; max-width: none; padding: 10px 12px 12px; pointer-events: auto; max-height: 45%; overflow: hidden; z-index: 7; display: flex; flex-direction: column; }
+  html.web .stn-tip[hidden] { display: none; }
+  html.web .stn-tip > * { flex: 0 0 auto; } html.web .stn-tip .h { order: -2; }
   html.web .stn-tip .h { gap: 9px; margin-bottom: 6px; flex-wrap: wrap; }
   html.web .stn-tip .h .id { font-size: 21px; } html.web .stn-tip .h .cat { height: 24px; font-size: 16px; } html.web .stn-tip .h .nm { font-size: 15px; }
   html.web .stn-tip .k { margin-top: 6px; font-size: 12px; } html.web .stn-tip .raw { font-size: 13px; } html.web .stn-tip .adv-raw { font-size: 12px; max-width: none; }
   html.web .tip-go { display: block; width: 100%; margin-top: 10px; height: 36px; border-radius: 8px; border: 1px solid var(--accent); background: rgba(124,196,255,.14); color: var(--accent); font: 600 16px var(--font-ui); }
+  html.web .tip-n { order: -1; margin: -2px 0 2px; font-size: 13px; font-weight: 600; color: var(--accent); }
   html.web .stn-ring { width: 30px; height: 30px; margin: -15px 0 0 -15px; border-width: 2px; }
   html.web .full-btn { position: absolute; top: 10px; right: 10px; z-index: 6; display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; border-radius: 10px; border: 1px solid var(--line-strong); background: rgba(11,15,20,.86); color: var(--fg); }
   html.web .full-btn .b, html.web.mapfull .full-btn .a { display: none; }
@@ -1790,7 +1793,7 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     if (SLIM) { // phone: a full-width card along the map's bottom edge, or its top when the tapped place is low
       tip.style.left = '8px'; tip.style.width = v.w - 16 + 'px';
       h = tip.offsetHeight;
-      tip.style.top = (p.y > v.h * 0.55 ? 8 : v.h - h - 8) + 'px';
+      tip.style.top = (p.y > v.h * 0.5 ? 8 : v.h - h - 8) + 'px'; // the half the tapped place isn't in (the card is at most 45% tall)
       $('tipRing').style.left = p.x + 'px'; $('tipRing').style.top = p.y + 'px';
       return;
     }
@@ -1871,10 +1874,17 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     if (p.rawAirSigmet) html += k('Text') + '<div class="raw adv-raw">' + esc(p.rawAirSigmet.replace(/^[\s\S]*?\n(?=(CONVECTIVE )?SIGMET|AIRMET)/, '')) + '</div>';
     return html;
   }
+  // Phone: the advisories under the last tapped spot (advStack), top first; each step shows the next, the last one closes
+  var advStack = null;
+  function advStep(a) {
+    var cur = hover && hover.adv ? a.s.map(function (o) { return a.same(o, hover.adv); }).indexOf(true) : -1;
+    if (cur === a.s.length - 1) { hideTip(); return; }
+    showAdvTip({ src: a.s[cur + 1], box: { x0: a.x - 30, y0: a.y - 12, x1: a.x + 30, y1: a.y + 12 }, i: cur + 2, n: a.s.length });
+  }
   function showAdvTip(hit) {
     var b = hit.box;
     hover = { adv: hit.src, x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2, half: (b.x1 - b.x0) / 2 };
-    $('tip').innerHTML = advTipHtml(hit.src);
+    $('tip').innerHTML = advTipHtml(hit.src) + (hit.n > 1 ? '<div class="tip-n">' + hit.i + ' of ' + hit.n + ' here · tap again ' + (hit.i < hit.n ? 'for the next' : 'to close') + '</div>' : '');
     $('tip').hidden = false; $('tipRing').hidden = true;
     state.advHover = hit.src; drawOverlay();
     placeTip();
@@ -1909,9 +1919,13 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
           if (d < ld) { ld = d; onLine = L.src; }
         }
       });
-      if (SLIM && !onLine) { // phone: a tap inside an area counts too (the one drawn on top); a second tap puts it away
-        (state.advLines || []).forEach(function (L) { if (L.closed && inside({ x: x, y: y }, L.pts)) onLine = L.src; });
-        if (onLine && hover && hover.adv === onLine) { hideTip(); return; }
+      if (SLIM) { // phone: a tap inside an area counts too. Where several cover the spot, the tapped line's comes first,
+        // then the one drawn on top; each further tap shows the next one down, and a tap after the last puts the card away
+        var stack = [], same = function (a, b) { return a === b || (!a.properties && !b.properties && a.id === b.id); };
+        var add = function (o) { if (!stack.some(function (k) { return same(k, o); })) stack.push(o); };
+        if (onLine) add(onLine);
+        (state.advLines || []).slice().reverse().forEach(function (L) { if (L.closed && inside({ x: x, y: y }, L.pts)) add(L.src); });
+        if (stack.length) { advStep(advStack = { s: stack, x: x, y: y, same: same }); return; }
       }
       if (onLine) {
         if (!hover || hover.adv !== onLine) showAdvTip({ src: onLine, box: { x0: x - 30, y0: y - 12, x1: x + 30, y1: y + 12 } });
@@ -1974,6 +1988,7 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     if (SLIM) { // phone: a tap shows the airport's card; its button switches to that airport
       var go = e.target.closest && e.target.closest('.tip-go');
       if (go) goStation(go.dataset.go);
+      else if (hover && hover.adv && advStack && e.target.closest && e.target.closest('.stn-tip')) advStep(advStack); // a tap on the card steps too
       return;
     }
     if (hover && hover.icaoId && hover.icaoId !== CFG.station) goStation(hover.icaoId);
