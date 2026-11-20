@@ -13,7 +13,7 @@
   var LOCAL_ONLY = ['tab', 'wbScreen', 'singleScreen', 'autoUpdate', 'repo'];
   var KEY = 'wxc-web-settings';
   // On a phone some settings start differently from the TVs (before any central or local choice)
-  var PHONE_DEFAULTS = { runway: 'table', sun: 'strip' };
+  var PHONE_DEFAULTS = { runway: 'table', sun: 'strip', radius: '50' }; // 50 NM: the map is small (user, 2026-11-19)
 
   function read() { try { var s = JSON.parse(localStorage.getItem(KEY)); return s && typeof s === 'object' ? s : {}; } catch (e) { return {}; } }
   function write(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }

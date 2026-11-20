@@ -359,8 +359,40 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
   html.web .range .btns { flex: 1 1 auto; } html.web .range .label { display: none; }
   html.web .lim-banner { max-width: 86%; font-size: 15px; }
   html.web .stn-tip { max-width: calc(100vw - 24px); }
-  html.web .sunstrip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  html.web .sunstrip .t { font-size: 17px; white-space: nowrap; }
+  /* A clearer phone map (2026-11-19): the limits are a card under the map, the credit a small line there, the airport
+     and advisory card runs along the map's edge, and a button gives the map the whole page */
+  html.web .lim-banner.lim-card { position: static; max-width: none; margin: 0 0 12px; padding: 10px 12px; gap: 8px; box-shadow: none; font-size: 16px; }
+  html.web .lim-card { cursor: pointer; }
+  html.web .lim-top { display: flex; align-items: baseline; gap: 10px; width: 100%; }
+  html.web .lim-card b { font-size: 14px; white-space: nowrap; }
+  html.web .lim-names { flex: 1 1 auto; min-width: 0; color: #fff; font-weight: 600; }
+  html.web .lim-why { flex: 0 0 auto; color: #FFB3A6; font-size: 14px; white-space: nowrap; }
+  html.web .lim-why::after { content: ' \25BE'; } html.web .lim-card.open .lim-why::after { content: ' \25B4'; }
+  html.web .lim-more { display: none; width: 100%; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.14); grid-template-columns: auto 1fr; gap: 3px 12px; font-size: 15px; }
+  html.web .lim-card.open .lim-more { display: grid; }
+  html.web .lim-more strong { color: #fff; font-weight: 600; white-space: nowrap; }
+  html.web .map-credit.under { position: static; padding: 5px 14px 0; background: none; font-size: 11px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html.web .stn-tip { box-sizing: border-box; max-width: none; padding: 10px 12px 12px; pointer-events: auto; max-height: 58%; overflow: hidden; }
+  html.web .stn-tip .h { gap: 9px; margin-bottom: 6px; flex-wrap: wrap; }
+  html.web .stn-tip .h .id { font-size: 21px; } html.web .stn-tip .h .cat { height: 24px; font-size: 16px; } html.web .stn-tip .h .nm { font-size: 15px; }
+  html.web .stn-tip .k { margin-top: 6px; font-size: 12px; } html.web .stn-tip .raw { font-size: 13px; } html.web .stn-tip .adv-raw { font-size: 12px; max-width: none; }
+  html.web .tip-go { display: block; width: 100%; margin-top: 10px; height: 36px; border-radius: 8px; border: 1px solid var(--accent); background: rgba(124,196,255,.14); color: var(--accent); font: 600 16px var(--font-ui); }
+  html.web .stn-ring { width: 30px; height: 30px; margin: -15px 0 0 -15px; border-width: 2px; }
+  html.web .full-btn { position: absolute; top: 10px; right: 10px; z-index: 6; display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; border-radius: 10px; border: 1px solid var(--line-strong); background: rgba(11,15,20,.86); color: var(--fg); }
+  html.web .full-btn .b, html.web.mapfull .full-btn .a { display: none; }
+  html.web.mapfull .full-btn .b { display: inline; }
+  html[data-theme="light"].web .full-btn { background: rgba(255,255,255,.92); }
+  html.web.mapfull .full-btn { border-color: var(--accent); color: var(--accent); }
+  html.web.mapfull .map { height: 100svh; }
+  html.web.mapfull body { overflow: hidden; }
+  html.web.mapfull .side, html.web.mapfull .bar, html.web.mapfull .map-credit.under { display: none; }
+  /* The four sun times on one line; two rows (.two, set in renderSun) only when a time does not fit its tile */
+  html.web .sunstrip { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  html.web .sunstrip div { padding: 5px 6px; }
+  html.web .sunstrip .k { font-size: 11px; letter-spacing: .4px; white-space: nowrap; overflow: hidden; }
+  html.web .sunstrip .t { font-size: 15px; white-space: nowrap; overflow: hidden; }
+  html.web .sunstrip.two { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  html.web .sunstrip.two div { padding: 6px 10px; } html.web .sunstrip.two .k { font-size: 13px; } html.web .sunstrip.two .t { font-size: 17px; }
   /* Runway card's bottom line (density alt, pressure alt, field): each value under its label, never broken mid-value */
   html.web .fcard .row2 > span:not(.da-tag) { display: flex; flex-direction: column; white-space: nowrap; line-height: 1.25; }
   html.web .fcard .row2 b { font-size: 17px; }
@@ -522,6 +554,10 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     dashHost.call('getTheme').then(function (t) { if (t.light !== CFG.light) applyTheme(t.light); }, function () {});
   }
   var mapEl = $('map'), baseEl = $('base'), radarEl = $('radar'), canvas = $('overlay');
+  // The phone page (web version on a narrow screen) keeps the map clear (user, 2026-11-19): only the home airport is
+  // named, advisories have no tags, the dots are smaller, and the limits and the credit line sit under the map. Tapping
+  // an airport or an advisory's area shows what it is.
+  var SLIM = !!window.WXC_WEB && !!window.matchMedia && matchMedia('(max-width: 760px)').matches;
   var state = { metars: [], taf: null, sigmets: [], gairmets: [], tfrs: [], frames: [], frame: 0, view: null, status: {} };
 
   /* ---------- Data access ---------- */
@@ -632,7 +668,8 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     var size = Math.max(0.65, Math.min(1, Math.min(v.w, v.h) / 700));
     // the smallest: 0.42 on a TV, 30% smaller (0.29) on a phone-sized map, in between for sizes between
     var floor = 0.42 * (0.7 + 0.3 * (size - 0.65) / 0.35);
-    return Math.max(floor, Math.min(1.3, size * Math.pow(2, (v.z - homeZoom(v.w, v.h)) * 0.5)));
+    // (on the phone page they are 40% smaller again: with the names off the map, the dots were what crowded it)
+    return Math.max(floor, Math.min(1.3, size * Math.pow(2, (v.z - homeZoom(v.w, v.h)) * 0.5))) * (SLIM ? 0.6 : 1);
   }
   function toScreen(lat, lon) {
     var p = worldPx(lat, lon, state.view.z);
@@ -836,6 +873,7 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
         if (live) { g.fillStyle = tfrHatch(g); g.fill(); }
         g.setLineDash([]); g.lineWidth = 8 * AW; g.strokeStyle = 'rgba(11,15,20,.6)'; g.stroke();
         g.setLineDash(live ? [] : [14 * AD, 9 * AD]); g.lineWidth = 4 * AW; g.strokeStyle = TFR_RED; g.stroke(); g.setLineDash([]);
+        if (SLIM) state.advLines.push({ src: t, pts: pts, closed: true }); // the phone has no tags to tap: the area itself
         var top = pts.reduce(function (a, p) { return !a || p.y < a.y ? p : a; }, null); // tag at the shape's top edge
         if (top && top.y > 30 && top.x > 40 && top.x < v.w - 40) tags.push({ x: top.x, y: top.y - 4, s: { tag: live ? 'TFR' : 'TFR ' + hhmmZ(new Date(t.from)), c: TFR_RED, fg: '#FFFFFF' }, src: t });
       });
@@ -864,10 +902,10 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
           // which side is inside
           if (!open) { g.fillStyle = hexA(hs.c, ah.properties ? 0.3 : 0.18); g.fill(); }
           g.setLineDash([]); g.lineJoin = 'round';
-          g.shadowColor = hs.c; g.shadowBlur = 22;
-          g.lineWidth = hs.w + 12; g.strokeStyle = 'rgba(255,255,255,.95)'; g.stroke();
+          g.shadowColor = hs.c; g.shadowBlur = SLIM ? 10 : 22;
+          g.lineWidth = SLIM ? 8 : hs.w + 12; g.strokeStyle = 'rgba(255,255,255,.95)'; g.stroke(); // (thinner on the phone's small map)
           g.shadowBlur = 0;
-          g.lineWidth = hs.w + 3; g.strokeStyle = hs.c; g.stroke();
+          g.lineWidth = SLIM ? 4 : hs.w + 3; g.strokeStyle = hs.c; g.stroke();
         });
       });
       g.globalAlpha = hl ? FADE : 1;
@@ -883,7 +921,7 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
       g.beginPath(); g.arc(ctr.x, ctr.y, r, 0, Math.PI * 2);
       g.lineWidth = 6; g.strokeStyle = 'rgba(255,255,255,.55)'; g.stroke();
       g.lineWidth = 2.5; g.setLineDash(i ? [] : [12, 10]); g.strokeStyle = '#0B0F14'; g.stroke(); g.setLineDash([]);
-      taken.push(label(g, nm + ' NM', ctr.x + r * Math.cos(-Math.PI / 4), ctr.y + r * Math.sin(-Math.PI / 4), 18, '#0B0F14', 'rgba(255,255,255,.85)'));
+      taken.push(label(g, nm + ' NM', ctr.x + r * Math.cos(-Math.PI / 4), ctr.y + r * Math.sin(-Math.PI / 4), SLIM ? 13 : 18, '#0B0F14', 'rgba(255,255,255,.85)'));
     });
 
     // METAR stations (wind barbs first, so the dots sit on top of the staffs)
@@ -909,7 +947,7 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
       g.globalAlpha = (hl && !on ? FADE : 1);
       var dotAlpha = g.globalAlpha * (old ? 0.45 : 1);
       g.globalAlpha = dotAlpha;
-      g.beginPath(); g.arc(p.x, p.y, r + 3 * K, 0, Math.PI * 2); g.fillStyle = '#0B0F14'; g.fill();
+      g.beginPath(); g.arc(p.x, p.y, r + (SLIM ? 2 : 3) * K, 0, Math.PI * 2); g.fillStyle = '#0B0F14'; g.fill(); // (a thinner dark edge on the phone)
       g.beginPath(); g.arc(p.x, p.y, r, 0, Math.PI * 2); g.fillStyle = CAT[m.fltCat] || '#8892A0'; g.fill();
       if (ring) { g.beginPath(); g.arc(p.x, p.y, r + 7 * K, 0, Math.PI * 2); g.lineWidth = Math.max(2, 3 * K); g.strokeStyle = '#F5B841'; g.stroke(); }
       g.globalAlpha = hl && !on ? FADE : 1;
@@ -924,6 +962,8 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     // with no clear spot keeps the first one.
     var placed = [], tagBoxes = [];
     state.tagHits = [];
+    // (the phone page draws only the tapped advisory's tag)
+    if (SLIM) tags = tags.filter(function (t) { return ah && (t.src === ah || (!ah.properties && !t.src.properties && t.src.id === ah.id)); });
     g.globalAlpha = hl ? FADE : 1;
     tags.forEach(function (t) {
       if (placed.some(function (p) { return Math.abs(p.x - t.x) < 110 && Math.abs(p.y - t.y) < 26; })) return; // avoid stacking
@@ -975,7 +1015,7 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
   var limCorner = null;
   function placeLimBanner() {
     var el = $('limBanner'), v = state.view;
-    if (el.hidden || !v || !state.mapBoxes) return;
+    if (SLIM || el.hidden || !v || !state.mapBoxes) return; // (on the phone page it is a card under the map)
     var mr = mapEl.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight, M = 18;
     var fixed = ['.map-chip', '#layersBtn', '.map-range', '.map-credit', '#banner'].map(function (s) { return document.querySelector(s); })
       .filter(function (e) { return e && !e.hidden && e.offsetWidth; })
@@ -1046,6 +1086,8 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     // [dx, dy] direction; the box is placed so its nearest edge sits that far from the dot
     var DIRS = [[1, 0], [-1, 0], [0, -1], [0, 1], [.75, -.75], [.75, .75], [-.75, -.75], [-.75, .75]];
     spots.forEach(function (s) {
+      if (SLIM && !s.home && !(hover && hover.icaoId === s.m.icaoId)) return; // phone: the home airport and the tapped one
+      if (SLIM && !s.home) s.gap = Math.max(s.gap, 20); // clear of the ring round the tapped dot
       // labels shrink less than the dots (still readable), and not below 12 px (13 for the home airport)
       var lk = Math.min(1.15, Math.sqrt(s.k || 1)), size = Math.round(Math.max(s.home ? 13 : 12, (s.home ? 22 : 18) * lk)), h = size + 6;
       g.font = '600 ' + size + 'px "Barlow Semi Condensed", "Segoe UI", sans-serif';
@@ -1650,6 +1692,23 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
       mapEl.appendChild(range);
       ['pointerdown', 'mousemove', 'click', 'wheel', 'dblclick'].forEach(function (t) { range.addEventListener(t, function (e) { e.stopPropagation(); }); });
     }
+    if (SLIM) { // phone: the limits are a card under the map and the credit a small line there, so neither covers it
+      var lb = $('limBanner'), cr = document.querySelector('.map-credit');
+      lb.classList.add('lim-card'); side.insertBefore(lb, side.firstChild);
+      lb.setAttribute('role', 'button'); lb.setAttribute('aria-expanded', 'false');
+      lb.addEventListener('click', function () { lb.setAttribute('aria-expanded', String(lb.classList.toggle('open'))); });
+      cr.classList.add('under'); cr.textContent = 'Chart: FAA · Weather: NOAA/NWS Aviation Weather Center';
+      mapEl.parentNode.insertBefore(cr, mapEl.nextSibling);
+      // Full-screen map: the map takes the whole page until the button is tapped again
+      mapEl.insertAdjacentHTML('beforeend', '<button type="button" class="full-btn" id="fullBtn" aria-pressed="false" aria-label="Full-screen map">' +
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="a" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><path class="b" d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>');
+      $('fullBtn').addEventListener('click', function () {
+        var on = document.documentElement.classList.toggle('mapfull');
+        this.setAttribute('aria-pressed', String(on));
+        if (on) scrollTo(0, 0);
+        hideTip(); rebuild(); placeLayersBtn();
+      });
+    }
   })();
 
   // Bottom strip: the active advisories as chips; when there are more than fit, they scroll sideways in a loop
@@ -1704,13 +1763,22 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     return p;
   }
   function hideTip() {
+    var had = hover;
     hover = null; $('tip').hidden = $('tipRing').hidden = true;
     if (state.advHover) { state.advHover = null; drawOverlay(); }
+    else if (SLIM && had && state.view) drawOverlay(); // the tapped airport's name comes off the map again
   }
   function placeTip() {
     if (!hover) return;
     var tip = $('tip'), w = tip.offsetWidth, h = tip.offsetHeight, v = state.view;
     var p = hover.adv ? { x: hover.x, y: hover.y } : toScreen(hover.lat, hover.lon), gap = hover.adv ? hover.half * 1.15 + 18 : 30; // the hovered tag is drawn a size larger
+    if (SLIM) { // phone: a full-width card along the map's bottom edge, or its top when the tapped place is low
+      tip.style.left = '8px'; tip.style.width = v.w - 16 + 'px';
+      h = tip.offsetHeight;
+      tip.style.top = (p.y > v.h * 0.55 ? 8 : v.h - h - 8) + 'px';
+      $('tipRing').style.left = p.x + 'px'; $('tipRing').style.top = p.y + 'px';
+      return;
+    }
     var x = p.x + gap, y = p.y - h / 2;
     if (x + w > v.w - 10) x = p.x - gap - w;                // flip to the left near the right edge
     tip.style.left = Math.max(10, x) + 'px';
@@ -1725,6 +1793,12 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
       '<div class="k">METAR' + (obs ? ' · ' + obs : '') + '</div><div class="raw">' + esc(m.rawOb || 'No report') + '</div>' +
       '<div class="k">TAF</div><div class="raw" id="tipTaf">Loading…</div>';
     $('tip').hidden = $('tipRing').hidden = false;
+    if (SLIM) { // phone: the report, and a button to show that airport (a tap on the map no longer switches to it)
+      var tafEl = $('tipTaf'); tafEl.previousSibling.remove(); tafEl.remove();
+      if (m.icaoId !== CFG.station) $('tip').insertAdjacentHTML('beforeend', '<button type="button" class="tip-go" data-go="' + esc(m.icaoId) + '">Show ' + esc(m.icaoId) + ' ›</button>');
+      drawOverlay(); placeTip();
+      return;
+    }
     placeTip();
     tafFor(m.icaoId).then(function (t) {
       if (hover !== m) return;
@@ -1792,6 +1866,7 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
   }
   mapEl.addEventListener('mousemove', function (e) {
     if (!state.view) return;
+    if (SLIM && e.target.closest && e.target.closest('.stn-tip, button')) return; // a tap on the card or a map button
     var r = mapEl.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, best = null, bd = 24 * 24;
     // An advisory tag under the pointer comes first (the tags are what you aim at)
     var tag = (state.tagHits || []).filter(function (h) { return x >= h.box.x0 - 4 && x <= h.box.x1 + 4 && y >= h.box.y0 - 4 && y <= h.box.y1 + 4; }).pop();
@@ -1812,13 +1887,17 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     clearTimeout(tipTimer);
     tipTimer = setTimeout(hideTip, 15000); // don't leave a panel up on the TV when someone walks away
     if (!best) { // no airport or PIREP here: an advisory's outline under the pointer (within 7 px) counts like its tag
-      var onLine = null, ld = 7;
+      var onLine = null, ld = SLIM ? 14 : 7;
       (state.advLines || []).forEach(function (L) {
         for (var i = 0, n = L.pts.length; i < (L.closed ? n : n - 1); i++) {
           var d = segDist({ x: x, y: y }, L.pts[i], L.pts[(i + 1) % n]);
           if (d < ld) { ld = d; onLine = L.src; }
         }
       });
+      if (SLIM && !onLine) { // phone: a tap inside an area counts too (the one drawn on top); a second tap puts it away
+        (state.advLines || []).forEach(function (L) { if (L.closed && inside({ x: x, y: y }, L.pts)) onLine = L.src; });
+        if (onLine && hover && hover.adv === onLine) { hideTip(); return; }
+      }
       if (onLine) {
         if (!hover || hover.adv !== onLine) showAdvTip({ src: onLine, box: { x0: x - 30, y0: y - 12, x1: x + 30, y1: y + 12 } });
         return;
@@ -1875,8 +1954,13 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     inp.addEventListener('blur', done);
   }
   $('stnId').addEventListener('click', editStation);
-  mapEl.addEventListener('click', function () {
+  mapEl.addEventListener('click', function (e) {
     if (gesture.justMoved) return; // the end of a drag, not a click on an airport
+    if (SLIM) { // phone: a tap shows the airport's card; its button switches to that airport
+      var go = e.target.closest && e.target.closest('.tip-go');
+      if (go) goStation(go.dataset.go);
+      return;
+    }
     if (hover && hover.icaoId && hover.icaoId !== CFG.station) goStation(hover.icaoId);
   });
   mapEl.addEventListener('mousemove', function () { mapEl.classList.toggle('on-stn', !!hover); });
@@ -2199,6 +2283,7 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
     var ends = runwayWinds(m), b = ends && ends.length ? ends[0] : null, xw = b ? Math.max(Math.abs(b.xw), Math.abs(b.gx || 0)) : 0;
     var ce = ceilingFt(m), vs = visSm(m);
     // One line per set of limits the airport is outside of (e.g. LOCAL SOLO NO-GO, NON-LOCAL SOLO NO-GO)
+    var out = [];
     var lines = CFG.lims.map(function (L) {
       var why = [];
       if (L.wind === L.gust) { // one wind limit covers both: "Wind 12G25 kt (lim. 20)"
@@ -2210,9 +2295,13 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
       if (b && xw > L.xwind) why.push('XW ' + Math.round(xw) + ' kt on ' + b.id + ' (lim. ' + L.xwind + ')');
       if (ce != null && ce < L.ceil) why.push('Ceil. ' + fmtFt(ce) + ' ft (lim. ' + fmtFt(L.ceil) + ')');
       if (vs != null && vs < L.vis) why.push('Vis. ' + vs + ' SM (lim. ' + L.vis + ')');
+      if (why.length) out.push({ name: L.name, why: why.join(' · ') });
       return why.length ? '<div class="lim-row"><b>' + esc(L.name.toUpperCase()) + ' NO-GO</b><span>' + esc(why.join(' · ')) + '</span></div>' : '';
     }).filter(Boolean);
     el.hidden = !lines.length;
+    // Phone (user's pick, mockup 13C): one line naming the sets that are no-go; a tap opens the reasons
+    if (SLIM) lines = ['<div class="lim-top"><b>NO-GO</b><span class="lim-names">' + esc(out.map(function (o) { return o.name; }).join(' · ')) + '</span><span class="lim-why">Why</span></div>' +
+      '<div class="lim-more">' + out.map(function (o) { return '<strong>' + esc(o.name) + '</strong><span>' + esc(o.why) + '</span>'; }).join('') + '</div>'];
     el.innerHTML = lines.join('');
     placeLimBanner();
   }
@@ -2430,6 +2519,10 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
       if (i === 1 && sc) return '<div class="' + sc.lvl + '"><span class="k">Sunset in ' + sc.text + '</span><span class="t">' + t(r[1]) + '</span>' +
         '<span class="drain"><i style="width:' + (sc.frac * 100).toFixed(1) + '%"></i></span></div>';
       return '<div><span class="k">' + r[0] + '</span><span class="t">' + t(r[1]) + '</span></div>'; }).join('');
+    if (window.WXC_WEB) { // phone: one line of four, unless something doesn't fit its tile (a zone name, a countdown)
+      strip.classList.remove('two');
+      if (Array.prototype.some.call(strip.querySelectorAll('.k, .t'), function (e) { return e.scrollWidth > e.clientWidth + 1; })) strip.classList.add('two');
+    }
     if (F.sun === 'strip') return;
     t = function (x) { return x ? airportTime(x, true) : '—'; }; // the arc names the zone once, in its heading
     var zone = sunZoneLabel();
@@ -2629,7 +2722,7 @@ html[data-theme="light"] .map-range { background: rgba(255,255,255,.9); }
   // alone could leave it up to 10 s behind)
   (function onMinute() { setTimeout(function () { tickClock(); onMinute(); }, 60000 - Date.now() % 60000 + 30); })();
   setInterval(renderStatus, 60000);
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { drawOverlay(); sideSig = barSig = ''; layoutSide(); if (barChips) layoutBar(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { if (window.WXC_WEB && F.sun) renderSun(); drawOverlay(); sideSig = barSig = ''; layoutSide(); if (barChips) layoutBar(); });
   if (CFG.decoded === 'off') $('obs').hidden = true;
 
   // Find the airport's position first: the map, range rings and METAR search are all centered on it.
